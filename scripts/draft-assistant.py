@@ -13,7 +13,7 @@ from yahoo_oauth import OAuth2
 import yahoo_fantasy_api as yfa
 from valuations import load_all, get_player_by_name
 from mlb_id_cache import get_mlb_id
-from intel import batch_intel
+from shared import enrich_with_intel
 
 # Docker paths
 OAUTH_FILE = os.environ.get("OAUTH_FILE", "/app/config/yahoo_oauth.json")
@@ -158,14 +158,7 @@ class DraftAssistant:
 
             top_hitters_list = [player_entry(p) for p in hitters]
             top_pitchers_list = [player_entry(p) for p in pitchers]
-            try:
-                all_draft_players = top_hitters_list + top_pitchers_list
-                names = [p.get("name", "") for p in all_draft_players]
-                intel_data = batch_intel(names, include=["statcast", "trends"])
-                for p in all_draft_players:
-                    p["intel"] = intel_data.get(p.get("name", ""))
-            except Exception as e:
-                print("Warning: intel enrichment failed: " + str(e))
+            enrich_with_intel(top_hitters_list + top_pitchers_list)
             return {
                 "round": self.current_round,
                 "hitters_count": self.my_hitters,
@@ -323,13 +316,7 @@ def cmd_best_available(args, as_json=False):
                 "z_score": round(float(z), 2) if z is not None else None,
                 "mlb_id": get_mlb_id(p.get("name", "")),
             })
-        try:
-            names = [p.get("name", "") for p in players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel(players)
         return {"pos_type": pos_type, "players": players}
 
     label = "Hitters" if pos_type == "B" else "Pitchers"

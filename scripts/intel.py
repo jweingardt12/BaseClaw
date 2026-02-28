@@ -24,15 +24,10 @@ from datetime import date, datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mlb_id_cache import get_mlb_id
+from shared import MLB_API, mlb_fetch as _mlb_fetch, USER_AGENT
 
 # Current year for all API calls
 YEAR = date.today().year
-
-# MLB Stats API base
-MLB_API = "https://statsapi.mlb.com/api/v1"
-
-# User-Agent header for HTTP requests
-USER_AGENT = "YahooFantasyBot/1.0"
 
 # TTL values in seconds
 TTL_SAVANT = 21600       # 6 hours
@@ -207,21 +202,20 @@ def _fetch_savant_percentile_rankings(player_type):
 # 3. FanGraphs via pybaseball
 # ============================================================
 
-def _fetch_fangraphs_batting():
-    """Fetch FanGraphs batting stats for plate discipline"""
-    cache_key = ("fangraphs_batting", YEAR)
+def _fetch_fangraphs(stat_func, cache_label):
+    """Common FanGraphs fetch logic with pre-season fallback.
+
+    Args:
+        stat_func: callable — pybaseball.batting_stats or pitching_stats
+        cache_label: string key for the cache (e.g. "fangraphs_batting")
+    """
+    cache_key = (cache_label, YEAR)
     cached = _cache_get(cache_key, TTL_FANGRAPHS)
     if cached is not None:
         return cached
-    try:
-        from pybaseball import batting_stats
-        year = YEAR
-        df = batting_stats(year, qual=25)
+
+    def _parse_df(df, season):
         result = {}
-        # Pre-season fallback: if empty and before May, try last year
-        if (df is None or len(df) == 0) and date.today().month < 5:
-            year = YEAR - 1
-            df = batting_stats(year, qual=25)
         if df is not None:
             for _, row in df.iterrows():
                 name = row.get("Name", "")
@@ -232,91 +226,43 @@ def _fetch_fangraphs_batting():
                         "o_swing_pct": row.get("O-Swing%", None),
                         "z_contact_pct": row.get("Z-Contact%", None),
                         "swstr_pct": row.get("SwStr%", None),
-                        "data_season": year,
+                        "data_season": season,
                     }
+        return result
+
+    try:
+        year = YEAR
+        df = stat_func(year, qual=25)
+        # Pre-season fallback: if empty and before May, try last year
+        if (df is None or len(df) == 0) and date.today().month < 5:
+            year = YEAR - 1
+            df = stat_func(year, qual=25)
+        result = _parse_df(df, year)
         _cache_set(cache_key, result)
         return result
     except Exception as e:
-        print("Warning: FanGraphs batting fetch failed: " + str(e))
-        # Pre-season fallback on exception
+        print("Warning: FanGraphs " + cache_label + " fetch failed: " + str(e))
         if date.today().month < 5:
             try:
-                from pybaseball import batting_stats
-                df = batting_stats(YEAR - 1, qual=25)
-                result = {}
-                if df is not None:
-                    for _, row in df.iterrows():
-                        name = row.get("Name", "")
-                        if name:
-                            result[name.lower()] = {
-                                "bb_rate": row.get("BB%", None),
-                                "k_rate": row.get("K%", None),
-                                "o_swing_pct": row.get("O-Swing%", None),
-                                "z_contact_pct": row.get("Z-Contact%", None),
-                                "swstr_pct": row.get("SwStr%", None),
-                                "data_season": YEAR - 1,
-                            }
+                df = stat_func(YEAR - 1, qual=25)
+                result = _parse_df(df, YEAR - 1)
                 _cache_set(cache_key, result)
                 return result
             except Exception:
                 pass
         return {}
+
+
+def _fetch_fangraphs_batting():
+    """Fetch FanGraphs batting stats for plate discipline."""
+    from pybaseball import batting_stats
+    return _fetch_fangraphs(batting_stats, "fangraphs_batting")
 
 
 def _fetch_fangraphs_pitching():
-    """Fetch FanGraphs pitching stats for plate discipline"""
-    cache_key = ("fangraphs_pitching", YEAR)
-    cached = _cache_get(cache_key, TTL_FANGRAPHS)
-    if cached is not None:
-        return cached
-    try:
-        from pybaseball import pitching_stats
-        year = YEAR
-        df = pitching_stats(year, qual=25)
-        result = {}
-        # Pre-season fallback: if empty and before May, try last year
-        if (df is None or len(df) == 0) and date.today().month < 5:
-            year = YEAR - 1
-            df = pitching_stats(year, qual=25)
-        if df is not None:
-            for _, row in df.iterrows():
-                name = row.get("Name", "")
-                if name:
-                    result[name.lower()] = {
-                        "bb_rate": row.get("BB%", None),
-                        "k_rate": row.get("K%", None),
-                        "o_swing_pct": row.get("O-Swing%", None),
-                        "z_contact_pct": row.get("Z-Contact%", None),
-                        "swstr_pct": row.get("SwStr%", None),
-                        "data_season": year,
-                    }
-        _cache_set(cache_key, result)
-        return result
-    except Exception as e:
-        print("Warning: FanGraphs pitching fetch failed: " + str(e))
-        # Pre-season fallback on exception
-        if date.today().month < 5:
-            try:
-                from pybaseball import pitching_stats
-                df = pitching_stats(YEAR - 1, qual=25)
-                result = {}
-                if df is not None:
-                    for _, row in df.iterrows():
-                        name = row.get("Name", "")
-                        if name:
-                            result[name.lower()] = {
-                                "bb_rate": row.get("BB%", None),
-                                "k_rate": row.get("K%", None),
-                                "o_swing_pct": row.get("O-Swing%", None),
-                                "z_contact_pct": row.get("Z-Contact%", None),
-                                "swstr_pct": row.get("SwStr%", None),
-                                "data_season": YEAR - 1,
-                            }
-                _cache_set(cache_key, result)
-                return result
-            except Exception:
-                pass
-        return {}
+    """Fetch FanGraphs pitching stats for plate discipline."""
+    from pybaseball import pitching_stats
+    return _fetch_fangraphs(pitching_stats, "fangraphs_pitching")
 
 
 # ============================================================
@@ -387,18 +333,6 @@ def _search_reddit_player(player_name):
 # ============================================================
 # 5. MLB Stats API Fetchers
 # ============================================================
-
-def _mlb_fetch(endpoint):
-    """Fetch from MLB Stats API"""
-    url = MLB_API + endpoint
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=15) as response:
-            return json.loads(response.read().decode())
-    except Exception as e:
-        print("Warning: MLB API fetch failed for " + endpoint + ": " + str(e))
-        return {}
-
 
 def _fetch_mlb_transactions(days=7):
     """Fetch recent MLB transactions"""

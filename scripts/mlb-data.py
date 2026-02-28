@@ -3,16 +3,9 @@
 
 import sys
 import json
-import urllib.request
 from datetime import date
 
-MLB_API = "https://statsapi.mlb.com/api/v1"
-
-def fetch(endpoint):
-    """Fetch from MLB API"""
-    url = MLB_API + endpoint
-    with urllib.request.urlopen(url) as response:
-        return json.loads(response.read().decode())
+from shared import mlb_fetch as fetch
 
 def cmd_teams(args, as_json=False):
     """List all MLB teams"""
@@ -236,15 +229,7 @@ def cmd_schedule(args, as_json=False):
 def cmd_draft(args, as_json=False):
     """Get MLB draft picks for a given year"""
     year = args[0] if args else str(date.today().year)
-    try:
-        url = "https://statsapi.mlb.com/api/v1/draft/" + str(year)
-        with urllib.request.urlopen(url) as response:
-            data = json.loads(response.read().decode())
-    except Exception as e:
-        if as_json:
-            return {"error": "Draft fetch failed: " + str(e)}
-        print("Draft fetch failed: " + str(e))
-        return
+    data = fetch("/draft/" + str(year))
 
     rounds = data.get("drafts", {}).get("rounds", [])
     if not rounds:

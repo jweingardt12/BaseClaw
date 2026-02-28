@@ -6,9 +6,15 @@ import { header, actionList, issueList, waiverPairList, compactSection } from ".
 import {
   str,
   type MorningBriefingResponse,
+  type MatchupDetailResponse,
+  type MatchupStrategyResponse,
+  type WhatsNewResponse,
   type LeagueLandscapeResponse,
+  type SeasonPaceResponse,
+  type TradeFinderResponse,
   type RosterHealthResponse,
   type WaiverRecommendationsResponse,
+  type CategoryCheckResponse,
   type TradeAnalysisResponse,
   type InjuryReportResponse,
   type LineupOptimizeResponse,
@@ -30,9 +36,9 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       try {
         const data = await apiGet<MorningBriefingResponse>("/api/workflow/morning-briefing");
 
-        const matchup = data.matchup || {} as any;
-        const strategy = data.strategy || {} as any;
-        const whatsNew = data.whats_new || {} as any;
+        const matchup: Partial<MatchupDetailResponse> = data.matchup || {};
+        const strategy: Partial<MatchupStrategyResponse> = data.strategy || {};
+        const whatsNew: Partial<WhatsNewResponse> = data.whats_new || {};
         const score = matchup.score || { wins: 0, losses: 0, ties: 0 };
         const strat = strategy.strategy || { target: [], protect: [], concede: [], lock: [] };
 
@@ -55,16 +61,16 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         lines.push(actionList(data.action_items || []));
 
         // Opponent activity
-        const oppTx = (strategy.opp_transactions || []);
+        const oppTx = strategy.opp_transactions || [];
         if (oppTx.length > 0) {
           lines.push("");
-          lines.push("OPPONENT MOVES: " + oppTx.map((t: any) => str(t.type) + " " + str(t.player)).join(", "));
+          lines.push("OPPONENT MOVES: " + oppTx.map((t) => str(t.type) + " " + str(t.player)).join(", "));
         }
 
         // League activity digest
         const activity = (whatsNew.league_activity || []).slice(0, 3);
         if (activity.length > 0) {
-          lines.push(compactSection("LEAGUE", activity.map((a: any) => str(a.type) + " " + str(a.player) + " -> " + str(a.team))));
+          lines.push(compactSection("LEAGUE", activity.map((a) => str(a.type) + " " + str(a.player) + " -> " + str(a.team))));
         }
 
         return {
@@ -88,14 +94,14 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       try {
         const data = await apiGet<LeagueLandscapeResponse>("/api/workflow/league-landscape");
 
-        const standings = (data.standings || {} as any).standings || [];
-        const pace = data.pace || {} as any;
-        const pulse = (data.league_pulse || {} as any).teams || [];
-        const tradeFinder = data.trade_finder || {} as any;
-        const scoreboard = (data.scoreboard || {} as any).matchups || [];
+        const standings = data.standings?.standings || [];
+        const pace: Partial<SeasonPaceResponse> = data.pace || {};
+        const pulse = data.league_pulse?.teams || [];
+        const tradeFinder: Partial<TradeFinderResponse> = data.trade_finder || {};
+        const scoreboard = data.scoreboard?.matchups || [];
 
         // Find user's team in pace data
-        const myTeam = ((pace.teams || []) as any[]).find((t: any) => t.is_my_team);
+        const myTeam = (pace.teams || []).find((t) => t.is_my_team);
 
         const lines: string[] = [];
 
@@ -114,13 +120,13 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         }
 
         // Active vs dormant managers
-        const active = pulse.filter((t: any) => t.total >= 5).slice(0, 3);
-        const dormant = pulse.filter((t: any) => t.total <= 1);
+        const active = pulse.filter((t) => t.total >= 5).slice(0, 3);
+        const dormant = pulse.filter((t) => t.total <= 1);
         if (active.length > 0) {
-          lines.push(compactSection("ACTIVE", active.map((t: any) => str(t.name) + " (" + t.total + " moves)")));
+          lines.push(compactSection("ACTIVE", active.map((t) => str(t.name) + " (" + t.total + " moves)")));
         }
         if (dormant.length > 0) {
-          lines.push(compactSection("DORMANT", dormant.map((t: any) => str(t.name))));
+          lines.push(compactSection("DORMANT", dormant.map((t) => str(t.name))));
         }
 
         // This week's scoreboard
@@ -192,8 +198,8 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       try {
         const data = await apiGet<WaiverRecommendationsResponse>("/api/workflow/waiver-recommendations", { count: String(count) });
 
-        const catCheck = data.category_check || {} as any;
-        const weakest = (catCheck.weakest || []) as string[];
+        const catCheck: Partial<CategoryCheckResponse> = data.category_check || {};
+        const weakest = catCheck.weakest || [];
 
         const lines: string[] = [];
         lines.push(header("WAIVER_RECOMMENDATIONS", (data.pairs || []).length + " options | weak: " + weakest.join(", ")));
@@ -282,12 +288,12 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         lines.push("");
         lines.push("GIVING:");
         for (const p of data.give_players || []) {
-          const total = Number((p.z_scores || {} as any).Final || 0);
+          const total = Number(p.z_scores?.Final ?? 0);
           lines.push("  " + str(p.name).padEnd(25) + " z-total=" + total.toFixed(2));
         }
         lines.push("GETTING:");
         for (const p of data.get_players || []) {
-          const total = Number((p.z_scores || {} as any).Final || 0);
+          const total = Number(p.z_scores?.Final ?? 0);
           lines.push("  " + str(p.name).padEnd(25) + " z-total=" + total.toFixed(2));
         }
 
@@ -307,7 +313,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           lines.push("");
           lines.push("INTEL:");
           for (const [name, report] of intelEntries) {
-            const sc = (report as any).statcast || {};
+            const sc = report.statcast || {};
             if (sc.quality_tier) {
               lines.push("  " + str(name).padEnd(25) + " tier=" + str(sc.quality_tier));
             }

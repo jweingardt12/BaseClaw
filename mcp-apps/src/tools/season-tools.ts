@@ -416,7 +416,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     },
     async ({ moves }) => {
       try {
-        const data = await apiPost<SetLineupResponse>("/api/set-lineup", { moves } as any);
+        const data = await apiPost<SetLineupResponse>("/api/set-lineup", { moves });
         const lines = ["Set Lineup:"];
         for (const m of data.moves || []) {
           if (m.success) {

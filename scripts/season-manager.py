@@ -5,12 +5,10 @@ import sys
 import json
 import os
 import sqlite3
-import time
 import importlib
 import urllib.request
 from datetime import datetime, date, timedelta
 
-from yahoo_oauth import OAuth2
 import yahoo_fantasy_api as yfa
 
 try:
@@ -19,64 +17,14 @@ except ImportError:
     statsapi = None
 
 from mlb_id_cache import get_mlb_id
-from intel import batch_intel
-
-# Docker paths
-OAUTH_FILE = os.environ.get("OAUTH_FILE", "/app/config/yahoo_oauth.json")
-LEAGUE_ID = os.environ.get("LEAGUE_ID", "")
-TEAM_ID = os.environ.get("TEAM_ID", "")
-GAME_KEY = LEAGUE_ID.split(".")[0] if LEAGUE_ID else ""
-DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
-
+from shared import (
+    get_connection, get_league_context, get_league,
+    LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
+    MLB_API, mlb_fetch, TEAM_ALIASES, normalize_team_name,
+    get_trend_lookup, enrich_with_intel, enrich_with_trends,
+)
 
 from yahoo_browser import is_scope_error as _is_scope_error, write_method as _write_method
-
-
-MLB_API = "https://statsapi.mlb.com/api/v1"
-
-# Common MLB team name mappings (Yahoo name -> MLB Stats API name)
-# Yahoo sometimes uses short names; this helps match them
-TEAM_ALIASES = {
-    "D-backs": "Arizona Diamondbacks",
-    "Diamondbacks": "Arizona Diamondbacks",
-    "Braves": "Atlanta Braves",
-    "Orioles": "Baltimore Orioles",
-    "Red Sox": "Boston Red Sox",
-    "Cubs": "Chicago Cubs",
-    "White Sox": "Chicago White Sox",
-    "Reds": "Cincinnati Reds",
-    "Guardians": "Cleveland Guardians",
-    "Rockies": "Colorado Rockies",
-    "Tigers": "Detroit Tigers",
-    "Astros": "Houston Astros",
-    "Royals": "Kansas City Royals",
-    "Angels": "Los Angeles Angels",
-    "Dodgers": "Los Angeles Dodgers",
-    "Marlins": "Miami Marlins",
-    "Brewers": "Milwaukee Brewers",
-    "Twins": "Minnesota Twins",
-    "Mets": "New York Mets",
-    "Yankees": "New York Yankees",
-    "Athletics": "Oakland Athletics",
-    "Phillies": "Philadelphia Phillies",
-    "Pirates": "Pittsburgh Pirates",
-    "Padres": "San Diego Padres",
-    "Giants": "San Francisco Giants",
-    "Mariners": "Seattle Mariners",
-    "Cardinals": "St. Louis Cardinals",
-    "Rays": "Tampa Bay Rays",
-    "Rangers": "Texas Rangers",
-    "Blue Jays": "Toronto Blue Jays",
-    "Nationals": "Washington Nationals",
-}
-
-
-def get_connection():
-    """Get authenticated Yahoo connection"""
-    sc = OAuth2(None, None, from_file=OAUTH_FILE)
-    if not sc.token_is_valid():
-        sc.refresh_access_token()
-    return sc
 
 
 def get_db():
@@ -91,47 +39,6 @@ def get_db():
                    PRIMARY KEY (week, category))""")
     db.commit()
     return db
-
-
-_trend_cache = {"data": None, "time": 0}
-
-def _get_trend_lookup():
-    """Get a name->trend dict from transaction trends, cached 30 min"""
-    now = time.time()
-    if _trend_cache.get("data") and now - _trend_cache.get("time", 0) < 1800:
-        return _trend_cache.get("data", {})
-    try:
-        yf_mod = importlib.import_module("yahoo-fantasy")
-        raw = yf_mod.cmd_transaction_trends([], as_json=True)
-        lookup = {}
-        for i, p in enumerate(raw.get("most_added", [])):
-            lookup[p.get("name", "")] = {
-                "direction": "added",
-                "delta": p.get("delta", ""),
-                "rank": i + 1,
-                "percent_owned": p.get("percent_owned", 0),
-            }
-        for i, p in enumerate(raw.get("most_dropped", [])):
-            name = p.get("name", "")
-            if name not in lookup:  # added takes priority
-                lookup[name] = {
-                    "direction": "dropped",
-                    "delta": p.get("delta", ""),
-                    "rank": i + 1,
-                    "percent_owned": p.get("percent_owned", 0),
-                }
-        _trend_cache["data"] = lookup
-        _trend_cache["time"] = now
-        return lookup
-    except Exception:
-        return {}
-
-
-def mlb_fetch(endpoint):
-    """Fetch from MLB Stats API (fallback when statsapi not available)"""
-    url = MLB_API + endpoint
-    with urllib.request.urlopen(url) as response:
-        return json.loads(response.read().decode())
 
 
 def get_todays_schedule():
@@ -187,13 +94,6 @@ def get_schedule_for_range(start_date, end_date):
     except Exception as e:
         print("  Warning: range schedule fetch failed: " + str(e))
         return []
-
-
-def normalize_team_name(name):
-    """Normalize a team name for matching"""
-    if not name:
-        return ""
-    return name.strip().lower()
 
 
 def team_plays_today(team_name, schedule):
@@ -269,10 +169,7 @@ def cmd_lineup_optimize(args, as_json=False):
         print("Lineup Optimizer")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
 
     try:
         roster = team.roster()
@@ -357,14 +254,8 @@ def cmd_lineup_optimize(args, as_json=False):
         active_off_day_info = [_player_info(p) for p in active_off_day]
         bench_playing_info = [_player_info(p) for p in bench_playing]
         il_players_info = [_player_info(p) for p in il_players]
-        try:
-            all_players = active_off_day_info + bench_playing_info + il_players_info
-            names = [p.get("name", "") for p in all_players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in all_players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        all_players = active_off_day_info + bench_playing_info + il_players_info
+        enrich_with_intel(all_players)
         return {
             "games_today": len(schedule),
             "active_off_day": active_off_day_info,
@@ -462,9 +353,7 @@ def cmd_category_check(args, as_json=False):
         print("Category Check")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     try:
         scoreboard = lg.scoreboard()
@@ -627,10 +516,7 @@ def cmd_injury_report(args, as_json=False):
         print("Injury Report")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
 
     try:
         roster = team.roster()
@@ -649,26 +535,15 @@ def cmd_injury_report(args, as_json=False):
     # Get MLB injuries
     mlb_injuries = {}
     try:
-        if statsapi:
-            data = mlb_fetch("/injuries")
-            for inj in data.get("injuries", []):
-                player_name = inj.get("player", {}).get("fullName", "")
-                if player_name:
-                    mlb_injuries[player_name.lower()] = {
-                        "description": inj.get("description", "Unknown"),
-                        "date": inj.get("date", ""),
-                        "status": inj.get("status", ""),
-                    }
-        else:
-            data = mlb_fetch("/injuries")
-            for inj in data.get("injuries", []):
-                player_name = inj.get("player", {}).get("fullName", "")
-                if player_name:
-                    mlb_injuries[player_name.lower()] = {
-                        "description": inj.get("description", "Unknown"),
-                        "date": inj.get("date", ""),
-                        "status": inj.get("status", ""),
-                    }
+        data = mlb_fetch("/injuries")
+        for inj in data.get("injuries", []):
+            player_name = inj.get("player", {}).get("fullName", "")
+            if player_name:
+                mlb_injuries[player_name.lower()] = {
+                    "description": inj.get("description", "Unknown"),
+                    "date": inj.get("date", ""),
+                    "status": inj.get("status", ""),
+                }
     except Exception as e:
         if not as_json:
             print("  Warning: could not fetch MLB injuries: " + str(e))
@@ -710,14 +585,8 @@ def cmd_injury_report(args, as_json=False):
         healthy_il_info = [injury_info(p) for p in healthy_il]
         injured_bench_info = [injury_info(p) for p in injured_bench]
         il_proper_info = [injury_info(p) for p in il_proper]
-        try:
-            all_players = injured_active_info + healthy_il_info + injured_bench_info + il_proper_info
-            names = [p.get("name", "") for p in all_players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in all_players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        all_players = injured_active_info + healthy_il_info + injured_bench_info + il_proper_info
+        enrich_with_intel(all_players)
         return {
             "injured_active": injured_active_info,
             "healthy_il": healthy_il_info,
@@ -786,9 +655,7 @@ def cmd_waiver_analyze(args, as_json=False):
         print("Waiver Wire Analysis (" + ("Batters" if pos_type == "B" else "Pitchers") + ")")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     # First, get our weak categories from the scoreboard
     try:
@@ -945,47 +812,9 @@ def cmd_waiver_analyze(args, as_json=False):
     scored.sort(key=lambda x: -x["score"])
 
     if as_json:
-        try:
-            names = [p.get("name", "") for p in scored[:count]]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in scored[:count]:
-                pi = intel_data.get(p.get("name", ""))
-                p["intel"] = pi
-                # Boost score based on Statcast quality
-                if pi and pi.get("statcast"):
-                    sc = pi.get("statcast", {})
-                    quality = sc.get("quality_tier", "")
-                    if quality == "elite":
-                        p["score"] = p.get("score", 0) + 15
-                    elif quality == "strong":
-                        p["score"] = p.get("score", 0) + 10
-                    elif quality == "average":
-                        p["score"] = p.get("score", 0) + 5
-                    # Hot streak bonus
-                    if pi.get("trends", {}).get("hot_cold") == "hot":
-                        p["score"] = p.get("score", 0) + 8
-                    elif pi.get("trends", {}).get("hot_cold") == "warm":
-                        p["score"] = p.get("score", 0) + 4
-            # Re-sort after score adjustments
-            scored.sort(key=lambda x: -x.get("score", 0))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
-        # Enrich with transaction trends
-        try:
-            trend_lookup = _get_trend_lookup()
-            for p in scored[:count]:
-                trend = trend_lookup.get(p.get("name", ""))
-                if trend:
-                    p["trend"] = trend
-                    if trend.get("direction") == "added":
-                        rank = trend.get("rank", 25)
-                        boost = max(0, 12 - rank * 0.4)
-                        p["score"] = p.get("score", 0) + boost
-                    elif trend.get("direction") == "dropped":
-                        p["score"] = p.get("score", 0) - 3
-            scored.sort(key=lambda x: -x.get("score", 0))
-        except Exception:
-            pass
+        enrich_with_intel(scored, count, boost_scores=True)
+        enrich_with_trends(scored, count)
+        scored.sort(key=lambda x: -x.get("score", 0))
         weak_list = []
         for cat, rank, total in weak_cats:
             weak_list.append({"name": cat, "rank": rank, "total": total})
@@ -1033,9 +862,7 @@ def cmd_streaming(args, as_json=False):
         print("Streaming Pitcher Recommendations")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     # Determine the week
     target_week = int(args[0]) if args else lg.current_week()
@@ -1156,42 +983,9 @@ def cmd_streaming(args, as_json=False):
     scored.sort(key=lambda x: -x["score"])
 
     if as_json:
-        try:
-            names = [p.get("name", "") for p in scored[:15]]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in scored[:15]:
-                pi = intel_data.get(p.get("name", ""))
-                p["intel"] = pi
-                # Boost score based on Statcast quality
-                if pi and pi.get("statcast"):
-                    sc_data = pi.get("statcast", {})
-                    quality = sc_data.get("quality_tier", "")
-                    if quality == "elite":
-                        p["score"] = p.get("score", 0) + 15
-                    elif quality == "strong":
-                        p["score"] = p.get("score", 0) + 10
-                    elif quality == "average":
-                        p["score"] = p.get("score", 0) + 5
-            # Re-sort after score adjustments
-            scored.sort(key=lambda x: -x.get("score", 0))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
-        # Enrich with transaction trends
-        try:
-            trend_lookup = _get_trend_lookup()
-            for p in scored[:15]:
-                trend = trend_lookup.get(p.get("name", ""))
-                if trend:
-                    p["trend"] = trend
-                    if trend.get("direction") == "added":
-                        rank = trend.get("rank", 25)
-                        boost = max(0, 12 - rank * 0.4)
-                        p["score"] = p.get("score", 0) + boost
-                    elif trend.get("direction") == "dropped":
-                        p["score"] = p.get("score", 0) - 3
-            scored.sort(key=lambda x: -x.get("score", 0))
-        except Exception:
-            pass
+        enrich_with_intel(scored, 15, boost_scores=True)
+        enrich_with_trends(scored, 15)
+        scored.sort(key=lambda x: -x.get("score", 0))
         tg_list = []
         sorted_teams = sorted(team_games.items(), key=lambda x: -x[1])
         for tn, gc in sorted_teams[:10]:
@@ -1249,10 +1043,7 @@ def cmd_trade_eval(args, as_json=False):
         print("Trade Evaluation")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
 
     # Fetch roster to find players we're giving
     try:
@@ -1360,14 +1151,7 @@ def cmd_trade_eval(args, as_json=False):
                 "value": round(float(p.get("percent_owned", 0)) if p.get("percent_owned", 0) else 50, 1),
                 "mlb_id": get_mlb_id(p.get("name", "")),
             })
-        try:
-            all_trade_players = give_list + get_list
-            names = [p.get("name", "") for p in all_trade_players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in all_trade_players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel(give_list + get_list)
         return {
             "give_players": give_list,
             "get_players": get_list,
@@ -1483,10 +1267,7 @@ def cmd_category_simulate(args, as_json=False):
             print("            Drop " + drop_name)
         print("")
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
 
     # 1. Get current category ranks (reuse category-check logic)
     try:
@@ -1709,12 +1490,7 @@ def cmd_category_simulate(args, as_json=False):
             "positions": ",".join(drop_positions) if drop_positions else "Unknown",
         }
 
-    try:
-        names = [add_result.get("name", "")]
-        intel_data = batch_intel(names, include=["statcast", "trends"])
-        add_result["intel"] = intel_data.get(add_result.get("name", ""))
-    except Exception as e:
-        print("Warning: intel enrichment failed: " + str(e))
+    enrich_with_intel([add_result])
 
     result = {
         "add_player": add_result,
@@ -1759,9 +1535,7 @@ def cmd_scout_opponent(args, as_json=False):
         print("Opponent Scout Report")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     # Get stat categories for category names
     try:
@@ -2103,9 +1877,7 @@ def cmd_matchup_strategy(args, as_json=False):
         print("Matchup Strategy")
         print("=" * 50)
 
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     # ── 1. Matchup + category comparison (reuse scout-opponent parsing) ──
     try:
@@ -2588,9 +2360,7 @@ def cmd_set_lineup(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             results = []
             for move in moves:
                 pid = move.get("player_id", "")
@@ -2637,10 +2407,7 @@ def cmd_set_lineup(args, as_json=False):
 
 def cmd_pending_trades(args, as_json=False):
     """View all pending trade proposals"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
     try:
         trades = team.proposed_trades()
         if not trades:
@@ -2702,10 +2469,7 @@ def cmd_propose_trade(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            lg = gm.to_league(LEAGUE_ID)
-            team = lg.to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             xml = team._construct_trade_proposal_xml(
                 tradee_team_key,
                 your_player_keys=your_player_keys,
@@ -2764,10 +2528,7 @@ def cmd_accept_trade(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            lg = gm.to_league(LEAGUE_ID)
-            team = lg.to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             team.accept_trade(transaction_key, trade_note=trade_note)
             msg = "Trade accepted: " + transaction_key
             if as_json:
@@ -2812,10 +2573,7 @@ def cmd_reject_trade(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            lg = gm.to_league(LEAGUE_ID)
-            team = lg.to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             team.reject_trade(transaction_key, trade_note=trade_note)
             msg = "Trade rejected: " + transaction_key
             if as_json:
@@ -2848,10 +2606,7 @@ def cmd_reject_trade(args, as_json=False):
 
 def cmd_whats_new(args, as_json=False):
     """Single digest: injuries, pending trades, opponent moves, trending pickups, prospect call-ups"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
 
     db = get_db()
     now = datetime.now().isoformat()
@@ -2923,7 +2678,7 @@ def cmd_whats_new(args, as_json=False):
 
     # 4. Trending players (high ownership delta)
     try:
-        trend_lookup = _get_trend_lookup()
+        trend_lookup = get_trend_lookup()
         trending = []
         for name, info in sorted(trend_lookup.items(), key=lambda x: x[1].get("rank", 99)):
             if info.get("direction") == "added" and info.get("rank", 99) <= 10:
@@ -3003,10 +2758,7 @@ def cmd_whats_new(args, as_json=False):
 
 def cmd_trade_finder(args, as_json=False):
     """Scan league for complementary trade partners and suggest packages"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
 
     try:
         # 1. Get our category rankings to find weak/strong areas
@@ -3196,9 +2948,7 @@ def _extract_team_meta(team_data):
 
 def cmd_power_rankings(args, as_json=False):
     """Rank all teams by estimated roster strength"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     try:
         all_teams = lg.teams()
         rankings = []
@@ -3260,10 +3010,7 @@ def cmd_power_rankings(args, as_json=False):
 
 def cmd_week_planner(args, as_json=False):
     """Show games-per-day grid for your roster this week"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
     try:
         # Get week date range
         current_week = lg.current_week()
@@ -3373,9 +3120,7 @@ def cmd_week_planner(args, as_json=False):
 
 def cmd_season_pace(args, as_json=False):
     """Project season pace, playoff odds, and magic number"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     try:
         standings = lg.standings()
         settings = lg.settings()
@@ -3483,9 +3228,7 @@ def cmd_season_pace(args, as_json=False):
 
 def cmd_closer_monitor(args, as_json=False):
     """Monitor closer situations across MLB - saves leaders, committees, at-risk closers"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     try:
         # Get saves leaders from free agents (high-ownership RPs)
         fa_pitchers = lg.free_agents("P")[:50]
@@ -3576,10 +3319,7 @@ def cmd_closer_monitor(args, as_json=False):
 
 def cmd_pitcher_matchup(args, as_json=False):
     """Show pitcher matchup quality for rostered SPs based on opponent team batting stats"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
-    team = lg.to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
     try:
         # Get week date range
         current_week = lg.current_week()

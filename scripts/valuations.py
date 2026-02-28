@@ -12,7 +12,7 @@ from datetime import date
 import pandas as pd
 import numpy as np
 from mlb_id_cache import get_mlb_id
-from intel import batch_intel
+from shared import enrich_with_intel
 
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
 
@@ -802,13 +802,7 @@ def cmd_rankings(args, as_json=False):
                 "z_score": round(z, 2),
                 "mlb_id": get_mlb_id(str(row.get("Name", ""))),
             })
-        try:
-            names = [p.get("name", "") for p in players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel(players)
         return {"source": source, "pos_type": pos_type, "players": players}
 
     print("Data source: " + source)
@@ -886,13 +880,7 @@ def cmd_compare(args, as_json=False):
             "team": str(b.get("Team", "")),
             "pos": str(b.get("Pos", "")),
         }
-        try:
-            names = [p1_info.get("name", ""), p2_info.get("name", "")]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            p1_info["intel"] = intel_data.get(p1_info.get("name", ""))
-            p2_info["intel"] = intel_data.get(p2_info.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel([p1_info, p2_info])
         return {
             "player1": p1_info,
             "player2": p2_info,
@@ -967,13 +955,7 @@ def cmd_value(args, as_json=False):
                 "raw_stats": raw_stats,
                 "z_scores": z_scores,
             })
-        try:
-            names = [p.get("name", "") for p in players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel(players)
         return {"players": players}
 
     for p in results:

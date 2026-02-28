@@ -5,13 +5,9 @@ import sys
 import os
 import json
 from datetime import datetime
-from yahoo_oauth import OAuth2
 import yahoo_fantasy_api as yfa
 
-# Docker paths
-OAUTH_FILE = os.environ.get("OAUTH_FILE", "/app/config/yahoo_oauth.json")
-TEAM_ID = os.environ.get("TEAM_ID", "")
-LEAGUE_ID = os.environ.get("LEAGUE_ID", "")
+from shared import get_connection, LEAGUE_ID, TEAM_ID
 
 
 def _load_league_keys():
@@ -28,14 +24,6 @@ def _load_league_keys():
 
 
 LEAGUE_KEYS = _load_league_keys()
-
-
-def get_connection():
-    """Get authenticated connection"""
-    sc = OAuth2(None, None, from_file=OAUTH_FILE)
-    if not sc.token_is_valid():
-        sc.refresh_access_token()
-    return sc
 
 
 def _get_past_league(year):

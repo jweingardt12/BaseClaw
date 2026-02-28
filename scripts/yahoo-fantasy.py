@@ -4,69 +4,18 @@
 import sys
 import json
 import os
-import time
-from yahoo_oauth import OAuth2
 import yahoo_fantasy_api as yfa
 from mlb_id_cache import get_mlb_id
-from intel import batch_intel
-
-# Docker paths
-OAUTH_FILE = os.environ.get("OAUTH_FILE", "/app/config/yahoo_oauth.json")
-LEAGUE_ID = os.environ.get("LEAGUE_ID", "")
-TEAM_ID = os.environ.get("TEAM_ID", "")
-GAME_KEY = LEAGUE_ID.split(".")[0] if LEAGUE_ID else ""
-
-
-def get_connection():
-    """Get authenticated connection"""
-    if not LEAGUE_ID or not TEAM_ID:
-        print("Error: LEAGUE_ID and TEAM_ID environment variables are required")
-        sys.exit(1)
-    sc = OAuth2(None, None, from_file=OAUTH_FILE)
-    if not sc.token_is_valid():
-        sc.refresh_access_token()
-    return sc
-
-
-_trend_cache = {"data": None, "time": 0}
-
-
-def _get_trend_lookup():
-    """Get a name->trend dict from transaction trends, cached 30 min"""
-    now = time.time()
-    if _trend_cache.get("data") and now - _trend_cache.get("time", 0) < 1800:
-        return _trend_cache.get("data", {})
-    try:
-        raw = cmd_transaction_trends([], as_json=True)
-        lookup = {}
-        for i, p in enumerate(raw.get("most_added", [])):
-            lookup[p.get("name", "")] = {
-                "direction": "added",
-                "delta": p.get("delta", ""),
-                "rank": i + 1,
-                "percent_owned": p.get("percent_owned", 0),
-            }
-        for i, p in enumerate(raw.get("most_dropped", [])):
-            name = p.get("name", "")
-            if name not in lookup:  # added takes priority
-                lookup[name] = {
-                    "direction": "dropped",
-                    "delta": p.get("delta", ""),
-                    "rank": i + 1,
-                    "percent_owned": p.get("percent_owned", 0),
-                }
-        _trend_cache["data"] = lookup
-        _trend_cache["time"] = now
-        return lookup
-    except Exception:
-        return {}
+from shared import (
+    get_connection, get_league, get_league_context,
+    LEAGUE_ID, TEAM_ID, GAME_KEY,
+    enrich_with_intel, enrich_with_trends,
+)
 
 
 def cmd_roster(args, as_json=False):
     """Show current roster"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+    sc, gm, lg, team = get_league_context()
     roster = team.roster()
 
     if not roster:
@@ -88,13 +37,7 @@ def cmd_roster(args, as_json=False):
                     "mlb_id": get_mlb_id(p.get("name", "")),
                 }
             )
-        try:
-            names = [p.get("name", "") for p in players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel(players)
         return {"players": players}
 
     print("Current Roster:")
@@ -113,9 +56,7 @@ def cmd_free_agents(args, as_json=False):
     """List free agents (B=batters, P=pitchers)"""
     pos_type = args[0] if args else "B"
     count = int(args[1]) if len(args) > 1 else 20
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     fa = lg.free_agents(pos_type)[:count]
 
@@ -132,21 +73,8 @@ def cmd_free_agents(args, as_json=False):
                     "mlb_id": get_mlb_id(p.get("name", "")),
                 }
             )
-        try:
-            names = [p.get("name", "") for p in players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
-        try:
-            trend_lookup = _get_trend_lookup()
-            for p in players:
-                trend = trend_lookup.get(p.get("name", ""))
-                if trend:
-                    p["trend"] = trend
-        except Exception:
-            pass
+        enrich_with_intel(players)
+        enrich_with_trends(players)
         return {"pos_type": pos_type, "count": count, "players": players}
 
     label = "Batters" if pos_type == "B" else "Pitchers"
@@ -176,9 +104,7 @@ def cmd_free_agents(args, as_json=False):
 
 def cmd_standings(args, as_json=False):
     """Show league standings"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     standings = lg.standings()
 
     if as_json:
@@ -232,9 +158,7 @@ def cmd_standings(args, as_json=False):
 
 def cmd_info(args, as_json=False):
     """Show league and team info"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     settings = lg.settings()
     team = lg.to_team(TEAM_ID)
     team_name = (
@@ -279,9 +203,7 @@ def cmd_search(args, as_json=False):
         print("Usage: search PLAYER_NAME")
         return
     name = " ".join(args)
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     results = []
     for pos_type in ["B", "P"]:
@@ -302,13 +224,7 @@ def cmd_search(args, as_json=False):
                     "mlb_id": get_mlb_id(p.get("name", "")),
                 }
             )
-        try:
-            names = [p.get("name", "") for p in players]
-            intel_data = batch_intel(names, include=["statcast", "trends"])
-            for p in players:
-                p["intel"] = intel_data.get(p.get("name", ""))
-        except Exception as e:
-            print("Warning: intel enrichment failed: " + str(e))
+        enrich_with_intel(players)
         return {"query": name, "results": players}
 
     if not results:
@@ -355,9 +271,7 @@ def cmd_add(args, as_json=False):
     # Try API first (unless browser-only mode)
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             team.add_player(player_key)
             if as_json:
                 return {
@@ -414,9 +328,7 @@ def cmd_drop(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             team.drop_player(player_key)
             if as_json:
                 return {
@@ -498,9 +410,7 @@ def _extract_team_meta(team_data):
 
 def cmd_matchups(args, as_json=False):
     """Show weekly H2H matchup preview and scores"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     try:
         if args:
@@ -583,9 +493,7 @@ def cmd_matchups(args, as_json=False):
 
 def cmd_scoreboard(args, as_json=False):
     """Show live scoring overview for current week (uses matchups data)"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     try:
         raw = lg.matchups()
@@ -683,9 +591,7 @@ def cmd_scoreboard(args, as_json=False):
 
 def cmd_matchup_detail(args, as_json=False):
     """Show detailed H2H matchup with per-category comparison"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     try:
         raw = lg.matchups()
@@ -871,9 +777,7 @@ def cmd_matchup_detail(args, as_json=False):
 
 def cmd_transactions(args, as_json=False):
     """Show recent league transaction activity"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     trans_type = args[0] if args else None
     count = int(args[1]) if len(args) > 1 else 25
@@ -933,9 +837,7 @@ def cmd_transactions(args, as_json=False):
 
 def cmd_stat_categories(args, as_json=False):
     """Show league scoring categories"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
 
     try:
         categories = lg.stat_categories()
@@ -1130,9 +1032,7 @@ def cmd_swap(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             team.add_and_drop_players(add_key, drop_key)
             msg = "Swapped: added " + add_key + ", dropped " + drop_key
             if as_json:
@@ -1206,9 +1106,7 @@ def cmd_waiver_claim(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             if faab is not None:
                 team.claim_player(player_key, faab=faab)
                 msg = (
@@ -1297,9 +1195,7 @@ def cmd_waiver_claim_swap(args, as_json=False):
 
     if method != "browser":
         try:
-            sc = get_connection()
-            gm = yfa.Game(sc, "mlb")
-            team = gm.to_league(LEAGUE_ID).to_team(TEAM_ID)
+            sc, gm, lg, team = get_league_context()
             if faab is not None:
                 team.claim_and_drop_players(add_key, drop_key, faab=faab)
                 msg = (
@@ -1375,9 +1271,7 @@ def cmd_who_owns(args, as_json=False):
         return
     player_id = args[0]
     player_key = GAME_KEY + ".p." + str(player_id)
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     try:
         ownership = lg.ownership([player_key])
         if not ownership:
@@ -1416,9 +1310,7 @@ def cmd_who_owns(args, as_json=False):
 
 def cmd_league_pulse(args, as_json=False):
     """Show league activity - moves and trades per team"""
-    sc = get_connection()
-    gm = yfa.Game(sc, "mlb")
-    lg = gm.to_league(LEAGUE_ID)
+    sc, gm, lg = get_league()
     try:
         teams = lg.teams()
         team_list = []
