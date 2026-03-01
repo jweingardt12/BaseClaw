@@ -401,10 +401,10 @@ The server exposes a `GET /health` endpoint (unauthenticated) that returns `{ ok
 
 ## MCP Tools
 
-77 total tools (64 read-only + 13 write operations), each with rich inline HTML UI apps rendered directly in Claude.
+82 total tools (69 read-only + 13 write operations), each with rich inline HTML UI apps rendered directly in Claude.
 
 <details>
-<summary><strong>Roster Management</strong> (12 tools)</summary>
+<summary><strong>Roster Management</strong> (15 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -419,6 +419,9 @@ The server exposes a `GET /health` endpoint (unauthenticated) that returns `{ ok
 | `yahoo_waiver_claim_swap` | Submit a waiver claim + drop with optional FAAB bid |
 | `yahoo_browser_status` | Check if the browser session for write operations is valid |
 | `yahoo_change_team_name` | Change your fantasy team name |
+| `yahoo_player_stats` | Player fantasy stats for any period (season, week, date, last 7/14/30 days) |
+| `yahoo_waivers` | Players currently on waivers (in claim period, not yet free agents) |
+| `yahoo_all_rostered` | All rostered players across the league with team ownership |
 | `yahoo_change_team_logo` | Change your fantasy team logo (PNG/JPG image) |
 
 </details>
@@ -443,7 +446,7 @@ The server exposes a `GET /health` endpoint (unauthenticated) that returns `{ ok
 </details>
 
 <details>
-<summary><strong>In-Season Management</strong> (20 tools)</summary>
+<summary><strong>In-Season Management</strong> (21 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -467,6 +470,7 @@ The server exposes a `GET /health` endpoint (unauthenticated) that returns `{ ok
 | `yahoo_week_planner` | Games-per-day grid for your roster (off-days, two-start pitchers) |
 | `yahoo_closer_monitor` | Monitor closer situations — your closers, available closers, saves leaders |
 | `yahoo_pitcher_matchup` | Pitcher matchup quality for your SPs based on opponent batting stats |
+| `yahoo_roster_stats` | Per-player stat breakdown for your roster (season totals or specific week) |
 
 </details>
 
@@ -524,7 +528,7 @@ The server exposes a `GET /health` endpoint (unauthenticated) that returns `{ ok
 </details>
 
 <details>
-<summary><strong>League History</strong> (7 tools)</summary>
+<summary><strong>League History</strong> (8 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -535,6 +539,7 @@ The server exposes a `GET /health` endpoint (unauthenticated) that returns `{ ok
 | `yahoo_past_teams` | Team names, managers, move/trade counts for a past season |
 | `yahoo_past_trades` | Trade history for a past season |
 | `yahoo_past_matchup` | Matchup results for a specific week in a past season |
+| `yahoo_roster_history` | View any team's roster from a past week or specific date |
 
 </details>
 
@@ -556,10 +561,10 @@ The `./yf` helper script provides direct CLI access to all functionality:
 | Category | Commands |
 |----------|----------|
 | **Setup** | `discover` |
-| **League** | `info`, `standings`, `roster`, `fa B/P [n]`, `search <name>`, `add <id>`, `drop <id>`, `swap <add> <drop>`, `matchups [week]`, `scoreboard`, `transactions [type] [n]`, `stat-categories` |
+| **League** | `info`, `standings`, `roster`, `fa B/P [n]`, `search <name>`, `add <id>`, `drop <id>`, `swap <add> <drop>`, `matchups [week]`, `scoreboard`, `transactions [type] [n]`, `stat-categories`, `player-stats <name> [period] [week]`, `waivers`, `taken-players [position]`, `roster-history [--week N] [--date YYYY-MM-DD]` |
 | **Draft** | `status`, `recommend`, `watch [sec]`, `cheatsheet`, `best-available [B\|P] [n]` |
 | **Valuations** | `rankings [B\|P] [n]`, `compare <name1> <name2>`, `value <name>`, `import-csv <file>`, `generate` |
-| **In-Season** | `lineup-optimize [--apply]`, `category-check`, `injury-report`, `waiver-analyze [B\|P] [n]`, `streaming [week]`, `trade-eval <give> <get>`, `daily-update` |
+| **In-Season** | `lineup-optimize [--apply]`, `category-check`, `injury-report`, `waiver-analyze [B\|P] [n]`, `streaming [week]`, `trade-eval <give> <get>`, `daily-update`, `roster-stats [--period season\|week] [--week N]` |
 | **MLB** | `mlb teams`, `mlb roster <tm>`, `mlb stats <id>`, `mlb schedule`, `mlb injuries` |
 | **Browser** | `browser-login`, `browser-status`, `browser-test`, `change-team-name <name>`, `change-team-logo <path>` |
 | **Docker** | `build`, `restart`, `shell`, `logs` |
@@ -577,7 +582,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 │  │  (Flask :8766)    │──│  (Express :4951)    │  │
 │  │                   │  │                     │  │
 │  │  yahoo_fantasy_api│  │  MCP SDK + ext-apps │  │
-│  │  pybaseball       │  │  77 tool defs       │  │
+│  │  pybaseball       │  │  82 tool defs       │  │
 │  │  MLB-StatsAPI     │  │  8 apps / 62 views  │  │
 │  │  Playwright       │  │  6 workflow tools   │  │
 │  └──────────────────┘  └─────────────────────┘  │
@@ -657,7 +662,7 @@ fbb-mcp/
     ├── server.ts                   # MCP server setup + tool registration
     ├── main.ts                     # Entry point (stdio + HTTP)
     ├── assets/logo-128.png         # Server icon (pixel-art baseball)
-    ├── src/tools/                  # 9 tool files, 77 MCP tools
+    ├── src/tools/                  # 9 tool files, 82 MCP tools
     ├── src/api/                    # Python API client + format helpers
     └── ui/                         # 8 inline HTML apps, 62 views (Preact + Tailwind)
 ```
