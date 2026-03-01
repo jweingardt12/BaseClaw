@@ -20,6 +20,9 @@ import {
   generatePitcherMatchupInsight,
   generateDailyUpdateInsight,
   generateSimulateInsight,
+  generateILStashInsight,
+  generateOptimalMovesInsight,
+  generatePlayoffPlannerInsight,
 } from "../insights.js";
 import {
   str,
@@ -46,6 +49,10 @@ import {
   type FaabRecommendResponse,
   type OwnershipTrendsResponse,
   type CategoryTrendsResponse,
+  type PuntAdvisorResponse,
+  type ILStashAdvisorResponse,
+  type OptimalMovesResponse,
+  type PlayoffPlannerResponse,
 } from "../api/types.js";
 
 export const SEASON_URI = "ui://fbb-mcp/season.html";
@@ -631,33 +638,61 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     server,
     "yahoo_trade_finder",
     {
-      description: "Scan the league for complementary trade partners and suggest trade packages based on your weak/strong categories",
+      description: "Find optimal trade packages to acquire a target player, analyzing both teams' needs and z-score values. If no target given, scans league for complementary trade partners.",
+      inputSchema: { target_player: z.string().describe("Name of the player you want to acquire (leave empty to scan league for trade partners)").default("") },
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
-    async () => {
+    async ({ target_player }) => {
       try {
-        const data = await apiGet<TradeFinderResponse>("/api/trade-finder");
-        const lines = [
-          "Trade Finder:",
-          "Weak categories: " + (data.weak_categories || []).join(", "),
-          "Strong categories: " + (data.strong_categories || []).join(", "),
-          "",
-        ];
-        if (!data.partners || data.partners.length === 0) {
-          lines.push("No complementary trade partners found");
-        } else {
-          for (const p of data.partners) {
-            lines.push("Partner: " + p.team_name + " (complementary: " + p.complementary_categories.join(", ") + ")");
-            for (const pkg of p.packages || []) {
-              const give = (pkg.give || []).map((pl) => pl.name).join(", ");
-              const get = (pkg.get || []).map((pl) => pl.name).join(", ");
-              lines.push("  Give: " + give + " <-> Get: " + get);
+        var params: Record<string, string> = {};
+        if (target_player) params.target = target_player;
+        var data = await apiGet<TradeFinderResponse>("/api/trade-finder", params);
+        var lines: string[] = [];
+
+        // Target-player mode: new response shape with proposals
+        if (data.target_player) {
+          lines.push("Trade Package Builder for " + data.target_player + ":");
+          lines.push("Owner: " + str(data.target_team || "?"));
+          lines.push("Target Z-Score: " + str(data.target_z_score || "?") + " (" + str(data.target_tier || "?") + ")");
+          lines.push("Their weak categories: " + (data.target_team_needs || []).join(", "));
+          lines.push("");
+          var proposals = data.proposals || [];
+          if (proposals.length === 0) {
+            lines.push("No viable trade packages found.");
+          } else {
+            for (var i = 0; i < proposals.length; i++) {
+              var prop = proposals[i];
+              lines.push("Proposal " + (i + 1) + " (fairness: " + str(prop.fairness_score) + "):");
+              lines.push("  " + str(prop.summary || ""));
+              lines.push("  Your net Z: " + str(prop.your_z_change) + " | Their net Z: " + str(prop.their_z_change));
+              if (prop.addresses_needs && prop.addresses_needs.length > 0) {
+                lines.push("  Addresses their needs: " + prop.addresses_needs.join(", "));
+              }
+              lines.push("");
             }
-            lines.push("");
+          }
+        } else {
+          // League-scan mode: original response shape
+          lines.push("Trade Finder:");
+          lines.push("Weak categories: " + (data.weak_categories || []).join(", "));
+          lines.push("Strong categories: " + (data.strong_categories || []).join(", "));
+          lines.push("");
+          if (!data.partners || data.partners.length === 0) {
+            lines.push("No complementary trade partners found");
+          } else {
+            for (var p of data.partners) {
+              lines.push("Partner: " + p.team_name + " (complementary: " + p.complementary_categories.join(", ") + ")");
+              for (var pkg of p.packages || []) {
+                var give = (pkg.give || []).map(function (pl) { return pl.name; }).join(", ");
+                var get = (pkg.get || []).map(function (pl) { return pl.name; }).join(", ");
+                lines.push("  Give: " + give + " <-> Get: " + get);
+              }
+              lines.push("");
+            }
           }
         }
-        const ai_recommendation = generateTradeFinderInsight(data);
+        var ai_recommendation = generateTradeFinderInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { type: "trade-finder", ai_recommendation, ...data },
@@ -945,6 +980,228 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { type: "category-trends", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_punt_advisor
+  registerAppTool(
+    server,
+    "yahoo_punt_advisor",
+    {
+      description: "Analyze your roster and standings to recommend which categories to target or punt for optimal strategy",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        var data = await apiGet<PuntAdvisorResponse>("/api/punt-advisor");
+        if ((data as any).error) {
+          return toolError((data as any).error);
+        }
+        var lines = [
+          "Category Punting Advisor: " + str(data.team_name) + " (Rank " + str(data.current_rank) + "/" + str(data.num_teams) + ")",
+          "",
+        ];
+        if (data.categories && data.categories.length > 0) {
+          lines.push("  " + "Category".padEnd(12) + "Rank".padStart(6) + "  " + "Value".padStart(10) + "  Recommendation");
+          lines.push("  " + "-".repeat(55));
+          for (var cat of data.categories) {
+            var rec = (cat.recommendation || "hold").toUpperCase();
+            var rankStr = str(cat.rank) + "/" + str(cat.total);
+            lines.push("  " + str(cat.name).padEnd(12) + rankStr.padStart(6) + "  " + str(cat.value).padStart(10) + "  " + rec);
+          }
+        }
+        if (data.punt_candidates && data.punt_candidates.length > 0) {
+          lines.push("");
+          lines.push("Punt Candidates: " + data.punt_candidates.join(", "));
+        }
+        if (data.target_categories && data.target_categories.length > 0) {
+          lines.push("Target Categories: " + data.target_categories.join(", "));
+        }
+        if (data.correlation_warnings && data.correlation_warnings.length > 0) {
+          lines.push("");
+          lines.push("Correlation Warnings:");
+          for (var w of data.correlation_warnings) {
+            lines.push("  - " + w);
+          }
+        }
+        if (data.strategy_summary) {
+          lines.push("");
+          lines.push("Strategy: " + data.strategy_summary);
+        }
+        var ai_recommendation = data.strategy_summary || "No strategy recommendation available.";
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "punt-advisor", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_il_stash_advisor
+  registerAppTool(
+    server,
+    "yahoo_il_stash_advisor",
+    {
+      description: "Analyze injured players on your roster and free agents to recommend stash vs drop decisions",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        var data = await apiGet<ILStashAdvisorResponse>("/api/il-stash-advisor");
+        var slots = data.il_slots || { used: 0, total: 0 };
+        var lines = ["IL Stash Advisor:"];
+        lines.push("IL Slots: " + str(slots.used) + "/" + str(slots.total) + " used");
+        lines.push("");
+        if (data.your_il_players && data.your_il_players.length > 0) {
+          lines.push("Your IL Players:");
+          lines.push("  " + "Player".padEnd(25) + "Pos".padEnd(6) + "Z".padStart(6) + "  " + "Tier".padEnd(12) + "  Action");
+          lines.push("  " + "-".repeat(65));
+          for (var p of data.your_il_players) {
+            var rec = str(p.recommendation).toUpperCase();
+            lines.push("  " + str(p.name).padEnd(25) + str(p.position).padEnd(6) + str(p.z_score).padStart(6) + "  " + str(p.tier).padEnd(12) + "  " + rec);
+            lines.push("      " + str(p.reasoning));
+          }
+        } else {
+          lines.push("No players currently on IL.");
+        }
+        if (data.fa_il_stash_candidates && data.fa_il_stash_candidates.length > 0) {
+          lines.push("");
+          lines.push("FA IL Stash Candidates:");
+          lines.push("  " + "Player".padEnd(25) + "Pos".padEnd(6) + "Z".padStart(6) + "  " + "Tier".padEnd(12) + "  Action");
+          lines.push("  " + "-".repeat(65));
+          for (var fa of data.fa_il_stash_candidates) {
+            var faRec = str(fa.recommendation).toUpperCase();
+            lines.push("  " + str(fa.name).padEnd(25) + str(fa.position).padEnd(6) + str(fa.z_score).padStart(6) + "  " + str(fa.tier).padEnd(12) + "  " + faRec);
+            lines.push("      " + str(fa.reasoning));
+          }
+        }
+        if (data.summary) {
+          lines.push("");
+          lines.push("Summary: " + data.summary);
+        }
+        var ai_recommendation = generateILStashInsight(data);
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "il-stash-advisor", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_optimal_moves
+  registerAppTool(
+    server,
+    "yahoo_optimal_moves",
+    {
+      description: "Find the best sequence of add/drop moves to maximize your roster's z-score value",
+      inputSchema: { count: z.number().describe("Number of moves to return (1-10)").default(5) },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async ({ count }) => {
+      try {
+        var params: Record<string, string> = {};
+        if (count) params.count = String(count);
+        var data = await apiGet<OptimalMovesResponse>("/api/optimal-moves", params);
+        if ((data as any).error) {
+          return toolError((data as any).error);
+        }
+        var lines = [
+          "Optimal Add/Drop Chain Optimizer:",
+          "Current Roster Z-Score: " + str(data.roster_z_total),
+          "",
+        ];
+        if (data.moves && data.moves.length > 0) {
+          lines.push("Recommended Moves:");
+          lines.push("  " + "#".padStart(3) + "  " + "Drop".padEnd(22) + "Z".padStart(6) + "  ->  " + "Add".padEnd(22) + "Z".padStart(6) + "  " + "Gain".padStart(6));
+          lines.push("  " + "-".repeat(75));
+          for (var move of data.moves) {
+            var d = move.drop;
+            var a = move.add;
+            lines.push("  " + str(move.rank).padStart(3) + "  " + str(d.name).padEnd(22) + str(d.z_score).padStart(6) + "  ->  " + str(a.name).padEnd(22) + str(a.z_score).padStart(6) + "  +" + str(move.z_improvement).padStart(5));
+            var details: string[] = [];
+            if (move.categories_gained.length > 0) details.push("Gains: " + move.categories_gained.join(", "));
+            if (move.categories_lost.length > 0) details.push("Loses: " + move.categories_lost.join(", "));
+            if (details.length > 0) lines.push("      " + details.join("  |  "));
+          }
+          lines.push("");
+          lines.push("Projected Z-Score After: " + str(data.projected_z_after) + " (+" + str(data.net_improvement) + ")");
+        } else {
+          lines.push("No beneficial moves found above the +0.2 z-score threshold.");
+        }
+        if (data.summary) {
+          lines.push("");
+          lines.push("Summary: " + data.summary);
+        }
+        var ai_recommendation = generateOptimalMovesInsight(data);
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "optimal-moves", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_playoff_planner
+  registerAppTool(
+    server,
+    "yahoo_playoff_planner",
+    {
+      description: "Calculate your path to the playoffs with specific category gaps, recommended trades, waiver adds, and drops",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        var data = await apiGet<PlayoffPlannerResponse>("/api/playoff-planner");
+        if ((data as any).error) {
+          return toolError((data as any).error);
+        }
+        var lines = [
+          "Playoff Path Planner: " + str(data.team_name) + " (" + str(data.record) + ")",
+          "Rank: " + str(data.current_rank) + "/" + str(data.num_teams) + " | Playoff Cutoff: Top " + str(data.playoff_cutoff) + " | Games Back: " + str(data.games_back),
+          "Playoff Probability: " + str(data.playoff_probability) + "%",
+          "",
+        ];
+        if (data.category_gaps && data.category_gaps.length > 0) {
+          lines.push("Category Gaps to Close:");
+          lines.push("  " + "Category".padEnd(12) + "Rank".padStart(6) + "  " + "Target".padStart(6) + "  " + "Priority".padEnd(10) + "Cost");
+          lines.push("  " + "-".repeat(50));
+          for (var gap of data.category_gaps) {
+            lines.push("  " + str(gap.category).padEnd(12) + str(gap.current_rank).padStart(6) + "  " + str(gap.target_rank).padStart(6) + "  " + str(gap.priority).padEnd(10) + str(gap.cost_to_compete));
+          }
+          lines.push("");
+        }
+        if (data.recommended_actions && data.recommended_actions.length > 0) {
+          lines.push("Recommended Actions:");
+          for (var action of data.recommended_actions) {
+            var prio = str(action.priority).toUpperCase();
+            var atype = str(action.action_type).toUpperCase();
+            lines.push("  [" + prio + "] " + atype + ": " + str(action.description));
+            if (action.impact) {
+              lines.push("         Impact: " + str(action.impact));
+            }
+          }
+          lines.push("");
+        }
+        if (data.target_categories && data.target_categories.length > 0) {
+          lines.push("Target Categories: " + data.target_categories.join(", "));
+        }
+        if (data.punt_categories && data.punt_categories.length > 0) {
+          lines.push("Punt Categories: " + data.punt_categories.join(", "));
+        }
+        if (data.summary) {
+          lines.push("");
+          lines.push("Summary: " + data.summary);
+        }
+        var ai_recommendation = generatePlayoffPlannerInsight(data);
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "playoff-planner", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

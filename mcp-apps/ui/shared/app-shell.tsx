@@ -39,6 +39,7 @@ var TOOL_LABELS: Record<string, string> = {
   "yahoo_waiver_claim": "waiver claim",
   "yahoo_waiver_claim_swap": "waiver claim swap",
   "yahoo_who_owns": "who owns",
+  "yahoo_category_trends": "category trends",
 };
 
 function toolLabel(name: string): string | null {

@@ -1521,6 +1521,33 @@ export const MOCK_DATA: Record<string, any> = {
     ai_recommendation: "On pace for 15 wins (4th place). Magic number is 4 — win 4 more matchups to clinch a playoff spot. Lock in 2 more category wins per week to stay safe.",
   },
 
+  // ── Category Trends ──────────────────────────────────────────────────
+  "category-trends": {
+    categories: [
+      { name: "HR", history: [{ week: 1, value: 12, rank: 5 }, { week: 2, value: 28, rank: 4 }, { week: 3, value: 41, rank: 3 }, { week: 4, value: 56, rank: 3 }, { week: 5, value: 71, rank: 2 }, { week: 6, value: 88, rank: 2 }], current_rank: 2, best_rank: 2, worst_rank: 5, trend: "improving" },
+      { name: "RBI", history: [{ week: 1, value: 30, rank: 6 }, { week: 2, value: 64, rank: 5 }, { week: 3, value: 95, rank: 5 }, { week: 4, value: 130, rank: 4 }, { week: 5, value: 162, rank: 4 }, { week: 6, value: 198, rank: 3 }], current_rank: 3, best_rank: 3, worst_rank: 6, trend: "improving" },
+      { name: "R", history: [{ week: 1, value: 28, rank: 4 }, { week: 2, value: 59, rank: 4 }, { week: 3, value: 87, rank: 4 }, { week: 4, value: 118, rank: 5 }, { week: 5, value: 148, rank: 5 }, { week: 6, value: 180, rank: 5 }], current_rank: 5, best_rank: 4, worst_rank: 5, trend: "declining" },
+      { name: "H", history: [{ week: 1, value: 45, rank: 7 }, { week: 2, value: 92, rank: 7 }, { week: 3, value: 138, rank: 6 }, { week: 4, value: 185, rank: 6 }, { week: 5, value: 230, rank: 6 }, { week: 6, value: 278, rank: 6 }], current_rank: 6, best_rank: 6, worst_rank: 7, trend: "stable" },
+      { name: "AVG", history: [{ week: 1, value: 0.265, rank: 5 }, { week: 2, value: 0.271, rank: 4 }, { week: 3, value: 0.268, rank: 5 }, { week: 4, value: 0.272, rank: 4 }, { week: 5, value: 0.269, rank: 5 }, { week: 6, value: 0.273, rank: 4 }], current_rank: 4, best_rank: 4, worst_rank: 5, trend: "stable" },
+      { name: "OBP", history: [{ week: 1, value: 0.342, rank: 3 }, { week: 2, value: 0.348, rank: 3 }, { week: 3, value: 0.345, rank: 3 }, { week: 4, value: 0.351, rank: 2 }, { week: 5, value: 0.349, rank: 3 }, { week: 6, value: 0.352, rank: 2 }], current_rank: 2, best_rank: 2, worst_rank: 3, trend: "improving" },
+      { name: "TB", history: [{ week: 1, value: 68, rank: 4 }, { week: 2, value: 142, rank: 4 }, { week: 3, value: 210, rank: 4 }, { week: 4, value: 282, rank: 3 }, { week: 5, value: 350, rank: 3 }, { week: 6, value: 420, rank: 3 }], current_rank: 3, best_rank: 3, worst_rank: 4, trend: "improving" },
+      { name: "XBH", history: [{ week: 1, value: 18, rank: 3 }, { week: 2, value: 38, rank: 3 }, { week: 3, value: 56, rank: 4 }, { week: 4, value: 75, rank: 4 }, { week: 5, value: 92, rank: 4 }, { week: 6, value: 112, rank: 4 }], current_rank: 4, best_rank: 3, worst_rank: 4, trend: "stable" },
+      { name: "NSB", history: [{ week: 1, value: 5, rank: 8 }, { week: 2, value: 11, rank: 8 }, { week: 3, value: 18, rank: 7 }, { week: 4, value: 24, rank: 8 }, { week: 5, value: 30, rank: 8 }, { week: 6, value: 35, rank: 9 }], current_rank: 9, best_rank: 7, worst_rank: 9, trend: "declining" },
+      { name: "K_negative", history: [{ week: 1, value: 42, rank: 6 }, { week: 2, value: 88, rank: 7 }, { week: 3, value: 132, rank: 7 }, { week: 4, value: 178, rank: 7 }, { week: 5, value: 220, rank: 7 }, { week: 6, value: 265, rank: 7 }], current_rank: 7, best_rank: 6, worst_rank: 7, trend: "declining" },
+      { name: "ERA", history: [{ week: 1, value: 3.42, rank: 4 }, { week: 2, value: 3.55, rank: 5 }, { week: 3, value: 3.38, rank: 4 }, { week: 4, value: 3.31, rank: 3 }, { week: 5, value: 3.28, rank: 3 }, { week: 6, value: 3.24, rank: 2 }], current_rank: 2, best_rank: 2, worst_rank: 5, trend: "improving" },
+      { name: "WHIP", history: [{ week: 1, value: 1.18, rank: 5 }, { week: 2, value: 1.21, rank: 6 }, { week: 3, value: 1.16, rank: 4 }, { week: 4, value: 1.14, rank: 4 }, { week: 5, value: 1.12, rank: 3 }, { week: 6, value: 1.11, rank: 3 }], current_rank: 3, best_rank: 3, worst_rank: 6, trend: "improving" },
+      { name: "K", history: [{ week: 1, value: 48, rank: 3 }, { week: 2, value: 98, rank: 3 }, { week: 3, value: 152, rank: 2 }, { week: 4, value: 205, rank: 2 }, { week: 5, value: 258, rank: 2 }, { week: 6, value: 310, rank: 2 }], current_rank: 2, best_rank: 2, worst_rank: 3, trend: "improving" },
+      { name: "W", history: [{ week: 1, value: 3, rank: 6 }, { week: 2, value: 6, rank: 6 }, { week: 3, value: 10, rank: 5 }, { week: 4, value: 14, rank: 5 }, { week: 5, value: 17, rank: 5 }, { week: 6, value: 21, rank: 5 }], current_rank: 5, best_rank: 5, worst_rank: 6, trend: "stable" },
+      { name: "QS", history: [{ week: 1, value: 4, rank: 5 }, { week: 2, value: 9, rank: 4 }, { week: 3, value: 14, rank: 4 }, { week: 4, value: 18, rank: 4 }, { week: 5, value: 23, rank: 4 }, { week: 6, value: 28, rank: 4 }], current_rank: 4, best_rank: 4, worst_rank: 5, trend: "stable" },
+      { name: "NSV", history: [{ week: 1, value: 6, rank: 3 }, { week: 2, value: 12, rank: 3 }, { week: 3, value: 17, rank: 4 }, { week: 4, value: 22, rank: 4 }, { week: 5, value: 26, rank: 5 }, { week: 6, value: 30, rank: 5 }], current_rank: 5, best_rank: 3, worst_rank: 5, trend: "declining" },
+      { name: "HLD", history: [{ week: 1, value: 5, rank: 7 }, { week: 2, value: 10, rank: 7 }, { week: 3, value: 16, rank: 6 }, { week: 4, value: 21, rank: 6 }, { week: 5, value: 27, rank: 6 }, { week: 6, value: 32, rank: 6 }], current_rank: 6, best_rank: 6, worst_rank: 7, trend: "stable" },
+      { name: "IP", history: [{ week: 1, value: 38, rank: 6 }, { week: 2, value: 78, rank: 6 }, { week: 3, value: 118, rank: 5 }, { week: 4, value: 160, rank: 5 }, { week: 5, value: 200, rank: 5 }, { week: 6, value: 242, rank: 5 }], current_rank: 5, best_rank: 5, worst_rank: 6, trend: "stable" },
+      { name: "L_negative", history: [{ week: 1, value: 2, rank: 5 }, { week: 2, value: 4, rank: 5 }, { week: 3, value: 6, rank: 6 }, { week: 4, value: 8, rank: 6 }, { week: 5, value: 10, rank: 6 }, { week: 6, value: 12, rank: 6 }], current_rank: 6, best_rank: 5, worst_rank: 6, trend: "declining" },
+      { name: "ER_negative", history: [{ week: 1, value: 15, rank: 4 }, { week: 2, value: 32, rank: 5 }, { week: 3, value: 46, rank: 4 }, { week: 4, value: 61, rank: 4 }, { week: 5, value: 76, rank: 4 }, { week: 6, value: 90, rank: 4 }], current_rank: 4, best_rank: 4, worst_rank: 5, trend: "stable" },
+    ],
+    ai_recommendation: "Category trends: Improving: HR, RBI, OBP, TB, ERA, WHIP, K. Declining: R, NSB, K_negative, NSV, L_negative. Focus on stabilizing speed (NSB, rank 9) and saves (NSV, rank 5 and falling).",
+  },
+
   // ── Who Owns ──────────────────────────────────────────────────────────
   "who-owns": {
     player_key: "123.p.10918",

@@ -714,7 +714,9 @@ def api_whats_new():
 @app.route("/api/trade-finder")
 def api_trade_finder():
     try:
-        result = season_manager.cmd_trade_finder([], as_json=True)
+        target = request.args.get("target", "")
+        args = [target] if target else []
+        result = season_manager.cmd_trade_finder(args, as_json=True)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -850,6 +852,43 @@ def api_ownership_trends():
 def api_category_trends():
     try:
         result = season_manager.cmd_category_trends([], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/punt-advisor")
+def api_punt_advisor():
+    try:
+        result = season_manager.cmd_punt_advisor([], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/il-stash-advisor")
+def api_il_stash_advisor():
+    try:
+        result = season_manager.cmd_il_stash_advisor([], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/playoff-planner")
+def api_playoff_planner():
+    try:
+        result = season_manager.cmd_playoff_planner([], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/optimal-moves")
+def api_optimal_moves():
+    try:
+        count = request.args.get("count", "5")
+        result = season_manager.cmd_optimal_moves([count], as_json=True)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

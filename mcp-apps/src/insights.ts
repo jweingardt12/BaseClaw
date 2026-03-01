@@ -29,6 +29,9 @@ import type {
   PitcherMatchupResponse,
   DailyUpdateResponse,
   CategorySimulateResponse,
+  ILStashAdvisorResponse,
+  OptimalMovesResponse,
+  PlayoffPlannerResponse,
 } from "./api/types.js";
 
 export function generateLineupInsight(data: LineupOptimizeResponse): string | null {
@@ -179,18 +182,32 @@ export function generateDraftInsight(data: DraftRecommendResponse): string | nul
 }
 
 export function generateTradeFinderInsight(data: TradeFinderResponse): string | null {
+  // Target-player mode
+  if (data.target_player) {
+    var proposals = data.proposals || [];
+    if (proposals.length === 0) return "No viable trade packages found for " + data.target_player + ".";
+    var parts: string[] = [];
+    parts.push(data.target_player + " is on " + (data.target_team || "?") + " (Z=" + (data.target_z_score || "?") + ", " + (data.target_tier || "?") + ").");
+    var best_prop = proposals[0];
+    parts.push("Best package: " + best_prop.summary + " (fairness " + best_prop.fairness_score + ").");
+    if (best_prop.addresses_needs && best_prop.addresses_needs.length > 0) {
+      parts.push("Addresses their needs in " + best_prop.addresses_needs.slice(0, 3).join(", ") + ".");
+    }
+    return parts.join(" ");
+  }
+  // League-scan mode
   var partners = data.partners || [];
   if (partners.length === 0) return "No complementary trade partners found in the league.";
   var best = partners[0];
-  var parts: string[] = [];
-  parts.push("Best match: " + best.team_name + " (complementary in " + best.complementary_categories.slice(0, 2).join(", ") + ").");
+  var scan_parts: string[] = [];
+  scan_parts.push("Best match: " + best.team_name + " (complementary in " + best.complementary_categories.slice(0, 2).join(", ") + ").");
   if (best.packages && best.packages.length > 0) {
     var pkg = best.packages[0];
     var give = (pkg.give || []).map(function (p) { return p.name; }).join(", ");
     var get = (pkg.get || []).map(function (p) { return p.name; }).join(", ");
-    parts.push("Offer " + give + " for " + get + ".");
+    scan_parts.push("Offer " + give + " for " + get + ".");
   }
-  return parts.join(" ");
+  return scan_parts.join(" ");
 }
 
 export function generateCloserInsight(data: CloserMonitorResponse): string | null {
@@ -346,4 +363,57 @@ export function generateSimulateInsight(data: CategorySimulateResponse): string 
   if (improved.length > 0) parts.push("Improves " + improved.length + " categor" + (improved.length === 1 ? "y" : "ies") + ": " + improved.slice(0, 3).map(function (r) { return r.name + " (+" + r.change + ")"; }).join(", ") + ".");
   if (declined.length > 0) parts.push("Declines in " + declined.length + ": " + declined.slice(0, 2).map(function (r) { return r.name + " (" + r.change + ")"; }).join(", ") + ".");
   return parts.join(" ") || data.summary || null;
+}
+
+export function generateILStashInsight(data: ILStashAdvisorResponse): string | null {
+  var slots = data.il_slots || { used: 0, total: 0 };
+  var yours = data.your_il_players || [];
+  var fa = data.fa_il_stash_candidates || [];
+  var parts: string[] = [];
+  parts.push(slots.used + "/" + slots.total + " IL slots used.");
+  var stash = yours.filter(function (p) { return p.recommendation === "stash"; });
+  var drop = yours.filter(function (p) { return p.recommendation === "drop"; });
+  if (drop.length > 0) parts.push("Drop " + drop.map(function (p) { return p.name; }).join(", ") + " to free IL space.");
+  if (stash.length > 0) parts.push("Hold " + stash.map(function (p) { return p.name; }).join(", ") + ".");
+  var faStash = fa.filter(function (p) { return p.recommendation === "stash"; });
+  if (faStash.length > 0) parts.push("Stash from FA: " + faStash.slice(0, 3).map(function (p) { return p.name; }).join(", ") + ".");
+  if (parts.length <= 1) return data.summary || "IL roster looks good.";
+  return parts.join(" ");
+}
+
+export function generateOptimalMovesInsight(data: OptimalMovesResponse): string | null {
+  var moves = data.moves || [];
+  if (moves.length === 0) return data.summary || "No beneficial moves found.";
+  var parts: string[] = [];
+  parts.push(moves.length + " move" + (moves.length === 1 ? "" : "s") + " found (+" + data.net_improvement + " total z-score).");
+  var top = moves[0];
+  if (top) {
+    parts.push("Best: Drop " + top.drop.name + " (z=" + top.drop.z_score + ") for " + top.add.name + " (z=" + top.add.z_score + ", +" + top.z_improvement + ").");
+    if (top.categories_gained.length > 0) {
+      parts.push("Gains " + top.categories_gained.slice(0, 3).join(", ") + ".");
+    }
+  }
+  return parts.join(" ");
+}
+
+export function generatePlayoffPlannerInsight(data: PlayoffPlannerResponse): string | null {
+  var parts: string[] = [];
+  var rank = data.current_rank;
+  var cutoff = data.playoff_cutoff;
+  var prob = data.playoff_probability;
+  parts.push("Rank " + rank + "/" + data.num_teams + " (" + prob + "% playoff probability).");
+  if (rank <= cutoff) {
+    parts.push("Currently in a playoff spot.");
+  } else {
+    parts.push(data.games_back + " game" + (data.games_back === 1 ? "" : "s") + " back.");
+  }
+  var highActions = (data.recommended_actions || []).filter(function (a) { return a.priority === "high"; });
+  if (highActions.length > 0) {
+    parts.push(highActions.length + " high-priority action" + (highActions.length === 1 ? "" : "s") + " to take.");
+  }
+  var targets = data.target_categories || [];
+  if (targets.length > 0) {
+    parts.push("Target: " + targets.slice(0, 3).join(", ") + ".");
+  }
+  return parts.join(" ");
 }

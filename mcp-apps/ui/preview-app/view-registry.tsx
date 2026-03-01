@@ -32,6 +32,7 @@ const TradeFinderView = lazy(() => import("../season-app/trade-finder-view").the
 const WeekPlannerView = lazy(() => import("../season-app/week-planner-view").then(m => ({ default: m.WeekPlannerView })));
 const CloserMonitorView = lazy(() => import("../season-app/closer-monitor-view").then(m => ({ default: m.CloserMonitorView })));
 const PitcherMatchupView = lazy(() => import("../season-app/pitcher-matchup-view").then(m => ({ default: m.PitcherMatchupView })));
+const CategoryTrendView = lazy(() => import("../season-app/category-trend-view").then(m => ({ default: m.CategoryTrendView })));
 // Draft
 const DraftStatusView = lazy(() => import("../draft-app/draft-status-view").then(m => ({ default: m.DraftStatusView })));
 const DraftRecommendView = lazy(() => import("../draft-app/draft-recommend-view").then(m => ({ default: m.DraftRecommendView })));
@@ -122,6 +123,7 @@ export const VIEW_GROUPS: ViewGroup[] = [
       { id: "week-planner", label: "Week Planner", component: WeekPlannerView },
       { id: "closer-monitor", label: "Closer Monitor", component: CloserMonitorView, props: { app: null, navigate: noop } },
       { id: "pitcher-matchup", label: "Pitcher Matchup", component: PitcherMatchupView },
+      { id: "category-trends", label: "Category Trends", component: CategoryTrendView },
     ],
   },
   {

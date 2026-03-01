@@ -970,13 +970,32 @@ export interface TradePackagePlayer {
   name: string;
   player_id: string;
   positions: string[];
+  z_score?: number;
+  tier?: string;
+  per_category_zscores?: Record<string, number>;
   status?: string;
+  mlb_id?: number | null;
+  is_pitcher?: boolean;
+  intel?: Record<string, unknown>;
 }
 
 export interface TradePackage {
   give: TradePackagePlayer[];
   get: TradePackagePlayer[];
   rationale: string;
+}
+
+export interface TradeProposal {
+  offer: string[];
+  offer_details: TradePackagePlayer[];
+  receive: string[];
+  receive_details: TradePackagePlayer[];
+  your_z_change: number;
+  their_z_change: number;
+  fairness_score: number;
+  addresses_needs: string[];
+  composite_score: number;
+  summary: string;
 }
 
 export interface TradePartner {
@@ -990,9 +1009,17 @@ export interface TradePartner {
 }
 
 export interface TradeFinderResponse {
-  weak_categories: string[];
-  strong_categories: string[];
-  partners: TradePartner[];
+  // League-scan mode fields
+  weak_categories?: string[];
+  strong_categories?: string[];
+  partners?: TradePartner[];
+  // Target-player mode fields
+  target_player?: string;
+  target_team?: string;
+  target_team_needs?: string[];
+  target_z_score?: number;
+  target_tier?: string;
+  proposals?: TradeProposal[];
 }
 
 // Power Rankings response
@@ -1157,6 +1184,32 @@ export interface CategoryTrend {
 export interface CategoryTrendsResponse {
   categories: CategoryTrend[];
   message?: string;
+}
+
+// Punt Advisor response
+export interface PuntAdvisorCategory {
+  name: string;
+  stat_id: string;
+  rank: number;
+  value: string;
+  total: number;
+  gap_to_next: string;
+  gap_from_above: string;
+  cost_to_compete: string;
+  lower_is_better: boolean;
+  recommendation: string;
+  reasoning: string;
+}
+
+export interface PuntAdvisorResponse {
+  team_name: string;
+  current_rank: number | string;
+  num_teams: number;
+  categories: PuntAdvisorCategory[];
+  punt_candidates: string[];
+  target_categories: string[];
+  correlation_warnings: string[];
+  strategy_summary: string;
 }
 
 // --- News response types ---
@@ -1370,5 +1423,100 @@ export interface TakenPlayersResponse {
   players: Array<Player & { owner?: string }>;
   position?: string | null;
   count: number;
+}
+
+// IL Stash Advisor response
+export interface ILStashPlayer {
+  name: string;
+  position: string;
+  status: string;
+  z_score: number;
+  tier: string;
+  recommendation: string;
+  reasoning: string;
+  mlb_id?: number;
+  injury_description?: string;
+  intel?: PlayerIntel;
+}
+
+export interface ILStashFACandidate {
+  name: string;
+  position: string;
+  status: string;
+  z_score: number;
+  tier: string;
+  percent_owned: number;
+  recommendation: string;
+  reasoning: string;
+  mlb_id?: number;
+  injury_description?: string;
+  intel?: PlayerIntel;
+}
+
+export interface ILStashAdvisorResponse {
+  il_slots: { used: number; total: number };
+  your_il_players: ILStashPlayer[];
+  fa_il_stash_candidates: ILStashFACandidate[];
+  summary: string;
+}
+
+// Optimal Moves response
+export interface OptimalMovePlayer {
+  name: string;
+  player_id: string;
+  pos: string;
+  z_score: number;
+  tier?: string;
+  percent_owned?: string;
+}
+
+export interface OptimalMove {
+  rank: number;
+  drop: OptimalMovePlayer;
+  add: OptimalMovePlayer;
+  z_improvement: number;
+  categories_gained: string[];
+  categories_lost: string[];
+}
+
+export interface OptimalMovesResponse {
+  roster_z_total: number;
+  projected_z_after: number;
+  net_improvement: number;
+  moves: OptimalMove[];
+  summary: string;
+}
+
+// Playoff Planner response
+export interface PlayoffCategoryGap {
+  category: string;
+  current_rank: number;
+  target_rank: number;
+  places_to_gain: number;
+  gap: string;
+  priority: string;
+  cost_to_compete: string;
+}
+
+export interface PlayoffAction {
+  action_type: string;
+  description: string;
+  impact?: string;
+  priority: string;
+}
+
+export interface PlayoffPlannerResponse {
+  current_rank: number;
+  playoff_cutoff: number;
+  games_back: number;
+  team_name: string;
+  record: string;
+  num_teams: number;
+  category_gaps: PlayoffCategoryGap[];
+  recommended_actions: PlayoffAction[];
+  target_categories: string[];
+  punt_categories: string[];
+  playoff_probability: number;
+  summary: string;
 }
 
