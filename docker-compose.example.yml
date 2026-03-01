@@ -17,6 +17,7 @@ services:
       - MCP_SERVER_URL=${MCP_SERVER_URL}
       - MCP_AUTH_PASSWORD=${MCP_AUTH_PASSWORD}
       - ENABLE_WRITE_OPS=${ENABLE_WRITE_OPS:-false}
+      - AGENT_AUTONOMY=${AGENT_AUTONOMY:-semi-auto}
       - ENABLE_PREVIEW=${ENABLE_PREVIEW:-false}
       - PORT=4951
     ports:

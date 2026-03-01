@@ -170,6 +170,35 @@ def api_info():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/league-context")
+def api_league_context():
+    try:
+        from shared import get_league_settings, get_league_context, normalize_team_details
+        settings = get_league_settings()
+        result = {
+            "waiver_type": settings.get("waiver_type", "unknown"),
+            "uses_faab": settings.get("uses_faab", False),
+            "scoring_type": settings.get("scoring_type", ""),
+            "stat_categories": settings.get("stat_categories", []),
+            "roster_positions": settings.get("roster_positions", []),
+            "num_teams": settings.get("num_teams", 0),
+            "max_weekly_adds": settings.get("max_weekly_adds", 0),
+        }
+        # Include FAAB balance only for FAAB leagues
+        if settings.get("uses_faab"):
+            try:
+                sc, gm, lg, team = get_league_context()
+                d = normalize_team_details(team)
+                fb = d.get("faab_balance")
+                if fb is not None:
+                    result["faab_balance"] = fb
+            except Exception as e:
+                print("Warning: could not fetch FAAB balance for league-context: " + str(e))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/search")
 def api_search():
     try:

@@ -6,7 +6,7 @@
 
 Your fantasy baseball team, managed by AI.
 
-BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league — your roster, the waiver wire, Statcast data, trade analytics, and 113 tools to act on it all. Ask questions in plain English or let an autonomous agent run your team on autopilot.
+BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league — your roster, the waiver wire, Statcast data, trade analytics, and 114 tools to act on it all. Ask questions in plain English or let an autonomous agent run your team on autopilot.
 
 ## Table of Contents
 
@@ -176,15 +176,17 @@ Any MCP-compatible orchestrator works (OpenClaw, LangChain, CrewAI, etc.). The e
 
 **Monthly (1st):** Calls `yahoo_season_checkpoint` — rank, playoff probability, category trajectory, and trade targets.
 
-### Decision Tiers
+### Autonomy Levels
 
-| Tier | Actions | Agent Behavior |
-|------|---------|----------------|
-| **Auto-execute** | Lineup optimization, IL moves | Safe and idempotent — acts immediately |
-| **Execute + report** | Waiver pickups, streaming adds, obvious drops | High-confidence — acts and tells you what it did |
-| **Report + wait** | Trades, dropping starters, large FAAB bids | Recommends but waits for your approval |
+Set `AGENT_AUTONOMY` in `.env` and update the matching section in `AGENTS.md`:
 
-Tiers are defined in `AGENTS.md` and customizable to your comfort level.
+| Level | What it does | Best for |
+|-------|-------------|----------|
+| **full-auto** | Executes all recommended actions, reports after | Hands-off managers who trust the agent |
+| **semi-auto** (default) | Executes safe moves (lineups, IL), recommends everything else for approval | Most users — automation with guardrails |
+| **manual** | Never executes writes, only reports recommendations | Users who want full control |
+
+The agent also detects your league configuration automatically — FAAB vs. priority waivers, scoring format, stat categories — and skips irrelevant tools (no FAAB bids in priority-waiver leagues, no weekly matchup strategy in roto leagues).
 
 ### Cron Schedule
 
@@ -282,7 +284,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 
 ## MCP Tools
 
-113 tools across 10 tool files, each with rich inline HTML UI apps rendered directly in Claude.
+114 tools across 10 tool files, each with rich inline HTML UI apps rendered directly in Claude.
 
 <details>
 <summary><strong>Roster Management</strong> (16 tools)</summary>
@@ -309,10 +311,11 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 </details>
 
 <details>
-<summary><strong>League & Standings</strong> (11 tools)</summary>
+<summary><strong>League & Standings</strong> (12 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
+| `yahoo_league_context` | Compact league profile: waiver type, scoring format, stat categories, FAAB balance. Call once at session start |
 | `yahoo_standings` | League standings with win-loss records |
 | `yahoo_matchups` | Weekly H2H matchup pairings |
 | `yahoo_scoreboard` | Live scoring overview for the current week |
@@ -522,7 +525,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 │  │  (Flask :8766)    │──│  (Express :4951)    │  │
 │  │                   │  │                     │  │
 │  │  yahoo_fantasy_api│  │  MCP SDK + ext-apps │  │
-│  │  pybaseball       │  │  113 tool defs      │  │
+│  │  pybaseball       │  │  114 tool defs      │  │
 │  │  MLB-StatsAPI     │  │  9 apps / 62 views  │  │
 │  │  Playwright       │  │  11 workflow tools  │  │
 │  │  CacheManager     │  │  10 tool files      │  │
@@ -554,6 +557,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 | `LEAGUE_ID` | Yes | — | Yahoo Fantasy league key (e.g., `469.l.16960`) |
 | `TEAM_ID` | Yes | — | Your team key (e.g., `469.l.16960.t.12`) |
 | `ENABLE_WRITE_OPS` | No | `false` | Enable write operation tools (add, drop, trade, lineup) |
+| `AGENT_AUTONOMY` | No | `semi-auto` | Agent autonomy level: `full-auto`, `semi-auto`, or `manual` |
 | `ENABLE_PREVIEW` | No | `false` | Serve the preview dashboard at `/preview` |
 | `MCP_SERVER_URL` | For Claude.ai | — | Public HTTPS URL for remote access |
 | `MCP_AUTH_PASSWORD` | For Claude.ai | — | Password for the OAuth login page |

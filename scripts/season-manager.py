@@ -19,6 +19,7 @@ except ImportError:
 from mlb_id_cache import get_mlb_id
 from shared import (
     get_connection, get_league_context, get_league, get_team_key,
+    get_league_settings,
     LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
     MLB_API, mlb_fetch, TEAM_ALIASES, normalize_team_name,
     get_trend_lookup, enrich_with_intel, enrich_with_trends,
@@ -7673,6 +7674,10 @@ def cmd_waiver_deadline_prep(args, as_json=False):
         for rec in (waiver or {}).get("recommendations", [])[:3]:
             all_recs.append((label, rec))
 
+    # Check if this is a FAAB league (uses_faab defaults to False in get_league_settings)
+    league_settings = get_league_settings()
+    is_faab = league_settings.get("uses_faab", False)
+
     for label, rec in all_recs:
         name = rec.get("name", "")
         pid = rec.get("pid", "")
@@ -7682,19 +7687,18 @@ def cmd_waiver_deadline_prep(args, as_json=False):
         sim = _safe(cmd_category_simulate, [name])
         category_impact, net_improvement = _extract_category_impact(sim)
 
-        # Simple FAAB bid based on score
-        faab_bid = max(1, min(50, int(score * 3)))
-
-        ranked_claims.append({
+        claim = {
             "player": name,
             "player_id": pid,
             "pos_type": label,
             "percent_owned": pct,
             "score": score,
-            "faab_bid": faab_bid,
             "net_rank_improvement": net_improvement,
             "category_impact": category_impact,
-        })
+        }
+        if is_faab:
+            claim["faab_bid"] = max(1, min(50, int(score * 3)))
+        ranked_claims.append(claim)
 
     # Sort by score descending
     ranked_claims.sort(key=lambda x: x.get("score", 0), reverse=True)

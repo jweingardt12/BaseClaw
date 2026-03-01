@@ -9,6 +9,7 @@ import yahoo_fantasy_api as yfa
 from mlb_id_cache import get_mlb_id
 from shared import (
     get_connection, get_league, get_league_context, get_team_key,
+    get_league_settings,
     LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
     enrich_with_intel, enrich_with_trends,
 )
@@ -216,6 +217,11 @@ def cmd_info(args, as_json=False):
     except Exception as e:
         print("Warning: could not fetch roster positions: " + str(e))
 
+    # Waiver type detection
+    league_settings = get_league_settings()
+    waiver_type = league_settings.get("waiver_type", "unknown")
+    scoring_type = league_settings.get("scoring_type", settings.get("scoring_type", ""))
+
     if as_json:
         result = {
             "name": settings.get("name", "Unknown"),
@@ -229,6 +235,8 @@ def cmd_info(args, as_json=False):
             "max_weekly_adds": settings.get("max_weekly_adds", "?"),
             "team_name": team_name,
             "team_id": my_team_key,
+            "waiver_type": waiver_type,
+            "scoring_type": scoring_type,
         }
         if roster_positions:
             result["roster_positions"] = roster_positions
@@ -247,6 +255,8 @@ def cmd_info(args, as_json=False):
     print("  Teams: " + str(settings.get("num_teams", "?")))
     print("  Playoff Teams: " + str(settings.get("num_playoff_teams", "?")))
     print("  Max Weekly Adds: " + str(settings.get("max_weekly_adds", "?")))
+    print("  Waiver Type: " + waiver_type)
+    print("  Scoring Type: " + scoring_type)
     print("  Your Team: " + team_name + " (" + my_team_key + ")")
     if roster_positions:
         slots = []

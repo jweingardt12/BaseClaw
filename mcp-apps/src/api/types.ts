@@ -135,11 +135,30 @@ export interface LeagueInfoResponse {
   max_weekly_adds: number;
   team_name: string;
   team_id: string;
+  waiver_type?: string;
+  scoring_type?: string;
   waiver_priority?: number;
   faab_balance?: number;
   number_of_moves?: number;
   number_of_trades?: number;
   clinched_playoffs?: number;
+}
+
+export interface RosterPosition {
+  position: string;
+  count: number;
+  position_type: string;
+}
+
+export interface LeagueContextResponse {
+  waiver_type: string;
+  uses_faab: boolean;
+  scoring_type: string;
+  stat_categories: StatCategory[];
+  roster_positions: RosterPosition[];
+  num_teams: number;
+  max_weekly_adds: number;
+  faab_balance?: number;
 }
 
 // Transaction Trends (cross-league)
@@ -1645,7 +1664,7 @@ export interface WaiverDeadlinePrepResponse {
     pos_type: string;
     percent_owned: number;
     score: number;
-    faab_bid: number;
+    faab_bid?: number;
     net_rank_improvement: number;
     category_impact: string[];
   }>;

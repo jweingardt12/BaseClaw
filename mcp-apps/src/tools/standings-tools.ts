@@ -16,6 +16,7 @@ import {
   type ScoreboardResponse,
   type MatchupDetailResponse,
   type LeagueInfoResponse,
+  type LeagueContextResponse,
   type TransactionsResponse,
   type StatCategoriesResponse,
   type TransactionTrendsResponse,
@@ -188,6 +189,8 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           "  Max Weekly Adds: " + data.max_weekly_adds,
           "  Your Team: " + data.team_name + " (" + data.team_id + ")",
         ];
+        if (data.waiver_type != null) lines.push("  Waiver Type: " + data.waiver_type);
+        if (data.scoring_type != null) lines.push("  Scoring Type: " + data.scoring_type);
         if (data.waiver_priority != null) lines.push("  Waiver Priority: " + data.waiver_priority);
         if (data.faab_balance != null) lines.push("  FAAB Balance: $" + data.faab_balance);
         if (data.number_of_moves != null) lines.push("  Moves Made: " + data.number_of_moves);
@@ -197,6 +200,56 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
         return {
           content: [{ type: "text" as const, text }],
           structuredContent: { type: "info", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_league_context
+  registerAppTool(
+    server,
+    "yahoo_league_context",
+    {
+      description: "Compact league profile: waiver type (FAAB/priority), scoring format, stat categories, roster slots, and FAAB balance if applicable. Call once at session start — replaces separate yahoo_info + yahoo_stat_categories calls for agent setup.",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: STANDINGS_URI } },
+    },
+    async () => {
+      try {
+        const data = await apiGet<LeagueContextResponse>("/api/league-context");
+
+        const lines: string[] = ["LEAGUE CONTEXT:"];
+        lines.push("  Waiver: " + str(data.waiver_type) + (data.faab_balance != null ? " ($" + data.faab_balance + " remaining)" : ""));
+        lines.push("  Scoring: " + str(data.scoring_type));
+        lines.push("  Teams: " + str(data.num_teams) + " | Max adds/week: " + str(data.max_weekly_adds));
+
+        const batCats = (data.stat_categories || [])
+          .filter((c) => c.position_type === "B")
+          .map((c) => str(c.name));
+        const pitCats = (data.stat_categories || [])
+          .filter((c) => c.position_type === "P")
+          .map((c) => str(c.name));
+
+        if (batCats.length > 0) lines.push("  Bat cats: " + batCats.join(", "));
+        if (pitCats.length > 0) lines.push("  Pit cats: " + pitCats.join(", "));
+
+        // Behavioral notes for the agent
+        const notes: string[] = [];
+        if (str(data.waiver_type) === "priority") {
+          notes.push("Priority waivers — skip FAAB tools and bid recommendations.");
+        } else if (str(data.waiver_type) === "faab") {
+          notes.push("FAAB league — yahoo_waiver_deadline_prep includes bid recommendations.");
+        }
+        if (str(data.scoring_type) === "roto") {
+          notes.push("Roto scoring — optimize for aggregate stat totals, not weekly category wins.");
+        }
+        if (notes.length > 0) {
+          lines.push("  NOTE: " + notes.join(" "));
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "league-context", ...data },
         };
       } catch (e) { return toolError(e); }
     },

@@ -389,7 +389,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     server,
     "yahoo_waiver_deadline_prep",
     {
-      description: "Pre-deadline waiver analysis: identifies your weak categories, ranks waiver candidates with FAAB bid recommendations and simulated category impact. Run before waiver deadline to make informed claims.",
+      description: "Pre-deadline waiver analysis: identifies your weak categories, ranks waiver candidates with simulated category impact. Includes FAAB bid recommendations for FAAB leagues. Run before waiver deadline to make informed claims.",
       inputSchema: { count: z.number().describe("Number of candidates per position type").default(5) },
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: SEASON_URI } },
@@ -416,8 +416,9 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           lines.push("RANKED CLAIMS:");
           for (const [i, claim] of (data.ranked_claims || []).entries()) {
             const label = claim.pos_type === "B" ? "BAT" : "PIT";
+            const faabStr = claim.faab_bid != null ? "FAAB $" + claim.faab_bid + " | " : "";
             lines.push("  " + (i + 1) + ". [" + label + "] " + str(claim.player)
-              + " (FAAB $" + claim.faab_bid + " | " + str(claim.percent_owned) + "% owned"
+              + " (" + faabStr + str(claim.percent_owned) + "% owned"
               + " | net rank " + (claim.net_rank_improvement >= 0 ? "+" : "") + claim.net_rank_improvement + ")");
             if (claim.category_impact.length > 0) {
               lines.push("     impact: " + claim.category_impact.join(", "));

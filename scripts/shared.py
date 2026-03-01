@@ -165,6 +165,110 @@ _yahoo_cache = {
 
 
 # ---------------------------------------------------------------------------
+# League settings cache (static settings that rarely change mid-season)
+# ---------------------------------------------------------------------------
+_LEAGUE_SETTINGS_CACHE_TTL = int(os.environ.get("LEAGUE_SETTINGS_CACHE_TTL", "3600"))
+_LEAGUE_SETTINGS_NEGATIVE_TTL = 60  # seconds to cache empty result on API failure
+_league_settings_cache = {}
+
+
+def normalize_team_details(team):
+    """Return team.details() normalized to a flat dict."""
+    raw = team.details() if hasattr(team, "details") else None
+    if not raw:
+        return {}
+    if isinstance(raw, list) and len(raw) > 0:
+        return raw[0] if isinstance(raw[0], dict) else {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def get_league_settings():
+    """Get static league settings. Cached for LEAGUE_SETTINGS_CACHE_TTL seconds (default 1 hour).
+
+    Returns a dict with: waiver_type, uses_faab, scoring_type, stat_categories,
+    roster_positions, num_teams, max_weekly_adds.
+    """
+    cached = cache_get(_league_settings_cache, "settings", _LEAGUE_SETTINGS_CACHE_TTL)
+    if cached is not None:
+        return cached
+
+    result = {}
+    try:
+        sc, gm, lg = get_league()
+        settings = lg.settings()
+
+        # Waiver type detection
+        uses_faab_raw = settings.get("uses_faab")
+        if uses_faab_raw is not None:
+            uses_faab = str(uses_faab_raw) == "1"
+        else:
+            # Fallback: check if team has faab_balance
+            uses_faab = False
+            try:
+                tk = get_team_key(lg)
+                if tk:
+                    team = lg.to_team(tk)
+                    d = normalize_team_details(team)
+                    if d.get("faab_balance") is not None:
+                        uses_faab = True
+            except Exception as e:
+                print("Warning: could not check faab_balance for waiver type detection: " + str(e))
+
+        if uses_faab:
+            waiver_type = "faab"
+        else:
+            waiver_type = "priority"
+
+        scoring_type = settings.get("scoring_type", "head")
+
+        # Stat categories
+        stat_categories = []
+        try:
+            raw_cats = lg.stat_categories()
+            if isinstance(raw_cats, list):
+                for cat in raw_cats:
+                    if isinstance(cat, dict):
+                        stat_categories.append({
+                            "name": cat.get("display_name", cat.get("name", "?")),
+                            "position_type": cat.get("position_type", ""),
+                        })
+        except Exception as e:
+            print("Warning: could not fetch stat categories: " + str(e))
+
+        # Roster positions
+        roster_positions = []
+        try:
+            raw_pos = lg.positions() if hasattr(lg, "positions") else None
+            if raw_pos:
+                for rp in raw_pos:
+                    roster_positions.append({
+                        "position": rp.get("position", ""),
+                        "count": int(rp.get("count", 1)),
+                        "position_type": rp.get("position_type", ""),
+                    })
+        except Exception as e:
+            print("Warning: could not fetch roster positions: " + str(e))
+
+        result = {
+            "waiver_type": waiver_type,
+            "uses_faab": uses_faab,
+            "scoring_type": scoring_type,
+            "stat_categories": stat_categories,
+            "roster_positions": roster_positions,
+            "num_teams": settings.get("num_teams", 0),
+            "max_weekly_adds": settings.get("max_weekly_adds", 0),
+        }
+
+        cache_set(_league_settings_cache, "settings", result)
+    except Exception as e:
+        print("Warning: get_league_settings failed: " + str(e))
+        # Negative cache: avoid hammering the API on transient failures
+        _league_settings_cache["settings"] = (result, time.time() - _LEAGUE_SETTINGS_CACHE_TTL + _LEAGUE_SETTINGS_NEGATIVE_TTL)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Team name normalization
 # ---------------------------------------------------------------------------
 TEAM_ALIASES = {
