@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { Card, CardContent } from "../components/ui/card";
 import { IntelPanel } from "../shared/intel-panel";
 import { IntelBadge, type PlayerIntel } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { VerdictBadge } from "../shared/verdict-badge";
 import { Button } from "../components/ui/button";
 import { Copy, Check } from "@/shared/icons";
 
@@ -9,30 +13,94 @@ import { Copy, Check } from "@/shared/icons";
 interface PlayerReportData extends PlayerIntel {
   type: string;
   name: string;
+  ai_recommendation?: string | null;
+}
+
+function tierVariant(tier: string): "success" | "info" | "warning" | "risk" | "neutral" {
+  var t = (tier || "").toLowerCase();
+  if (t === "elite" || t === "great") return "success";
+  if (t === "good") return "info";
+  if (t === "average" || t === "fair") return "warning";
+  if (t === "poor" || t === "bad") return "risk";
+  return "neutral";
 }
 
 export function PlayerReportView({ data, app, navigate }: { data: PlayerReportData; app: any; navigate: (data: any) => void }) {
-  const [copied, setCopied] = useState(false);
+  var copiedState = useState(false);
+  var copied = copiedState[0];
+  var setCopied = copiedState[1];
 
-  const handleCopy = () => {
-    let text = "Player Report: " + data.name;
+  var handleCopy = function () {
+    var text = "Player Report: " + data.name;
     if (data.statcast && data.statcast.quality_tier) { text += " - " + data.statcast.quality_tier; }
     if (data.trends && data.trends.hot_cold) { text += " - " + data.trends.hot_cold; }
-    navigator.clipboard.writeText(text).then(() => {
+    navigator.clipboard.writeText(text).then(function () {
       setCopied(true);
-      setTimeout(() => { setCopied(false); }, 2000);
+      setTimeout(function () { setCopied(false); }, 2000);
     });
   };
 
+  var sc = data.statcast;
+  var qualityTier = (sc && sc.quality_tier) || "Unknown";
+
   return (
     <div className="space-y-2">
-      <h2 className="text-lg font-semibold flex items-center gap-2">
-        <PlayerName name={data.name} app={app} navigate={navigate} context="default" />
-        <IntelBadge intel={data} size="md" />
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCopy}>
-          {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-        </Button>
-      </h2>
+      {/* Hero card */}
+      <Card className="glow-gold border-primary/40">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl-app font-bold truncate">
+                <PlayerName name={data.name} app={app} navigate={navigate} context="default" />
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <IntelBadge intel={data} size="md" />
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCopy}>
+                  {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                </Button>
+              </div>
+            </div>
+            <VerdictBadge grade={qualityTier.toUpperCase()} variant={tierVariant(qualityTier)} size="lg" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      {/* Statcast KPI tiles */}
+      {sc && (
+        <div className="kpi-grid">
+          {sc.xwoba != null && (
+            <KpiTile
+              value={sc.xwoba.toFixed(3)}
+              label={"xwOBA" + (sc.xwoba_pct_rank != null ? " (" + sc.xwoba_pct_rank + "th)" : "")}
+              color={sc.xwoba_pct_rank != null && sc.xwoba_pct_rank >= 80 ? "success" : sc.xwoba_pct_rank != null && sc.xwoba_pct_rank >= 50 ? "info" : "warning"}
+            />
+          )}
+          {sc.avg_exit_velo != null && (
+            <KpiTile
+              value={sc.avg_exit_velo.toFixed(1)}
+              label={"Exit Velo" + (sc.ev_pct_rank != null ? " (" + sc.ev_pct_rank + "th)" : "")}
+              color={sc.ev_pct_rank != null && sc.ev_pct_rank >= 80 ? "success" : sc.ev_pct_rank != null && sc.ev_pct_rank >= 50 ? "info" : "warning"}
+            />
+          )}
+          {sc.barrel_pct_rank != null && (
+            <KpiTile
+              value={sc.barrel_pct_rank + "th"}
+              label="Barrel Rate"
+              color={sc.barrel_pct_rank >= 80 ? "success" : sc.barrel_pct_rank >= 50 ? "info" : "warning"}
+            />
+          )}
+          {sc.hard_hit_rate != null && (
+            <KpiTile
+              value={sc.hard_hit_rate.toFixed(1) + "%"}
+              label={"Hard Hit" + (sc.hh_pct_rank != null ? " (" + sc.hh_pct_rank + "th)" : "")}
+              color={sc.hh_pct_rank != null && sc.hh_pct_rank >= 80 ? "success" : sc.hh_pct_rank != null && sc.hh_pct_rank >= 50 ? "info" : "warning"}
+            />
+          )}
+        </div>
+      )}
+
       <IntelPanel intel={data} defaultExpanded />
     </div>
   );

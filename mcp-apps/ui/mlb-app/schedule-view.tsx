@@ -1,5 +1,5 @@
-import { Badge } from "../components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import { StatusBanner } from "../shared/status-banner";
 import { TeamLogo } from "../shared/team-logo";
 
 interface MlbGame {
@@ -17,47 +17,49 @@ interface MlbScheduleData {
 
 export function ScheduleView({ data }: { data: MlbScheduleData }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-lg font-semibold">Schedule</h2>
-        <Badge variant="secondary">{data.date}</Badge>
-      </div>
+    <div className="space-y-3">
+      <StatusBanner text="Schedule" subtitle={data.date + " - " + (data.games || []).length + " games"} variant="info" />
 
       {(data.games || []).length === 0 ? (
-        <p className="text-muted-foreground">No games scheduled for this date.</p>
+        <div className="glass-card p-4 text-center">
+          <p className="text-muted-foreground font-semibold">No games scheduled for this date.</p>
+        </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Away</TableHead>
-              <TableHead className="text-center w-10">@</TableHead>
-              <TableHead>Home</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(data.games || []).map((g, i) => (
-              <TableRow key={i}>
-                <TableCell className="font-medium">
-                  <span className="flex items-center" style={{ gap: "5px" }}>
-                    <TeamLogo teamId={g.away_id} abbrev={g.away} size={18} />
-                    {g.away}
-                  </span>
-                </TableCell>
-                <TableCell className="text-center text-muted-foreground">@</TableCell>
-                <TableCell className="font-medium">
-                  <span className="flex items-center" style={{ gap: "5px" }}>
-                    <TeamLogo teamId={g.home_id} abbrev={g.home} size={18} />
-                    {g.home}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{g.status}</TableCell>
+        <div className="glass-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-bold">Away</TableHead>
+                <TableHead className="text-center w-10 font-bold">@</TableHead>
+                <TableHead className="font-bold">Home</TableHead>
+                <TableHead className="font-bold">Status</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {(data.games || []).map(function (g, i) {
+                return (
+                  <TableRow key={i}>
+                    <TableCell className="font-semibold">
+                      <span className="flex items-center" style={{ gap: "5px" }}>
+                        <TeamLogo teamId={g.away_id} abbrev={g.away} size={18} />
+                        {g.away}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground font-bold">@</TableCell>
+                    <TableCell className="font-semibold">
+                      <span className="flex items-center" style={{ gap: "5px" }}>
+                        <TeamLogo teamId={g.home_id} abbrev={g.home} size={18} />
+                        {g.home}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground font-semibold">{g.status}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
-      <p className="text-xs text-muted-foreground mt-2">{(data.games || []).length} games</p>
     </div>
   );
 }

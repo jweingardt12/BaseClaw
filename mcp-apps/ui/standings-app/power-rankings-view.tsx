@@ -1,6 +1,8 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { formatFixed } from "../shared/number-format";
+import { AiInsight } from "../shared/ai-insight";
+import { StatusBanner } from "../shared/status-banner";
 
 interface PowerRankingTeam {
   rank: number;
@@ -34,12 +36,29 @@ function OwnershipBar({ pct }: { pct: number }) {
   );
 }
 
-export function PowerRankingsView({ data }: { data: { rankings: PowerRankingTeam[] } }) {
+export function PowerRankingsView({ data }: { data: { rankings: PowerRankingTeam[]; ai_recommendation?: string | null } }) {
   var rankings = data.rankings || [];
+  var myTeam = rankings.find(function (t) { return t.is_my_team; });
+  var myRank = myTeam ? myTeam.rank : null;
+
+  var bannerVariant: "gold" | "winning" | "info" | "losing" = "info";
+  if (myRank === 1) bannerVariant = "gold";
+  else if (myRank && myRank <= 3) bannerVariant = "winning";
+  else if (myRank && myRank > Math.floor(rankings.length / 2)) bannerVariant = "losing";
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {myRank && (
+        <StatusBanner
+          text={"RANKED #" + myRank}
+          subtitle={myTeam ? myTeam.name + " - " + formatFixed(myTeam.avg_owned_pct, 1, "0.0") + "% avg ownership" : ""}
+          variant={bannerVariant}
+        />
+      )}
+
       <h2 className="text-lg font-semibold">Power Rankings</h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
 
       <Table>
         <TableHeader>
@@ -55,7 +74,7 @@ export function PowerRankingsView({ data }: { data: { rankings: PowerRankingTeam
           {rankings.map((t) => (
             <TableRow
               key={t.team_key}
-              className={t.is_my_team ? "border-l-2 border-primary bg-primary/5" : ""}
+              className={t.is_my_team ? "border-l-2 border-primary bg-primary/5 glow-gold" : ""}
             >
               <TableCell><RankBadge rank={t.rank} /></TableCell>
               <TableCell className={"font-medium" + (t.is_my_team ? " text-primary" : "")}>

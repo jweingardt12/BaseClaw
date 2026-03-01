@@ -1,5 +1,7 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { TeamLogo } from "../shared/team-logo";
 import { formatFixed } from "../shared/number-format";
 
@@ -23,6 +25,7 @@ interface PitcherMatchupData {
   start_date: string;
   end_date: string;
   pitchers: PitcherMatchupEntry[];
+  ai_recommendation?: string | null;
 }
 
 function gradeColor(grade: string): string {
@@ -46,8 +49,18 @@ export function PitcherMatchupView({ data }: { data: PitcherMatchupData }) {
     return aOrd - bOrd;
   });
 
+  var bestGrade = pitchers.length > 0 ? pitchers[0].matchup_grade : "-";
+  var worstGrade = pitchers.length > 0 ? pitchers[pitchers.length - 1].matchup_grade : "-";
+
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={bestGrade} label="Best Grade" color="success" />
+        <KpiTile value={worstGrade} label="Worst Grade" color={worstGrade === "F" || worstGrade === "D" ? "risk" : "neutral"} />
+      </div>
+
       <div>
         <h2 className="text-lg font-semibold">Pitcher Matchups</h2>
         <p className="text-xs text-muted-foreground">

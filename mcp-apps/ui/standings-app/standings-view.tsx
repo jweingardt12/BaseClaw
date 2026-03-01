@@ -3,6 +3,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
 
 interface StandingsEntry {
   rank: number;
@@ -15,7 +18,7 @@ interface StandingsEntry {
   manager_image?: string;
 }
 
-const MY_TEAM = "You Can Clip These Wings";
+var MY_TEAM = "You Can Clip These Wings";
 
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) return <Badge className="text-xs bg-sem-warning">{rank}</Badge>;
@@ -25,9 +28,9 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 function WinLossBar({ wins, losses }: { wins: number; losses: number }) {
-  const total = wins + losses;
+  var total = wins + losses;
   if (total === 0) return null;
-  const winPct = (wins / total) * 100;
+  var winPct = (wins / total) * 100;
   return (
     <div className="flex h-1.5 w-16 rounded-full overflow-hidden bg-muted">
       <div className="bg-green-500 rounded-l-full" style={{ width: winPct + "%" }} />
@@ -56,23 +59,21 @@ function ChevronIcon({ open }: { open: boolean }) {
 }
 
 function PointsDistributionChart({ standings, playoffLine }: { standings: StandingsEntry[]; playoffLine: number }) {
-  // Sort by points descending for the chart
-  const sorted = [...standings]
+  var sorted = [...standings]
     .filter((s) => s.points_for)
     .sort((a, b) => parseFloat(b.points_for || "0") - parseFloat(a.points_for || "0"));
 
-  const chartData = sorted.map((s) => ({
+  var chartData = sorted.map((s) => ({
     name: s.name.length > 18 ? s.name.slice(0, 16) + ".." : s.name,
     points: parseFloat(s.points_for || "0"),
     isMyTeam: s.name === MY_TEAM,
     inPlayoffs: s.rank <= playoffLine,
   }));
 
-  // Find the points value at the playoff cutoff to draw a reference line
-  const playoffCutoffTeam = standings.find((s) => s.rank === playoffLine);
-  const cutoffPoints = playoffCutoffTeam ? parseFloat(playoffCutoffTeam.points_for || "0") : 0;
+  var playoffCutoffTeam = standings.find((s) => s.rank === playoffLine);
+  var cutoffPoints = playoffCutoffTeam ? parseFloat(playoffCutoffTeam.points_for || "0") : 0;
 
-  const chartHeight = Math.max(250, chartData.length * 32);
+  var chartHeight = Math.max(250, chartData.length * 32);
 
   return (
     <div style={{ width: "100%", height: chartHeight }}>
@@ -96,7 +97,7 @@ function PointsDistributionChart({ standings, playoffLine }: { standings: Standi
           )}
           <Bar dataKey="points" radius={[0, 4, 4, 0]} barSize={20}>
             {chartData.map((entry, idx) => {
-              let fill = entry.inPlayoffs ? "var(--sem-success)" : "var(--sem-risk)";
+              var fill = entry.inPlayoffs ? "var(--sem-success)" : "var(--sem-risk)";
               if (entry.isMyTeam) fill = "hsl(var(--primary))";
               return <Cell key={"cell-" + idx} fill={fill} fillOpacity={entry.isMyTeam ? 1 : 0.7} />;
             })}
@@ -107,14 +108,46 @@ function PointsDistributionChart({ standings, playoffLine }: { standings: Standi
   );
 }
 
-export function StandingsView({ data }: { data: { standings: StandingsEntry[]; playoff_teams?: number } }) {
-  const [showDistribution, setShowDistribution] = React.useState(false);
-  const playoffLine = data.playoff_teams || 6;
-  const hasTies = data.standings.some((s) => s.ties);
-  const hasPoints = data.standings.some((s) => s.points_for);
+export function StandingsView({ data }: { data: { standings: StandingsEntry[]; playoff_teams?: number; ai_recommendation?: string | null } }) {
+  var [showDistribution, setShowDistribution] = React.useState(false);
+  var playoffLine = data.playoff_teams || 6;
+  var hasTies = data.standings.some((s) => s.ties);
+  var hasPoints = data.standings.some((s) => s.points_for);
+
+  var myTeam = (data.standings || []).find(function (s) { return s.name === MY_TEAM; });
+  var myRank = myTeam ? myTeam.rank : null;
+  var myRecord = myTeam ? myTeam.wins + "-" + myTeam.losses + (hasTies ? "-" + (myTeam.ties || 0) : "") : "";
+  var myPoints = myTeam && myTeam.points_for ? myTeam.points_for : "";
+  var leader = (data.standings || [])[0];
+  var gb = "";
+  if (myTeam && leader && myTeam.points_for && leader.points_for) {
+    var diff = parseFloat(leader.points_for) - parseFloat(myTeam.points_for);
+    gb = diff > 0 ? diff.toFixed(1) : "-";
+  }
+
+  var bannerVariant: "winning" | "losing" | "tied" | "info" | "gold" = "info";
+  if (myRank === 1) bannerVariant = "gold";
+  else if (myRank && myRank <= playoffLine) bannerVariant = "winning";
+  else if (myRank) bannerVariant = "losing";
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {myRank && (
+        <StatusBanner
+          text={"YOU'RE #" + myRank}
+          subtitle={myTeam ? myTeam.name : ""}
+          variant={bannerVariant}
+        />
+      )}
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={myRecord} label="W-L Record" color="primary" />
+        {myPoints && <KpiTile value={myPoints} label="Points" color="info" />}
+        {gb && gb !== "-" && <KpiTile value={gb} label="Games Back" color={parseFloat(gb) > 10 ? "risk" : "warning"} />}
+      </div>
+
       <div>
         <h2 className="text-lg font-semibold mb-2">League Standings</h2>
         <Table>
@@ -129,13 +162,13 @@ export function StandingsView({ data }: { data: { standings: StandingsEntry[]; p
           </TableHeader>
           <TableBody>
             {(data.standings || []).map((s, idx) => {
-              const isMyTeam = s.name === MY_TEAM;
-              const showPlayoffLine = s.rank === playoffLine && idx < (data.standings || []).length - 1;
+              var isMyTeam = s.name === MY_TEAM;
+              var showPlayoffLine = s.rank === playoffLine && idx < (data.standings || []).length - 1;
               return (
                 <TableRow
                   key={s.rank}
                   className={
-                    (isMyTeam ? "border-l-2 border-primary bg-primary/5 " : "")
+                    (isMyTeam ? "border-l-2 border-primary bg-primary/5 glow-gold " : "")
                     + (showPlayoffLine ? "border-b-2 border-dashed border-muted-foreground/30" : "")
                   }
                 >

@@ -2,6 +2,8 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { mlbHeadshotUrl, teamLogoFromAbbrev } from "../shared/mlb-images";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { TrendingUp, TrendingDown } from "@/shared/icons";
 
 interface TrendPlayer {
@@ -17,6 +19,7 @@ interface TrendPlayer {
 interface TransactionTrendsData {
   most_added: TrendPlayer[];
   most_dropped: TrendPlayer[];
+  ai_recommendation?: string | null;
 }
 
 function DeltaBadge({ delta }: { delta: string }) {
@@ -43,16 +46,15 @@ function DeltaBadge({ delta }: { delta: string }) {
 function PercentBar({ value }: { value: number }) {
   return (
     <div className="flex items-center gap-1.5">
-      <div className="flex h-1.5 w-12 rounded-full overflow-hidden bg-muted">
+      <div className="flex h-2 w-16 rounded-full overflow-hidden bg-muted">
         <div className="bg-primary rounded-full" style={{ width: Math.min(value, 100) + "%" }} />
       </div>
-      <span className="text-xs font-mono">{value}%</span>
+      <span className="text-xs font-mono font-bold">{value}%</span>
     </div>
   );
 }
 
 function TrendTable({ players, direction }: { players: TrendPlayer[]; direction: "added" | "dropped" }) {
-  var isAdded = direction === "added";
   return (
     <Table>
       <TableHeader>
@@ -113,10 +115,19 @@ function TrendTable({ players, direction }: { players: TrendPlayer[]; direction:
 export function TransactionTrendsView({ data }: { data: TransactionTrendsData }) {
   var added = data.most_added || [];
   var dropped = data.most_dropped || [];
+  var hottest = added.length > 0 ? added[0] : null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <h2 className="text-lg font-semibold">Transaction Trends</h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        {hottest && <KpiTile value={hottest.name} label="Hottest Pickup" color="success" />}
+        <KpiTile value={added.length} label="Most Added" color="primary" />
+        <KpiTile value={dropped.length} label="Most Dropped" color="risk" />
+      </div>
 
       <div className="flex gap-2 mb-1">
         <Badge variant="default" className="text-xs">{added.length + " most added"}</Badge>

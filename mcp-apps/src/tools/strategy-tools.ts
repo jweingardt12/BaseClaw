@@ -33,7 +33,7 @@ export function registerStrategyTools(server: McpServer) {
         if (entries.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No news found for: " + player_name }],
-            structuredContent: { type: "player-news", ...data },
+            structuredContent: { type: "player-news", ai_recommendation: null, ...data },
           };
         }
         const lines = ["News for " + player_name + " (" + entries.length + " items):"];
@@ -43,7 +43,7 @@ export function registerStrategyTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "player-news", ...data },
+          structuredContent: { type: "player-news", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -66,7 +66,7 @@ export function registerStrategyTools(server: McpServer) {
         if (entries.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No news available" }],
-            structuredContent: { type: "news-feed", ...data },
+            structuredContent: { type: "news-feed", ai_recommendation: null, ...data },
           };
         }
         const lines = ["Fantasy Baseball News (" + entries.length + " items):"];
@@ -77,7 +77,7 @@ export function registerStrategyTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "news-feed", ...data },
+          structuredContent: { type: "news-feed", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -100,7 +100,7 @@ export function registerStrategyTools(server: McpServer) {
         if (pitchers.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No probable pitchers found for next " + days + " days" }],
-            structuredContent: { type: "probable-pitchers", ...data },
+            structuredContent: { type: "probable-pitchers", ai_recommendation: null, ...data },
           };
         }
         const lines = ["Probable Pitchers (next " + days + " days):"];
@@ -112,7 +112,7 @@ export function registerStrategyTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "probable-pitchers", ...data },
+          structuredContent: { type: "probable-pitchers", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -142,7 +142,7 @@ export function registerStrategyTools(server: McpServer) {
         lines.push("  Density rating:  " + str(data.density_rating));
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "schedule-analysis", ...data },
+          structuredContent: { type: "schedule-analysis", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -189,7 +189,7 @@ export function registerStrategyTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "category-impact", ...data },
+          structuredContent: { type: "category-impact", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -245,7 +245,7 @@ export function registerStrategyTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "regression-candidates", ...data },
+          structuredContent: { type: "regression-candidates", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -280,7 +280,7 @@ export function registerStrategyTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "player-tier", ...data },
+          structuredContent: { type: "player-tier", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

@@ -3,6 +3,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { ComparisonBar } from "../shared/comparison-bar";
+import { AiInsight } from "../shared/ai-insight";
+import { StatusBanner } from "../shared/status-banner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 interface MatchupCategory {
@@ -20,28 +22,20 @@ interface MatchupDetailData {
   opp_team_logo?: string;
   score: { wins: number; losses: number; ties: number };
   categories: MatchupCategory[];
+  ai_recommendation?: string | null;
 }
 
-const PIE_COLORS: Record<string, string> = { Wins: "var(--sem-success)", Losses: "var(--sem-risk)", Ties: "var(--sem-warning)" };
-
-function getMatchupStatus(isWinning: boolean, isTied: boolean) {
-  if (isWinning) return { bg: "bg-sem-success", label: "Winning" };
-  if (isTied) return { bg: "bg-sem-warning", label: "Tied" };
-  return { bg: "bg-sem-risk", label: "Losing" };
-}
+var PIE_COLORS: Record<string, string> = { Wins: "var(--sem-success)", Losses: "var(--sem-risk)", Ties: "var(--sem-warning)" };
 
 function getSwingCategories(categories: MatchupCategory[]) {
-  // Compute a closeness score for each category (lower = closer contest)
-  const scored = categories.map((c) => {
-    const myNum = parseFloat(c.my_value) || 0;
-    const oppNum = parseFloat(c.opp_value) || 0;
-    const diff = Math.abs(myNum - oppNum);
-    const avg = (Math.abs(myNum) + Math.abs(oppNum)) / 2;
-    // Ties get closeness 0 (most swing-able), otherwise use relative diff
-    const closeness = c.result === "tie" ? 0 : (avg > 0 ? diff / avg : diff);
+  var scored = categories.map((c) => {
+    var myNum = parseFloat(c.my_value) || 0;
+    var oppNum = parseFloat(c.opp_value) || 0;
+    var diff = Math.abs(myNum - oppNum);
+    var avg = (Math.abs(myNum) + Math.abs(oppNum)) / 2;
+    var closeness = c.result === "tie" ? 0 : (avg > 0 ? diff / avg : diff);
     return { ...c, closeness };
   });
-  // Sort by closeness ascending (closest first), take top 3
   return scored.sort((a, b) => a.closeness - b.closeness).slice(0, 3);
 }
 
@@ -57,7 +51,7 @@ function SwingIcon() {
 }
 
 function CategoryList({ categories, keyPrefix }: { categories: MatchupCategory[]; keyPrefix?: string }) {
-  const prefix = keyPrefix || "";
+  var prefix = keyPrefix || "";
   return (
     <div className="space-y-2">
       {categories.map((cat, i) => (
@@ -74,51 +68,51 @@ function CategoryList({ categories, keyPrefix }: { categories: MatchupCategory[]
 }
 
 export function MatchupDetailView({ data }: { data: MatchupDetailData }) {
-  const [activeTab, setActiveTab] = React.useState("all");
+  var [activeTab, setActiveTab] = React.useState("all");
 
-  const score = data.score || { wins: 0, losses: 0, ties: 0 };
-  const total = score.wins + score.losses + score.ties;
-  const isWinning = score.wins > score.losses;
-  const isTied = score.wins === score.losses;
-  const status = getMatchupStatus(isWinning, isTied);
+  var score = data.score || { wins: 0, losses: 0, ties: 0 };
+  var total = score.wins + score.losses + score.ties;
+  var isWinning = score.wins > score.losses;
+  var isTied = score.wins === score.losses;
 
-  const pieData = [
+  var bannerVariant: "winning" | "losing" | "tied" = isWinning ? "winning" : isTied ? "tied" : "losing";
+  var bannerLabel = isWinning ? "WINNING" : isTied ? "TIED" : "LOSING";
+  var bannerText = bannerLabel + " " + score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "");
+
+  var pieData = [
     { name: "Wins", value: score.wins },
     { name: "Losses", value: score.losses },
     { name: "Ties", value: score.ties },
   ].filter((d) => d.value > 0);
 
-  const allCategories = data.categories || [];
-  const battingCategories = allCategories.slice(0, 10);
-  const pitchingCategories = allCategories.slice(10, 20);
+  var allCategories = data.categories || [];
+  var battingCategories = allCategories.slice(0, 10);
+  var pitchingCategories = allCategories.slice(10, 20);
 
-  // Find close categories (at-risk)
-  const closeCategories = allCategories.filter((c) => {
-    const diff = Math.abs(parseFloat(c.my_value) - parseFloat(c.opp_value));
-    const avg = (Math.abs(parseFloat(c.my_value)) + Math.abs(parseFloat(c.opp_value))) / 2;
+  var closeCategories = allCategories.filter((c) => {
+    var diff = Math.abs(parseFloat(c.my_value) - parseFloat(c.opp_value));
+    var avg = (Math.abs(parseFloat(c.my_value)) + Math.abs(parseFloat(c.opp_value))) / 2;
     return avg > 0 && diff / avg < 0.15;
   });
 
-  const strongWins = allCategories.filter((c) => c.result === "win");
+  var strongWins = allCategories.filter((c) => c.result === "win");
+  var swingCategories = getSwingCategories(allCategories);
 
-  // Swing categories: the 2-3 closest categories
-  const swingCategories = getSwingCategories(allCategories);
-
-  // Compute sub-scores for batting/pitching
-  const battingWins = battingCategories.filter((c) => c.result === "win").length;
-  const battingLosses = battingCategories.filter((c) => c.result === "loss").length;
-  const pitchingWins = pitchingCategories.filter((c) => c.result === "win").length;
-  const pitchingLosses = pitchingCategories.filter((c) => c.result === "loss").length;
+  var battingWins = battingCategories.filter((c) => c.result === "win").length;
+  var battingLosses = battingCategories.filter((c) => c.result === "loss").length;
+  var pitchingWins = pitchingCategories.filter((c) => c.result === "win").length;
+  var pitchingLosses = pitchingCategories.filter((c) => c.result === "loss").length;
 
   return (
-    <div className="space-y-2">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Week {data.week} Matchup</h2>
-        <Badge className={"text-sm px-3 py-1 " + status.bg}>
-          {status.label} {score.wins}-{score.losses}{score.ties > 0 ? "-" + score.ties : ""}
-        </Badge>
-      </div>
+    <div className="space-y-3">
+      {/* Status Banner */}
+      <StatusBanner
+        text={bannerText}
+        subtitle={"Week " + data.week + " vs " + data.opponent}
+        variant={bannerVariant}
+      />
+
+      <AiInsight recommendation={data.ai_recommendation} />
 
       {/* Score Ring + Teams */}
       <Card>
@@ -166,7 +160,7 @@ export function MatchupDetailView({ data }: { data: MatchupDetailData }) {
             </div>
             <div className="flex gap-2 flex-wrap">
               {swingCategories.map((c, i) => {
-                const resultColor = c.result === "win"
+                var resultColor = c.result === "win"
                   ? "bg-sem-success-subtle text-sem-success border-sem-success"
                   : c.result === "loss"
                     ? "bg-sem-risk-subtle text-sem-risk border-sem-risk"

@@ -1,5 +1,5 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import { StatusBanner } from "../shared/status-banner";
 import { TeamLogo } from "../shared/team-logo";
 
 interface DivisionTeam {
@@ -17,42 +17,44 @@ interface MlbDivision {
 
 export function StandingsView({ data }: { data: { divisions: MlbDivision[] } }) {
   return (
-    <div className="space-y-2">
-      <h2 className="text-lg font-semibold">MLB Standings</h2>
-      {(data.divisions || []).map((div) => (
-        <Card key={div.division}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{div.division}</CardTitle>
-          </CardHeader>
-          <CardContent>
+    <div className="space-y-3">
+      <StatusBanner text="MLB Standings" variant="info" />
+      {(data.divisions || []).map(function (div) {
+        return (
+          <div key={div.division} className="glass-card overflow-hidden">
+            <div className="p-3 pb-1">
+              <span className="text-base font-bold">{div.division}</span>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Team</TableHead>
-                  <TableHead className="text-center w-12">W</TableHead>
-                  <TableHead className="text-center w-12">L</TableHead>
-                  <TableHead className="text-center w-14">GB</TableHead>
+                  <TableHead className="font-bold">Team</TableHead>
+                  <TableHead className="text-center w-12 font-bold">W</TableHead>
+                  <TableHead className="text-center w-12 font-bold">L</TableHead>
+                  <TableHead className="text-center w-14 font-bold">GB</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(div.teams || []).map((t) => (
-                  <TableRow key={t.name}>
-                    <TableCell className="font-medium">
-                      <span className="flex items-center" style={{ gap: "6px" }}>
-                        <TeamLogo teamId={t.team_id} name={t.name} size={20} />
-                        {t.name}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center font-mono">{t.wins}</TableCell>
-                    <TableCell className="text-center font-mono">{t.losses}</TableCell>
-                    <TableCell className="text-center font-mono text-muted-foreground">{t.games_back}</TableCell>
-                  </TableRow>
-                ))}
+                {(div.teams || []).map(function (t) {
+                  return (
+                    <TableRow key={t.name}>
+                      <TableCell className="font-semibold">
+                        <span className="flex items-center" style={{ gap: "6px" }}>
+                          <TeamLogo teamId={t.team_id} name={t.name} size={20} />
+                          {t.name}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center font-mono font-semibold">{t.wins}</TableCell>
+                      <TableCell className="text-center font-mono font-semibold">{t.losses}</TableCell>
+                      <TableCell className="text-center font-mono text-muted-foreground">{t.games_back}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

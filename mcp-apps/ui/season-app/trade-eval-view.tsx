@@ -6,6 +6,10 @@ import { ComparisonBar } from "../shared/comparison-bar";
 
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
+import { VerdictBadge } from "../shared/verdict-badge";
 import { Copy, Check } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 
@@ -29,6 +33,7 @@ interface TradeEvalData {
   net_value: number;
   grade: string;
   position_impact?: { losing: string[]; gaining: string[] };
+  ai_recommendation?: string | null;
 }
 
 function asNumber(value: unknown, fallback: number = 0): number {
@@ -96,8 +101,24 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
     });
   };
 
+  var bannerVariant: "winning" | "losing" | "tied" = netValue > 0.5 ? "winning" : netValue < -0.5 ? "losing" : "tied";
+
   return (
     <div className="space-y-2">
+      <StatusBanner
+        text={"TRADE GRADE: " + grade}
+        subtitle={"Net z-score: " + (netValue >= 0 ? "+" : "") + fmtOne(netValue)}
+        variant={bannerVariant}
+      />
+
+      <AiInsight recommendation={(data as any).ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={fmtOne(giveValue)} label="Give Z-Score" color="risk" />
+        <KpiTile value={fmtOne(getValue)} label="Get Z-Score" color="success" />
+        <KpiTile value={(netValue >= 0 ? "+" : "") + fmtOne(netValue)} label="Net Value" color={netValue >= 0 ? "success" : "risk"} />
+      </div>
+
       <h2 className="text-lg font-semibold">Trade Evaluation</h2>
 
       {/* Grade + Net Value Hero */}

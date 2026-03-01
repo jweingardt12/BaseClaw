@@ -69,7 +69,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-history", ...data },
+          structuredContent: { type: "league-history", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -102,7 +102,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "record-book", ...data },
+          structuredContent: { type: "record-book", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -127,7 +127,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-standings", year, ...data },
+          structuredContent: { type: "past-standings", ai_recommendation: null, year, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -152,7 +152,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-draft", ...data },
+          structuredContent: { type: "past-draft", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -177,7 +177,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-teams", ...data },
+          structuredContent: { type: "past-teams", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -210,7 +210,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-trades", ...data },
+          structuredContent: { type: "past-trades", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -235,7 +235,7 @@ export function registerHistoryTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-matchup", ...data },
+          structuredContent: { type: "past-matchup", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

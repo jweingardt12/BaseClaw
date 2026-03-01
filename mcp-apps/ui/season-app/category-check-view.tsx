@@ -3,6 +3,8 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, ReferenceLine } from "recharts";
 
 interface CategoryRank {
@@ -19,6 +21,7 @@ interface CategoryCheckData {
   categories: CategoryRank[];
   strongest: string[];
   weakest: string[];
+  ai_recommendation?: string | null;
 }
 
 function getCatName(c: CategoryRank): string {
@@ -71,8 +74,19 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
     return "";
   };
 
+  var strongCount = (data.strongest || []).length;
+  var weakCount = (data.weakest || []).length;
+
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={strongCount} label="Strong" color="success" />
+        <KpiTile value={weakCount} label="Weak" color="risk" />
+        <KpiTile value={(data.categories || []).length} label="Categories" color="neutral" />
+      </div>
+
       <h2 className="text-lg font-semibold">Category Check - Week {data.week}</h2>
 
       {/* Strongest / Weakest summary cards */}

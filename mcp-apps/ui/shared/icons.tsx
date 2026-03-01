@@ -114,4 +114,5 @@ export const UserPlus = createIcon(UserAdd01Icon);
 export const Users = createIcon(UserGroupIcon);
 export const X = createIcon(Cancel01Icon);
 export const XCircle = createIcon(CancelCircleIcon);
+export const Sparkles = createIcon(StarIcon);
 export const Zap = createIcon(ZapIcon);

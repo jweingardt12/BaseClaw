@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Badge } from "../components/ui/badge";
+import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useCallTool } from "../shared/use-call-tool";
 
-import { getTier, ZScoreBar } from "../shared/z-score";
+import { getTier, tierGrade, ZScoreBar } from "../shared/z-score";
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { VerdictBadge } from "../shared/verdict-badge";
+import { formatFixed } from "../shared/number-format";
 import { Loader2 } from "@/shared/icons";
 
 interface BestAvailablePlayer {
@@ -22,30 +25,36 @@ interface BestAvailableData {
   pos_type: string;
   count?: number;
   players: BestAvailablePlayer[];
+  ai_recommendation?: string | null;
 }
 
-const POSITION_FILTERS = ["All", "C", "1B", "2B", "SS", "3B", "OF", "SP", "RP"];
+var POSITION_FILTERS = ["All", "C", "1B", "2B", "SS", "3B", "OF", "SP", "RP"];
 
 export function BestAvailableView({ data, app, navigate }: { data: BestAvailableData; app?: any; navigate?: (data: any) => void }) {
-  const { callTool, loading } = useCallTool(app);
-  const [posFilter, setPosFilter] = useState("All");
-  const label = data.pos_type === "P" ? "Pitchers" : "Hitters";
+  var callToolResult = useCallTool(app);
+  var callTool = callToolResult.callTool;
+  var loading = callToolResult.loading;
+  var posFilterState = useState("All");
+  var posFilter = posFilterState[0];
+  var setPosFilter = posFilterState[1];
+  var label = data.pos_type === "P" ? "Pitchers" : "Hitters";
 
-  const handleTypeChange = async function (value: string) {
-    const result = await callTool("yahoo_best_available", { pos_type: value, count: 25 });
+  var handleTypeChange = async function (value: string) {
+    var result = await callTool("yahoo_best_available", { pos_type: value, count: 25 });
     if (result && result.structuredContent && navigate) {
       navigate(result.structuredContent);
     }
   };
 
-  const filteredPlayers = posFilter === "All"
+  var filteredPlayers = posFilter === "All"
     ? (data.players || [])
     : (data.players || []).filter(function (p) {
-        const positions = p.positions || (p.position ? p.position.split(",") : []);
+        var positions = p.positions || (p.position ? p.position.split(",") : []);
         return positions.some(function (pos: string) { return pos.trim() === posFilter; });
       });
 
-  let lastTier = "";
+  var topPlayer = filteredPlayers.length > 0 ? filteredPlayers[0] : null;
+  var lastTier = "";
 
   return (
     <div>
@@ -78,6 +87,25 @@ export function BestAvailableView({ data, app, navigate }: { data: BestAvailable
         })}
       </div>
 
+      {/* Hero top pick */}
+      {topPlayer && (
+        <Card className="mb-2 glow-gold border-primary/40">
+          <CardContent className="p-4 flex items-center gap-3">
+            <span className="font-mono text-xs text-muted-foreground w-6 text-right">#1</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xl-app font-bold truncate"><PlayerName name={topPlayer.name} mlbId={topPlayer.mlb_id} app={app} navigate={navigate} context="draft" /></p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-xs">{topPlayer.positions ? topPlayer.positions.join(", ") : (topPlayer.position || "?")}</Badge>
+                {topPlayer.intel && <IntelBadge intel={topPlayer.intel} size="sm" />}
+              </div>
+            </div>
+            {topPlayer.z_score != null && (
+              <VerdictBadge grade={formatFixed(topPlayer.z_score, 1, "0.0")} variant={topPlayer.z_score >= 2 ? "success" : topPlayer.z_score >= 1 ? "info" : "warning"} size="lg" />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="relative">
         {loading && (
           <div className="loading-overlay">
@@ -85,24 +113,25 @@ export function BestAvailableView({ data, app, navigate }: { data: BestAvailable
           </div>
         )}
         <div className="space-y-0.5">
-          {filteredPlayers.map(function (p, i) {
-            const tier = getTier(p.z_score);
-            const showDivider = i > 0 && tier !== lastTier;
+          {filteredPlayers.slice(topPlayer ? 1 : 0).map(function (p, i) {
+            var tier = getTier(p.z_score);
+            var showDivider = tier !== lastTier;
             lastTier = tier;
-            const posDisplay = p.positions ? p.positions.join(", ") : (p.position || "?");
+            var posDisplay = p.positions ? p.positions.join(", ") : (p.position || "?");
+            var actualIndex = topPlayer ? i + 1 : i;
 
             return (
               <div key={p.rank}>
                 {showDivider && (
                   <div className="flex items-center gap-2 py-1.5">
-                    <div className="flex-1 h-px bg-border" />
-                    <span className="text-xs text-muted-foreground">{tier} Tier</span>
-                    <div className="flex-1 h-px bg-border" />
+                    <div className="flex-1 h-0.5 bg-primary/30" />
+                    <VerdictBadge grade={tierGrade(p.z_score)} size="sm" />
+                    <div className="flex-1 h-0.5 bg-primary/30" />
                   </div>
                 )}
-                <div className={"flex items-center gap-2 py-1.5 px-2 rounded " + (i === 0 ? "bg-primary/10 border border-primary/30" : i % 2 === 0 ? "bg-muted/30" : "")}>
+                <div className={"flex items-center gap-2 py-1.5 px-2 rounded " + (actualIndex % 2 === 0 ? "bg-muted/30" : "")}>
                   <span className="font-mono text-xs text-muted-foreground w-6 text-right">{p.rank}</span>
-                  <span className={"text-sm flex-1 truncate " + (i === 0 ? "font-semibold" : "font-medium")}><PlayerName name={p.name} mlbId={p.mlb_id} app={app} navigate={navigate} context="draft" /></span>
+                  <span className="text-sm flex-1 truncate font-medium"><PlayerName name={p.name} mlbId={p.mlb_id} app={app} navigate={navigate} context="draft" /></span>
                   {p.intel && <IntelBadge intel={p.intel} size="sm" />}
                   <Badge variant="outline" className="text-xs shrink-0">{posDisplay}</Badge>
                   <ZScoreBar z={p.z_score} />

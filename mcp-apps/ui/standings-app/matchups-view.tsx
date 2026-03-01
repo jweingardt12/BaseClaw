@@ -1,5 +1,6 @@
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import { AiInsight } from "../shared/ai-insight";
 
 interface MatchupTeam {
   name: string;
@@ -19,9 +20,10 @@ interface MatchupsData {
   type: string;
   week: string;
   matchups: Matchup[];
+  ai_recommendation?: string | null;
 }
 
-const MY_TEAM = "You Can Clip These Wings";
+var MY_TEAM = "You Can Clip These Wings";
 
 function getTeamName(team: MatchupTeam | string): string {
   if (typeof team === "string") return team;
@@ -29,19 +31,22 @@ function getTeamName(team: MatchupTeam | string): string {
 }
 
 export function MatchupsView({ data }: { data: MatchupsData }) {
-  const isScoreboard = data.type === "scoreboard";
+  var isScoreboard = data.type === "scoreboard";
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2">
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold">
         {isScoreboard ? "Scoreboard" : "Matchups"} - Week {data.week}
       </h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
       <div className="grid gap-2">
         {(data.matchups || []).map((m, i) => {
-          const name1 = getTeamName(m.team1);
-          const name2 = getTeamName(m.team2);
-          const isMyMatchup = name1 === MY_TEAM || name2 === MY_TEAM;
+          var name1 = getTeamName(m.team1);
+          var name2 = getTeamName(m.team2);
+          var isMyMatchup = name1 === MY_TEAM || name2 === MY_TEAM;
           return (
-            <Card key={i} className={isMyMatchup ? "border-primary border-2 bg-primary/5" : ""}>
+            <Card key={i} className={isMyMatchup ? "border-primary border-2 bg-primary/5 glow-gold" : ""}>
               <CardContent className="py-2 px-3">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
@@ -51,7 +56,7 @@ export function MatchupsView({ data }: { data: MatchupsData }) {
                     </p>
                   </div>
                   <div className="px-3 flex flex-col items-center flex-shrink-0">
-                    <Badge variant="outline" className="text-xs">vs</Badge>
+                    <Badge variant="outline" className="text-sm font-bold px-3 py-1">vs</Badge>
                     {m.status && <span className="text-xs text-muted-foreground mt-0.5">{m.status}</span>}
                   </div>
                   <div className="flex-1 min-w-0 text-right">

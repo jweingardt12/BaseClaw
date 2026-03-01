@@ -41,34 +41,35 @@
    When hosted in Claude.ai, useHostStyles injects variables via inline style
    on <html> (highest specificity, always wins). These :root fallbacks only
    apply in standalone/dev mode. color-scheme enables light-dark() resolution
-   and native dark scrollbars/form controls. */
+   and native dark scrollbars/form controls.
+   Dark mode = premium navy-black/gold sports analytics palette. */
 :root {
   color-scheme: light dark;
-  --color-background: var(--color-background-primary, light-dark(#f5f0e6, #0b1a11));
-  --color-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8dcc8));
-  --color-card: var(--color-background-primary, light-dark(#faf6ee, #112419));
-  --color-card-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8dcc8));
-  --color-popover: var(--color-background-primary, light-dark(#faf6ee, #112419));
-  --color-popover-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8dcc8));
-  --color-primary: light-dark(#b8860b, #d4a017);
-  --color-primary-foreground: light-dark(#faf6ee, #0b1a11);
-  --color-secondary: var(--color-background-secondary, light-dark(#ebe4d4, #1a3024));
-  --color-secondary-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8dcc8));
-  --color-muted: var(--color-background-secondary, light-dark(#ebe4d4, #1a3024));
-  --color-muted-foreground: var(--color-text-secondary, light-dark(#5c7266, #7d9b88));
-  --color-accent: var(--color-background-secondary, light-dark(#ebe4d4, #1a3024));
-  --color-accent-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8dcc8));
-  --color-border: var(--color-border-primary, light-dark(#d4cbb8, #2a4a35));
-  --color-input: var(--color-border-primary, light-dark(#d4cbb8, #2a4a35));
-  --color-ring: var(--color-ring-primary, light-dark(#b8860b, #d4a017));
-  --color-surface-1: var(--color-background-primary, light-dark(#faf6ee, #0b1a11));
-  --color-surface-2: var(--color-background-secondary, light-dark(#f5f0e6, #0f1f15));
-  --color-surface-3: var(--color-background-secondary, light-dark(#ebe4d4, #1a3024));
-  --color-accent-info: light-dark(#2563eb, #5b9cf6);
-  --color-accent-success: light-dark(#15803d, #4ade80);
-  --color-accent-warning: light-dark(#c28800, #f5b731);
-  --color-accent-risk: light-dark(#c0392b, #f87171);
-  --color-accent-neutral: light-dark(#5c7266, #7d9b88);
+  --color-background: var(--color-background-primary, light-dark(#f5f0e6, #0a0e1a));
+  --color-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8e2f0));
+  --color-card: var(--color-background-primary, light-dark(#faf6ee, #101628));
+  --color-card-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8e2f0));
+  --color-popover: var(--color-background-primary, light-dark(#faf6ee, #101628));
+  --color-popover-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8e2f0));
+  --color-primary: light-dark(#b8860b, #f5c518);
+  --color-primary-foreground: light-dark(#faf6ee, #0a0e1a);
+  --color-secondary: var(--color-background-secondary, light-dark(#ebe4d4, #151c30));
+  --color-secondary-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8e2f0));
+  --color-muted: var(--color-background-secondary, light-dark(#ebe4d4, #151c30));
+  --color-muted-foreground: var(--color-text-secondary, light-dark(#5c7266, #7b85a0));
+  --color-accent: var(--color-background-secondary, light-dark(#ebe4d4, #151c30));
+  --color-accent-foreground: var(--color-text-primary, light-dark(#1a2e20, #e8e2f0));
+  --color-border: var(--color-border-primary, light-dark(#d4cbb8, #1e2640));
+  --color-input: var(--color-border-primary, light-dark(#d4cbb8, #1e2640));
+  --color-ring: var(--color-ring-primary, light-dark(#b8860b, #f5c518));
+  --color-surface-1: var(--color-background-primary, light-dark(#faf6ee, #0a0e1a));
+  --color-surface-2: var(--color-background-secondary, light-dark(#f5f0e6, #0e1324));
+  --color-surface-3: var(--color-background-secondary, light-dark(#ebe4d4, #151c30));
+  --color-accent-info: light-dark(#2563eb, #3b82f6);
+  --color-accent-success: light-dark(#15803d, #00ff87);
+  --color-accent-warning: light-dark(#c28800, #ffaa00);
+  --color-accent-risk: light-dark(#c0392b, #ff3b5c);
+  --color-accent-neutral: light-dark(#5c7266, #7b85a0);
   --sem-info: var(--color-accent-info);
   --sem-success: var(--color-accent-success);
   --sem-warning: var(--color-accent-warning);
@@ -86,6 +87,9 @@
   --app-text-sm: var(--font-text-sm-size, clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem));
   --app-text-base: var(--font-text-md-size, clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem));
   --app-text-lg: var(--font-heading-sm-size, clamp(1.0625rem, 1rem + 0.35vw, 1.1875rem));
+  --app-text-xl: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem);
+  --app-text-2xl: clamp(1.5rem, 1.3rem + 0.6vw, 2rem);
+  --app-text-hero: clamp(2rem, 1.8rem + 1vw, 3rem);
   --app-shadow-soft: var(--shadow-sm, 0 1px 2px rgba(2, 8, 23, 0.08), 0 3px 12px rgba(2, 8, 23, 0.04));
   --background: #f5f0e6;
   --foreground: #1a2e20;
@@ -266,7 +270,115 @@ button, a, [role="button"] {
   font-weight: 800;
 }
 
-/* Semantic utility classes used across all apps/views */
+/* ═══════════════════════════════════════════════════
+   Glass morphism utilities
+   ═══════════════════════════════════════════════════ */
+.glass-card {
+  background: color-mix(in oklab, var(--color-card) 72%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in oklab, var(--color-border) 40%, transparent);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--color-foreground) 6%, transparent);
+}
+
+.glass-surface {
+  background: color-mix(in oklab, var(--color-surface-2) 55%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in oklab, var(--color-border) 25%, transparent);
+  border-radius: var(--radius);
+}
+
+/* ═══════════════════════════════════════════════════
+   Glow utilities — colored outer shadows
+   ═══════════════════════════════════════════════════ */
+.glow-success { box-shadow: 0 0 12px color-mix(in oklab, var(--sem-success) 35%, transparent), 0 0 4px color-mix(in oklab, var(--sem-success) 15%, transparent); }
+.glow-risk    { box-shadow: 0 0 12px color-mix(in oklab, var(--sem-risk) 35%, transparent), 0 0 4px color-mix(in oklab, var(--sem-risk) 15%, transparent); }
+.glow-warning { box-shadow: 0 0 12px color-mix(in oklab, var(--sem-warning) 35%, transparent), 0 0 4px color-mix(in oklab, var(--sem-warning) 15%, transparent); }
+.glow-info    { box-shadow: 0 0 12px color-mix(in oklab, var(--sem-info) 35%, transparent), 0 0 4px color-mix(in oklab, var(--sem-info) 15%, transparent); }
+.glow-gold    { box-shadow: 0 0 16px color-mix(in oklab, var(--color-primary) 40%, transparent), 0 0 4px color-mix(in oklab, var(--color-primary) 20%, transparent); }
+
+/* ═══════════════════════════════════════════════════
+   Hero typography — oversized scoreboard numbers
+   ═══════════════════════════════════════════════════ */
+.text-hero {
+  font-size: var(--app-text-hero);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.text-xl-app {
+  font-size: var(--app-text-xl);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.text-2xl-app {
+  font-size: var(--app-text-2xl);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.stat-huge {
+  font-size: var(--app-text-hero);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 1px 2px color-mix(in oklab, var(--color-foreground) 10%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════
+   KPI grid — responsive stat tile layout
+   ═══════════════════════════════════════════════════ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--app-space-2);
+}
+
+/* ═══════════════════════════════════════════════════
+   Premium utility classes
+   ═══════════════════════════════════════════════════ */
+.neon-border {
+  border: 1px solid;
+  box-shadow: 0 0 6px color-mix(in oklab, currentColor 25%, transparent);
+}
+
+.badge-glow {
+  box-shadow: 0 0 8px color-mix(in oklab, currentColor 30%, transparent);
+}
+
+.gradient-banner {
+  width: 100%;
+  padding: var(--app-space-3) var(--app-space-2);
+  border-radius: var(--radius);
+  color: #fff;
+}
+
+.gradient-banner-success { background: linear-gradient(135deg, #059669, #00ff87 180%); }
+.gradient-banner-risk    { background: linear-gradient(135deg, #dc2626, #ff3b5c 180%); }
+.gradient-banner-warning { background: linear-gradient(135deg, #b45309, #ffaa00 180%); }
+.gradient-banner-info    { background: linear-gradient(135deg, #1d4ed8, #3b82f6 180%); }
+.gradient-banner-gold    { background: linear-gradient(135deg, #92400e, #f5c518 180%); }
+.gradient-banner-neutral { background: linear-gradient(135deg, #374151, #6b7280 180%); }
+.gradient-banner-insight { background: linear-gradient(135deg, #312e81, #1e3a5f 180%); }
+
+.card-highlight {
+  transition: box-shadow 200ms ease;
+}
+.card-highlight:hover,
+.card-highlight:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 40%, transparent),
+              0 0 12px color-mix(in oklab, var(--color-primary) 20%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════
+   Semantic utility classes used across all apps/views
+   ═══════════════════════════════════════════════════ */
 .bg-sem-info { background-color: var(--sem-info); color: color-mix(in oklab, var(--color-primary-foreground) 90%, transparent); }
 .bg-sem-success { background-color: var(--sem-success); color: color-mix(in oklab, var(--color-primary-foreground) 90%, transparent); }
 .bg-sem-warning { background-color: var(--sem-warning); color: color-mix(in oklab, var(--color-primary-foreground) 90%, transparent); }
@@ -319,6 +431,9 @@ button, a, [role="button"] {
 .border-yellow-500, .border-yellow-500\/30, .border-yellow-500\/50, .border-amber-500 { border-color: color-mix(in oklab, var(--sem-warning) 45%, var(--color-border)) !important; }
 .border-blue-500, .border-blue-500\/30, .border-blue-500\/50 { border-color: color-mix(in oklab, var(--sem-info) 45%, var(--color-border)) !important; }
 
+/* ═══════════════════════════════════════════════════
+   Animations
+   ═══════════════════════════════════════════════════ */
 @keyframes bar-fill {
   from { width: 0; }
 }
@@ -391,6 +506,24 @@ button, a, [role="button"] {
   border-radius: var(--radius-sm);
 }
 
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px color-mix(in oklab, var(--color-primary) 15%, transparent); }
+  50%      { box-shadow: 0 0 16px color-mix(in oklab, var(--color-primary) 40%, transparent); }
+}
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-left { animation: slide-in-left 300ms ease-out both; }
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-right { animation: slide-in-right 300ms ease-out both; }
+
 .loading-overlay {
   position: absolute;
   inset: 0;
@@ -436,38 +569,41 @@ button, a, [role="button"] {
   }
 }
 
+/* ═══════════════════════════════════════════════════
+   Dark mode — premium navy-black / gold / neon
+   ═══════════════════════════════════════════════════ */
 .dark {
-  --background: #0b1a11;
-  --foreground: #e8dcc8;
-  --card: #112419;
-  --card-foreground: #e8dcc8;
-  --popover: #112419;
-  --popover-foreground: #e8dcc8;
-  --primary: #d4a017;
-  --primary-foreground: #0b1a11;
-  --secondary: #1a3024;
-  --secondary-foreground: #e8dcc8;
-  --muted: #1a3024;
-  --muted-foreground: #7d9b88;
-  --accent: #1a3024;
-  --accent-foreground: #e8dcc8;
-  --destructive: #f87171;
-  --border: #2a4a35;
-  --input: #2a4a35;
-  --ring: #d4a017;
-  --chart-1: #d4a017;
-  --chart-2: #f5b731;
-  --chart-3: #4ade80;
-  --chart-4: #5b9cf6;
-  --chart-5: #f87171;
-  --sidebar: #112419;
-  --sidebar-foreground: #e8dcc8;
-  --sidebar-primary: #d4a017;
-  --sidebar-primary-foreground: #0b1a11;
-  --sidebar-accent: #1a3024;
-  --sidebar-accent-foreground: #e8dcc8;
-  --sidebar-border: #2a4a35;
-  --sidebar-ring: #d4a017;
+  --background: #0a0e1a;
+  --foreground: #e8e2f0;
+  --card: #101628;
+  --card-foreground: #e8e2f0;
+  --popover: #101628;
+  --popover-foreground: #e8e2f0;
+  --primary: #f5c518;
+  --primary-foreground: #0a0e1a;
+  --secondary: #151c30;
+  --secondary-foreground: #e8e2f0;
+  --muted: #151c30;
+  --muted-foreground: #7b85a0;
+  --accent: #151c30;
+  --accent-foreground: #e8e2f0;
+  --destructive: #ff3b5c;
+  --border: #1e2640;
+  --input: #1e2640;
+  --ring: #f5c518;
+  --chart-1: #f5c518;
+  --chart-2: #ffaa00;
+  --chart-3: #00ff87;
+  --chart-4: #3b82f6;
+  --chart-5: #ff3b5c;
+  --sidebar: #101628;
+  --sidebar-foreground: #e8e2f0;
+  --sidebar-primary: #f5c518;
+  --sidebar-primary-foreground: #0a0e1a;
+  --sidebar-accent: #151c30;
+  --sidebar-accent-foreground: #e8e2f0;
+  --sidebar-border: #1e2640;
+  --sidebar-ring: #f5c518;
 }
 
 @theme inline {

@@ -7,6 +7,8 @@ import { useCallTool } from "../shared/use-call-tool";
 import { mlbHeadshotUrl } from "../shared/mlb-images";
 import { TeamLogo } from "../shared/team-logo";
 import { IntelBadge } from "../shared/intel-badge";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { FlaskConical, Search, Loader2, TrendingUp, TrendingDown, Minus } from "@/shared/icons";
 
 interface SimulatePlayer {
@@ -36,6 +38,7 @@ interface SimulateData {
   current_ranks: CategoryRank[];
   simulated_ranks: SimulatedRank[];
   summary: string;
+  ai_recommendation?: string | null;
 }
 
 interface RosterPlayer {
@@ -118,6 +121,14 @@ export function SimulateView({ data, app, navigate }: { data: SimulateData; app:
 
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={improved} label="Improved" color={improved > 0 ? "success" : "neutral"} />
+        <KpiTile value={regressed} label="Regressed" color={regressed > 0 ? "risk" : "neutral"} />
+        <KpiTile value={(netChange > 0 ? "+" : "") + netChange} label="Net Change" color={netChange > 0 ? "success" : netChange < 0 ? "risk" : "neutral"} />
+      </div>
+
       {/* Header */}
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <FlaskConical size={18} />

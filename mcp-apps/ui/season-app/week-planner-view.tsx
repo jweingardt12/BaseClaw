@@ -1,4 +1,6 @@
 import { Badge } from "../components/ui/badge";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { TeamLogo } from "../shared/team-logo";
 
 interface WeekPlannerPlayer {
@@ -17,6 +19,7 @@ interface WeekPlannerData {
   dates: string[];
   players: WeekPlannerPlayer[];
   daily_totals: Record<string, number>;
+  ai_recommendation?: string | null;
 }
 
 function dayLabel(dateStr: string): string {
@@ -39,9 +42,25 @@ export function WeekPlannerView({ data }: { data: WeekPlannerData }) {
 
   // Calculate max daily total for color scaling
   var maxTotal = Math.max(1, ...Object.values(totals));
+  var totalGames = Object.values(totals).reduce(function (a, b) { return a + b; }, 0);
+  var offDays = Object.values(totals).filter(function (v) { return v === 0; }).length;
+  var bestDayVal = Math.max(0, ...Object.values(totals));
+  var bestDay = "";
+  var bestKeys = Object.keys(totals);
+  for (var bi = 0; bi < bestKeys.length; bi++) {
+    if (totals[bestKeys[bi]] === bestDayVal) { bestDay = bestKeys[bi].slice(5); break; }
+  }
 
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={totalGames} label="Total Games" color="primary" />
+        <KpiTile value={offDays} label="Off Days" color={offDays > 0 ? "warning" : "success"} />
+        <KpiTile value={bestDay || "-"} label="Best Day" color="info" />
+      </div>
+
       <div>
         <h2 className="text-lg font-semibold">
           Week {data.week} Planner

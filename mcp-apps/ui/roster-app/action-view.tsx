@@ -1,6 +1,6 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { useCallTool } from "../shared/use-call-tool";
+import { AiInsight } from "../shared/ai-insight";
 import { CheckCircle, XCircle, ArrowLeft, Loader2 } from "@/shared/icons";
 
 interface ActionData {
@@ -10,6 +10,7 @@ interface ActionData {
   player_id?: string;
   add_id?: string;
   drop_id?: string;
+  ai_recommendation?: string | null;
 }
 
 export function ActionView({ data, app, navigate }: { data: ActionData; app: any; navigate: (data: any) => void }) {
@@ -25,29 +26,34 @@ export function ActionView({ data, app, navigate }: { data: ActionData; app: any
   };
 
   return (
-    <Card className="w-full mt-2 animate-slide-up overflow-hidden">
-      <CardHeader className={data.success ? "bg-sem-success-subtle" : "bg-destructive/5"}>
-        <div className="flex items-center gap-2">
-          <CardTitle>{title}</CardTitle>
-          {data.success
-            ? <CheckCircle size={20} className="text-sem-success animate-success-pop" />
-            : <XCircle size={20} className="text-destructive animate-error-shake" />
-          }
+    <div className="space-y-3 mt-2 animate-slide-up">
+      <div className={"glass-card overflow-hidden " + (data.success ? "glow-success" : "glow-risk")}>
+        <div className={"p-4 " + (data.success ? "bg-sem-success-subtle" : "bg-destructive/5")}>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-base">{title}</h3>
+            {data.success
+              ? <CheckCircle size={20} className="text-sem-success animate-success-pop" />
+              : <XCircle size={20} className="text-destructive animate-error-shake" />
+            }
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-base">{data.message}</p>
-        {data.player_id && <p className="text-xs text-muted-foreground mt-2">{"Player ID: " + data.player_id}</p>}
-        {data.add_id && <p className="text-xs text-muted-foreground mt-1">{"Added ID: " + data.add_id}</p>}
-        {data.drop_id && <p className="text-xs text-muted-foreground mt-1">{"Dropped ID: " + data.drop_id}</p>}
-        <div className="mt-4 flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleBackToRoster}>
-            <ArrowLeft size={14} className="mr-1" />
-            Back to Roster
-          </Button>
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        <div className="p-4">
+          <p className="text-base">{data.message}</p>
+          {data.player_id && <p className="text-xs text-muted-foreground mt-2">{"Player ID: " + data.player_id}</p>}
+          {data.add_id && <p className="text-xs text-muted-foreground mt-1">{"Added ID: " + data.add_id}</p>}
+          {data.drop_id && <p className="text-xs text-muted-foreground mt-1">{"Dropped ID: " + data.drop_id}</p>}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={handleBackToRoster}>
+          <ArrowLeft size={14} className="mr-1" />
+          Back to Roster
+        </Button>
+        {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+      </div>
+    </div>
   );
 }

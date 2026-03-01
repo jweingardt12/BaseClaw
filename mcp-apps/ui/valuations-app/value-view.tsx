@@ -2,10 +2,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { BarChart3 } from "@/shared/icons";
-import { ZScoreBadge, ZScoreExplainer, tierTextColor } from "../shared/z-score";
+import { ZScoreExplainer, tierTextColor } from "../shared/z-score";
 import { IntelBadge } from "../shared/intel-badge";
 import { IntelPanel } from "../shared/intel-panel";
 import { PlayerName } from "../shared/player-name";
+import { VerdictBadge } from "../shared/verdict-badge";
 import { formatFixed, toFiniteNumber } from "../shared/number-format";
 
 interface ValueCategory {
@@ -22,6 +23,7 @@ interface ValueData {
   z_final: number;
   categories: ValueCategory[];
   intel?: any;
+  ai_recommendation?: string | null;
 }
 
 function formatRawStat(val: number | null): string {
@@ -30,34 +32,57 @@ function formatRawStat(val: number | null): string {
   return String(val);
 }
 
+function zVariant(z: number): "success" | "info" | "warning" | "risk" {
+  if (z >= 2.0) return "success";
+  if (z >= 1.0) return "info";
+  if (z >= 0) return "warning";
+  return "risk";
+}
+
+function zGrade(z: number): string {
+  if (z >= 2.0) return "ELITE";
+  if (z >= 1.0) return "GOOD";
+  if (z >= 0) return "FAIR";
+  return "POOR";
+}
+
 export function ValueView({ data, app, navigate }: { data: ValueData; app?: any; navigate?: (data: any) => void }) {
-  const chartData = (data.categories || []).map(function (c) {
+  var chartData = (data.categories || []).map(function (c) {
     return { name: c.category, z_score: c.z_score };
   });
 
-  const details: string[] = [];
+  var details: string[] = [];
   if (data.team) details.push(data.team);
   if (data.pos) details.push(data.pos);
 
   return (
     <div className="space-y-2">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2 flex-wrap">
-            <BarChart3 size={18} />
-            <CardTitle><PlayerName name={data.name} app={app} navigate={navigate} context="default" /></CardTitle>
-            {details.length > 0 && (
-              <Badge variant="outline" className="text-xs">{details.join(" - ")}</Badge>
-            )}
-            <ZScoreBadge z={data.z_final} />
-            {data.intel && <IntelBadge intel={data.intel} size="md" />}
+      {/* Hero card with big z-score */}
+      <Card className="glow-gold border-primary/40">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <BarChart3 size={20} />
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl-app font-bold truncate">
+                <PlayerName name={data.name} app={app} navigate={navigate} context="default" />
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                {details.length > 0 && (
+                  <Badge variant="outline" className="text-xs">{details.join(" - ")}</Badge>
+                )}
+                {data.intel && <IntelBadge intel={data.intel} size="md" />}
+              </div>
+            </div>
+            <div className="text-center shrink-0">
+              <div className="text-hero font-mono">{data.z_final >= 0 ? "+" : ""}{formatFixed(toFiniteNumber(data.z_final, 0), 2, "0.00")}</div>
+              <VerdictBadge grade={zGrade(data.z_final)} variant={zVariant(data.z_final)} size="sm" />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <ZScoreExplainer />
-          {data.intel && <IntelPanel intel={data.intel} />}
         </CardContent>
       </Card>
+
+      <ZScoreExplainer />
+      {data.intel && <IntelPanel intel={data.intel} />}
 
       {chartData.length > 0 && (
         <div className="h-64">
@@ -76,19 +101,26 @@ export function ValueView({ data, app, navigate }: { data: ValueData; app?: any;
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-1.5">
         {(data.categories || []).map(function (c) {
+          var pct = Math.max(0, Math.min(100, ((c.z_score + 2) / 6) * 100));
+          var barColor = c.z_score >= 2 ? "bg-green-500" : c.z_score >= 1 ? "bg-blue-500" : c.z_score >= 0 ? "bg-yellow-500" : "bg-red-500";
           return (
-            <div key={c.category} className="flex items-center justify-between rounded-md border p-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{c.category}</span>
-                {c.raw_stat != null && (
-                  <span className="font-mono text-xs text-muted-foreground">{formatRawStat(c.raw_stat)}</span>
-                )}
+            <div key={c.category} className="glass-card p-2.5 card-highlight">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold">{c.category}</span>
+                  {c.raw_stat != null && (
+                    <span className="font-mono text-xs text-muted-foreground">{formatRawStat(c.raw_stat)}</span>
+                  )}
+                </div>
+                <span className={"font-mono text-sm font-bold " + tierTextColor(c.z_score)}>
+                  {c.z_score >= 0 ? "+" : ""}{formatFixed(toFiniteNumber(c.z_score, 0), 2, "0.00")}
+                </span>
               </div>
-              <span className={"font-mono text-sm font-medium " + tierTextColor(c.z_score)}>
-                {c.z_score >= 0 ? "+" : ""}{formatFixed(toFiniteNumber(c.z_score, 0), 2, "0.00")}
-              </span>
+              <div className="h-3 rounded-sm overflow-hidden bg-muted">
+                <div className={"h-full rounded-sm transition-all animate-bar-fill " + barColor} style={{ width: pct + "%" }} />
+              </div>
             </div>
           );
         })}

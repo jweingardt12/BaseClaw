@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { useCallTool } from "../shared/use-call-tool";
+import { AiInsight } from "../shared/ai-insight";
 import { CheckCircle, XCircle, ArrowLeft, Loader2 } from "@/shared/icons";
 
 interface TradeActionData {
@@ -8,6 +9,7 @@ interface TradeActionData {
   success: boolean;
   message: string;
   transaction_key?: string;
+  ai_recommendation?: string | null;
 }
 
 export function TradeActionView({ data, app, navigate }: { data: TradeActionData; app: any; navigate: (data: any) => void }) {
@@ -28,7 +30,9 @@ export function TradeActionView({ data, app, navigate }: { data: TradeActionData
   };
 
   return (
-    <Card className="w-full mt-2 animate-slide-up overflow-hidden">
+    <div className="space-y-2">
+    <AiInsight recommendation={data.ai_recommendation} />
+    <Card className="w-full animate-slide-up overflow-hidden glass-card">
       <CardHeader className={data.success ? "bg-sem-success-subtle" : "bg-destructive/5"}>
         <div className="flex items-center gap-2">
           <CardTitle>{title}</CardTitle>
@@ -52,5 +56,6 @@ export function TradeActionView({ data, app, navigate }: { data: TradeActionData
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }

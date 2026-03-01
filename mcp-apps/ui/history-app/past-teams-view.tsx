@@ -1,6 +1,7 @@
 import { Button } from "../components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { useCallTool } from "../shared/use-call-tool";
+import { StatusBanner } from "../shared/status-banner";
 import { ChevronLeft, ChevronRight, Loader2 } from "@/shared/icons";
 
 interface PastTeamEntry {
@@ -26,12 +27,14 @@ export function PastTeamsView({ data, app, navigate }: { data: PastTeamsData; ap
   };
 
   return (
-    <div className="animate-fade-in">
-      <div className="flex items-center justify-between mb-2">
+    <div className="space-y-3 animate-fade-in">
+      <div className="flex items-center justify-between gap-2">
         <Button variant="outline" size="sm" disabled={data.year <= 2011 || loading} onClick={() => changeYear(data.year - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-lg font-semibold">Teams - {data.year}</h2>
+        <div className="flex-1">
+          <StatusBanner text={"Teams - " + data.year} variant="info" />
+        </div>
         <Button variant="outline" size="sm" disabled={data.year >= 2026 || loading} onClick={() => changeYear(data.year + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -42,26 +45,30 @@ export function PastTeamsView({ data, app, navigate }: { data: PastTeamsData; ap
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         )}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Team</TableHead>
-              <TableHead className="hidden sm:table-cell">Manager</TableHead>
-              <TableHead className="text-right">Moves</TableHead>
-              <TableHead className="text-right">Trades</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(data.teams || []).map((t) => (
-              <TableRow key={t.name}>
-                <TableCell className="font-medium">{t.name}</TableCell>
-                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{t.manager}</TableCell>
-                <TableCell className="text-right font-mono">{t.moves}</TableCell>
-                <TableCell className="text-right font-mono">{t.trades}</TableCell>
+        <div className="glass-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-bold">Team</TableHead>
+                <TableHead className="hidden sm:table-cell font-bold">Manager</TableHead>
+                <TableHead className="text-right font-bold">Moves</TableHead>
+                <TableHead className="text-right font-bold">Trades</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {(data.teams || []).map(function (t) {
+                return (
+                  <TableRow key={t.name}>
+                    <TableCell className="font-semibold">{t.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{t.manager}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{t.moves}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{t.trades}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

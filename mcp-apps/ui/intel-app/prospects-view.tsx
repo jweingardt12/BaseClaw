@@ -1,6 +1,6 @@
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { TeamLogo } from "../shared/team-logo";
+import { KpiTile } from "../shared/kpi-tile";
 
 interface Transaction {
   player: string;
@@ -13,54 +13,59 @@ interface Transaction {
 interface ProspectsData {
   type: string;
   transactions: Transaction[];
+  ai_recommendation?: string | null;
 }
 
 function typeColor(type: string): string {
-  const t = type.toLowerCase();
-  if (t.indexOf("call") >= 0 || t.indexOf("recall") >= 0) return "bg-green-500/20 text-green-700 dark:text-green-400";
-  if (t.indexOf("option") >= 0 || t.indexOf("assign") >= 0) return "bg-orange-500/20 text-orange-700 dark:text-orange-400";
-  if (t.indexOf("dfa") >= 0 || t.indexOf("release") >= 0) return "bg-red-500/20 text-red-700 dark:text-red-400";
+  var t = type.toLowerCase();
+  if (t.indexOf("call") >= 0 || t.indexOf("recall") >= 0) return "bg-sem-success-subtle text-sem-success font-bold";
+  if (t.indexOf("option") >= 0 || t.indexOf("assign") >= 0) return "bg-sem-warning-subtle text-sem-warning font-bold";
+  if (t.indexOf("dfa") >= 0 || t.indexOf("release") >= 0) return "bg-sem-risk-subtle text-sem-risk font-bold";
   return "bg-muted text-muted-foreground";
 }
 
 export function ProspectsView({ data, app, navigate }: { data: ProspectsData; app: any; navigate: (data: any) => void }) {
+  var transactions = data.transactions || [];
+  var callups = transactions.filter(function (t) {
+    var type = t.type.toLowerCase();
+    return type.indexOf("call") >= 0 || type.indexOf("recall") >= 0;
+  });
+
   return (
     <div className="space-y-2">
       <h2 className="text-lg font-semibold">Prospect Watch</h2>
       <p className="text-xs text-muted-foreground">Recent call-ups and roster moves that could impact fantasy</p>
 
-      {(data.transactions || []).length === 0 ? (
+      {/* KPI */}
+      <div className="kpi-grid">
+        <KpiTile value={callups.length} label="Call-Ups" color="success" />
+        <KpiTile value={transactions.length} label="Total Moves" color="info" />
+      </div>
+
+      {transactions.length === 0 ? (
         <p className="text-sm text-muted-foreground">No recent prospect moves found.</p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Type</TableHead>
-              <TableHead>Player</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead className="hidden sm:table-cell">Details</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(data.transactions || []).map(function(t, i) {
-              return (
-                <TableRow key={i}>
-                  <TableCell>
+        <div className="space-y-1.5">
+          {transactions.map(function(t, i) {
+            return (
+              <div key={i} className="glass-card p-3 flex items-center gap-3 card-highlight">
+                <div className="shrink-0">
+                  <TeamLogo abbrev={t.team} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <Badge variant="secondary" className={"text-xs " + typeColor(t.type)}>{t.type}</Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">{t.player}</TableCell>
-                  <TableCell className="text-sm">
-                    <span className="flex items-center gap-1">
-                      <TeamLogo abbrev={t.team} />
-                      {t.team || "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{t.description || "—"}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    <span className="text-xs text-muted-foreground">{t.team || ""}</span>
+                  </div>
+                  <p className="text-sm font-semibold truncate">{t.player}</p>
+                  {t.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

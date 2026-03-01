@@ -7,6 +7,8 @@ import { useCallTool } from "../shared/use-call-tool";
 import { RefreshButton } from "../shared/refresh-button";
 import { PlayerName } from "../shared/player-name";
 import { EmptyState } from "../shared/empty-state";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { ArrowRightLeft, BarChart3, Send, Loader2, Search } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 
@@ -37,6 +39,7 @@ interface TradeFinderData {
   weak_categories: string[];
   strong_categories: string[];
   partners: TradePartner[];
+  ai_recommendation?: string | null;
 }
 
 export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData; app: any; navigate: (data: any) => void }) {
@@ -70,6 +73,12 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
 
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={partners.length} label="Partners" color={partners.length > 0 ? "success" : "neutral"} />
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Search size={18} />

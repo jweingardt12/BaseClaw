@@ -9,6 +9,9 @@ import { useCallTool } from "../shared/use-call-tool";
 import { TeamLogo } from "../shared/team-logo";
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
 import { Play, Loader2, ArrowRightLeft, AlertTriangle, CheckCircle, ArrowRight, Copy, Check } from "@/shared/icons";
 
 interface Player {
@@ -32,6 +35,7 @@ interface LineupData {
   swaps: LineupSwap[];
   applied: boolean;
   message: string;
+  ai_recommendation?: string | null;
 }
 
 export function LineupOptimizeView({ data, app, navigate }: { data: LineupData; app: any; navigate: (data: any) => void }) {
@@ -57,8 +61,26 @@ export function LineupOptimizeView({ data, app, navigate }: { data: LineupData; 
     }
   };
 
+  var issuesCount = (data.active_off_day || []).length + (data.bench_playing || []).length;
+  var swapsCount = (data.swaps || []).length;
+  var gamesCount = (data.bench_playing || []).length;
+
   return (
     <div className="space-y-2">
+      <StatusBanner
+        text={hasIssues ? issuesCount + " LINEUP ISSUES" : "LINEUP OPTIMIZED"}
+        subtitle={hasIssues ? swapsCount + " swap" + (swapsCount === 1 ? "" : "s") + " recommended" : "All active players have games today"}
+        variant={hasIssues ? "alert" : "success"}
+      />
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={issuesCount} label="Issues" color={issuesCount > 0 ? "risk" : "success"} />
+        <KpiTile value={swapsCount} label="Swaps" color={swapsCount > 0 ? "warning" : "neutral"} />
+        <KpiTile value={gamesCount} label="Bench w/ Games" color={gamesCount > 0 ? "info" : "neutral"} />
+      </div>
+
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold">Lineup Optimizer</h2>
         {data.applied && (
@@ -245,7 +267,7 @@ export function LineupOptimizeView({ data, app, navigate }: { data: LineupData; 
       )}
 
       {!data.applied && (data.swaps || []).length > 0 && (
-        <Button variant="default" onClick={() => setConfirmOpen(true)} disabled={loading}>
+        <Button variant="default" className="w-full" onClick={() => setConfirmOpen(true)} disabled={loading}>
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
           <span className="ml-1.5">Apply Swaps</span>
         </Button>

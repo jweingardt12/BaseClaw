@@ -8,6 +8,8 @@ import { teamLogoFromAbbrev } from "../shared/mlb-images";
 import { IntelBadge } from "../shared/intel-badge";
 import { IntelPanel } from "../shared/intel-panel";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { Users, UserMinus, Loader2 } from "@/shared/icons";
 
 interface Player {
@@ -21,9 +23,13 @@ interface Player {
   intel?: any;
 }
 
-export function RosterView({ data, app, navigate }: { data: { players: Player[] }; app: any; navigate: (data: any) => void }) {
+export function RosterView({ data, app, navigate }: { data: { players: Player[]; ai_recommendation?: string | null }; app: any; navigate: (data: any) => void }) {
   const { callTool, loading } = useCallTool(app);
   const [dropTarget, setDropTarget] = useState<Player | null>(null);
+
+  var players = data.players || [];
+  var injuredCount = players.filter(function (p) { return p.status && p.status !== "Healthy"; }).length;
+  var ilSlots = players.filter(function (p) { return p.position === "IL" || p.position === "IL+"; }).length;
 
   const handleDrop = async () => {
     if (!dropTarget) return;
@@ -35,11 +41,20 @@ export function RosterView({ data, app, navigate }: { data: { players: Player[] 
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold flex items-center gap-2">
         <Users className="h-5 w-5" />
         Current Roster
       </h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={players.length} label="Total Players" color="primary" />
+        <KpiTile value={injuredCount} label="Injured" color={injuredCount > 0 ? "risk" : "success"} />
+        <KpiTile value={ilSlots} label="IL Slots Used" color="info" />
+      </div>
+
       <div className="relative">
         {loading && (
           <div className="loading-overlay">
@@ -57,12 +72,14 @@ export function RosterView({ data, app, navigate }: { data: { players: Player[] 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(data.players || []).map((p) => {
+            {players.map((p) => {
               const logoUrl = p.team ? teamLogoFromAbbrev(p.team) : null;
               return (
                 <React.Fragment key={p.player_id}>
                 <TableRow>
-                  <TableCell className="font-mono text-xs">{p.position || "?"}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="font-mono text-xs font-bold">{p.position || "?"}</Badge>
+                  </TableCell>
                   <TableCell className="font-medium">
                     <span className="flex items-center" style={{ gap: "4px" }}>
                       {logoUrl && <img src={logoUrl} alt={p.team || ""} width={16} height={16} style={{ display: "inline", flexShrink: 0 }} />}
@@ -73,7 +90,7 @@ export function RosterView({ data, app, navigate }: { data: { players: Player[] 
                   <TableCell className="hidden sm:table-cell">
                     <div className="flex gap-1 flex-wrap">
                       {(p.eligible_positions || []).map((pos) => (
-                        <Badge key={pos} variant="secondary" className="text-xs">{pos}</Badge>
+                        <Badge key={pos} variant="outline" className="text-xs font-bold">{pos}</Badge>
                       ))}
                     </div>
                   </TableCell>
@@ -103,7 +120,7 @@ export function RosterView({ data, app, navigate }: { data: { players: Player[] 
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground mt-2">{(data.players || []).length + " players"}</p>
+      <p className="text-xs text-muted-foreground mt-2">{players.length + " players"}</p>
       <AlertDialog
         open={dropTarget !== null}
         onClose={() => setDropTarget(null)}

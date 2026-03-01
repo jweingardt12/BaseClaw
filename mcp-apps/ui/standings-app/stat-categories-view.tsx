@@ -1,5 +1,5 @@
 import { Badge } from "../components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
+import { AiInsight } from "../shared/ai-insight";
 
 interface StatCategory {
   display_name: string;
@@ -7,37 +7,36 @@ interface StatCategory {
   position_type?: string;
 }
 
-export function StatCategoriesView({ data }: { data: { categories: StatCategory[] } }) {
-  const batting = (data.categories || []).filter((c) => c.position_type === "B");
-  const pitching = (data.categories || []).filter((c) => c.position_type === "P");
-  const other = (data.categories || []).filter((c) => !c.position_type);
+export function StatCategoriesView({ data }: { data: { categories: StatCategory[]; ai_recommendation?: string | null } }) {
+  var batting = (data.categories || []).filter((c) => c.position_type === "B");
+  var pitching = (data.categories || []).filter((c) => c.position_type === "P");
+  var other = (data.categories || []).filter((c) => !c.position_type);
 
-  const renderGroup = (title: string, cats: StatCategory[]) => {
+  var renderGroup = function (title: string, cats: StatCategory[], colorClass: string) {
     if (cats.length === 0) return null;
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {cats.map((c) => (
-              <Badge key={c.display_name} variant="outline" className="text-sm py-1 px-3">
-                {c.display_name}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="glass-card p-4">
+        <h3 className={"text-base font-semibold mb-3 " + colorClass}>{title}</h3>
+        <div className="flex flex-wrap gap-2">
+          {cats.map((c) => (
+            <Badge key={c.display_name} variant="outline" className="text-sm py-1 px-3 font-bold">
+              {c.display_name}
+            </Badge>
+          ))}
+        </div>
+      </div>
     );
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <h2 className="text-lg font-semibold">Stat Categories</h2>
-      {renderGroup("Batting", batting)}
-      {renderGroup("Pitching", pitching)}
-      {renderGroup("Other", other)}
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      {renderGroup("Batting", batting, "text-sem-success")}
+      {renderGroup("Pitching", pitching, "text-sem-info")}
+      {renderGroup("Other", other, "text-muted-foreground")}
     </div>
   );
 }

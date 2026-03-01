@@ -1,5 +1,5 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import { AiInsight } from "../shared/ai-insight";
 
 interface LeagueInfo {
   name: string;
@@ -13,10 +13,11 @@ interface LeagueInfo {
   max_weekly_adds: number;
   team_name: string;
   team_id: string;
+  ai_recommendation?: string | null;
 }
 
 export function InfoView({ data }: { data: LeagueInfo }) {
-  const rows = [
+  var rows = [
     ["Season", data.season],
     ["Draft Status", data.draft_status],
     ["Current Week", String(data.current_week)],
@@ -28,34 +29,31 @@ export function InfoView({ data }: { data: LeagueInfo }) {
   ];
 
   return (
-    <div className="space-y-2">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CardTitle>{data.name}</CardTitle>
-            <Badge variant="secondary">{data.season}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {rows.map(([label, value]) => (
-              <div key={label}>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-sm font-medium">{value}</p>
+    <div className="space-y-3">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="font-semibold text-lg">{data.name}</h3>
+          <Badge variant="secondary">{data.season}</Badge>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {rows.map(function (row) {
+            return (
+              <div key={row[0]}>
+                <p className="text-xs text-muted-foreground">{row[0]}</p>
+                <p className="text-sm font-medium">{row[1]}</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Your Team</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="font-medium">{data.team_name}</p>
-          <p className="text-xs text-muted-foreground">{data.team_id}</p>
-        </CardContent>
-      </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="glass-card p-4">
+        <h3 className="font-semibold text-base mb-2">Your Team</h3>
+        <p className="font-medium">{data.team_name}</p>
+        <p className="text-xs text-muted-foreground">{data.team_id}</p>
+      </div>
     </div>
   );
 }

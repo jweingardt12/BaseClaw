@@ -1,5 +1,6 @@
 import { Badge } from "../components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import { StatusBanner } from "../shared/status-banner";
 import { PlayerName } from "../shared/player-name";
 
 interface MlbRosterPlayer {
@@ -15,29 +16,32 @@ interface MlbRosterData {
 
 export function RosterView({ data, app, navigate }: { data: MlbRosterData; app?: any; navigate?: (data: any) => void }) {
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2">{data.team_name} Roster</h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-14">#</TableHead>
-            <TableHead>Player</TableHead>
-            <TableHead>Position</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(data.players || []).map((p) => (
-            <TableRow key={p.name + p.jersey_number}>
-              <TableCell className="font-mono">{p.jersey_number}</TableCell>
-              <TableCell className="font-medium"><PlayerName name={p.name} app={app} navigate={navigate} context="default" /></TableCell>
-              <TableCell>
-                <Badge variant="outline" className="text-xs">{p.position}</Badge>
-              </TableCell>
+    <div className="space-y-3">
+      <StatusBanner text={data.team_name + " Roster"} subtitle={(data.players || []).length + " players"} variant="info" />
+      <div className="glass-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-14 font-bold">#</TableHead>
+              <TableHead className="font-bold">Player</TableHead>
+              <TableHead className="font-bold">Position</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <p className="text-xs text-muted-foreground mt-2">{(data.players || []).length} players</p>
+          </TableHeader>
+          <TableBody>
+            {(data.players || []).map(function (p) {
+              return (
+                <TableRow key={p.name + p.jersey_number}>
+                  <TableCell className="font-mono font-semibold">{p.jersey_number}</TableCell>
+                  <TableCell className="font-semibold"><PlayerName name={p.name} app={app} navigate={navigate} context="default" /></TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs font-bold">{p.position}</Badge>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

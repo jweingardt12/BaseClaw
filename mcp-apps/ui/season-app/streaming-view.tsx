@@ -5,6 +5,8 @@ import { teamLogoFromAbbrev } from "../shared/mlb-images";
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
 import { TrendIndicator } from "../shared/trend-indicator";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, Loader2, Zap } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 
@@ -25,6 +27,7 @@ interface StreamingData {
   week: number;
   team_games: Record<string, number>;
   pitchers: StreamingPitcher[];
+  ai_recommendation?: string | null;
 }
 
 export function StreamingView({ data, app, navigate }: { data: StreamingData; app: any; navigate: (data: any) => void }) {
@@ -37,8 +40,18 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
     }
   };
 
+  var twoStartCount = (data.pitchers || []).filter(function (p) { return p.two_start; }).length;
+  var bestGrade = (data.pitchers || []).length > 0 ? formatFixed((data.pitchers || [])[0].score, 1, "0.0") : "-";
+
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={twoStartCount} label="2-Start" color={twoStartCount > 0 ? "success" : "neutral"} />
+        <KpiTile value={bestGrade} label="Best Score" color="primary" />
+      </div>
+
       <h2 className="text-lg font-semibold">Streaming Pitchers - Week {data.week}</h2>
 
       <div className="relative">

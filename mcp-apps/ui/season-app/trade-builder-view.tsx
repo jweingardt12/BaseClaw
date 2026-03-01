@@ -7,6 +7,7 @@ import { useCallTool } from "../shared/use-call-tool";
 
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
 import { ArrowRightLeft, Search, Loader2, CheckSquare, Square, TrendingUp, TrendingDown } from "@/shared/icons";
 import { formatFixed, toFiniteNumber } from "../shared/number-format";
 
@@ -24,6 +25,7 @@ interface TradeBuilderData {
   roster?: { players: RosterPlayer[] };
   search_results?: RosterPlayer[];
   evaluation?: any;
+  ai_recommendation?: string | null;
 }
 
 export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderData; app: any; navigate: (data: any) => void }) {
@@ -86,9 +88,11 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
         {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
 
+      <AiInsight recommendation={data.ai_recommendation} />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Your roster - Give side */}
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base text-destructive">You Give</CardTitle>
@@ -132,7 +136,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
         </Card>
 
         {/* Search / Get side */}
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-primary">You Get</CardTitle>
           </CardHeader>

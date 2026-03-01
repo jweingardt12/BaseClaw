@@ -6,6 +6,9 @@ import { useCallTool } from "../shared/use-call-tool";
 import { RefreshButton } from "../shared/refresh-button";
 import { PlayerName } from "../shared/player-name";
 import { TrendIndicator } from "../shared/trend-indicator";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
 import { AlertTriangle, ArrowRightLeft, Activity, TrendingUp, Star, UserPlus, Loader2 } from "@/shared/icons";
 import { TeamLogo } from "../shared/team-logo";
 
@@ -50,6 +53,7 @@ interface WhatsNewData {
   league_activity: WhatsNewActivity[];
   trending: WhatsNewTrending[];
   prospects: WhatsNewProspect[];
+  ai_recommendation?: string | null;
 }
 
 export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app: any; navigate: (data: any) => void }) {
@@ -67,8 +71,25 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
     app.sendMessage("Add " + playerName + " to my roster");
   };
 
+  var totalItems = (data.injuries || []).length + (data.pending_trades || []).length + (data.league_activity || []).length + (data.trending || []).length + (data.prospects || []).length;
+
   return (
     <div className="space-y-2">
+      <StatusBanner
+        text={totalItems + " ITEMS NEED ATTENTION"}
+        subtitle={data.check_time || data.last_check}
+        variant={totalItems > 0 ? "alert" : "success"}
+      />
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={(data.injuries || []).length} label="Injuries" color={(data.injuries || []).length > 0 ? "risk" : "success"} />
+        <KpiTile value={(data.pending_trades || []).length} label="Trades" color={(data.pending_trades || []).length > 0 ? "warning" : "neutral"} />
+        <KpiTile value={(data.trending || []).length} label="Trending" color="info" />
+        <KpiTile value={(data.prospects || []).length} label="Prospects" color="primary" />
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">What's New</h2>
         <div className="flex items-center gap-2">

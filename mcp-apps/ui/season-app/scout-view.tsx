@@ -4,6 +4,9 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { useCallTool } from "../shared/use-call-tool";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
 import { Shield, TrendingUp, TrendingDown, Target, AlertTriangle, Loader2, RefreshCw } from "@/shared/icons";
 
 interface ScoutCategory {
@@ -22,6 +25,7 @@ interface ScoutOpponentData {
   opp_strengths: string[];
   opp_weaknesses: string[];
   strategy: string[];
+  ai_recommendation?: string | null;
 }
 
 function scoreBadgeColor(wins: number, losses: number): string {
@@ -62,8 +66,24 @@ export function ScoutView({ data, app, navigate }: { data: ScoutOpponentData; ap
 
   const score = d.score || { wins: 0, losses: 0, ties: 0 };
 
+  var weaknessCount = (d.opp_weaknesses || []).length;
+
   return (
     <div className="space-y-2">
+      <StatusBanner
+        text={"SCOUTING: " + (d.opponent || "").toUpperCase()}
+        subtitle={"Week " + d.week + " - " + score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "")}
+        variant="info"
+      />
+
+      <AiInsight recommendation={d.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={weaknessCount} label="Opp Weaknesses" color={weaknessCount > 0 ? "success" : "neutral"} />
+        <KpiTile value={score.wins} label="Wins" color="success" />
+        <KpiTile value={score.losses} label="Losses" color="risk" />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

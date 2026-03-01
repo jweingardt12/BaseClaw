@@ -7,6 +7,7 @@ import { useCallTool } from "../shared/use-call-tool";
 import { PlayerName } from "../shared/player-name";
 import { EmptyState } from "../shared/empty-state";
 import { RefreshButton } from "../shared/refresh-button";
+import { AiInsight } from "../shared/ai-insight";
 import { ArrowRightLeft, Check, X, Loader2, Inbox } from "@/shared/icons";
 
 interface TradePlayer {
@@ -29,6 +30,7 @@ interface TradeProposal {
 
 interface PendingTradesData {
   trades: TradeProposal[];
+  ai_recommendation?: string | null;
 }
 
 export function PendingTradesView({ data, app, navigate }: { data: PendingTradesData; app: any; navigate: (data: any) => void }) {
@@ -49,6 +51,7 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
   if (trades.length === 0) {
     return (
       <div className="space-y-2">
+        <AiInsight recommendation={data.ai_recommendation} />
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Pending Trades</h2>
           <RefreshButton app={app} toolName="yahoo_pending_trades" navigate={navigate} />
@@ -60,6 +63,8 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
 
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <ArrowRightLeft size={18} />
@@ -76,7 +81,7 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
       )}
 
       {trades.map((trade) => (
-        <Card key={trade.transaction_key}>
+        <Card key={trade.transaction_key} className="glass-card">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm">

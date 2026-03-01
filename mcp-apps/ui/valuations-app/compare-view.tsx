@@ -8,6 +8,8 @@ import { useCallTool } from "../shared/use-call-tool";
 import { ZScoreBadge, ZScoreExplainer } from "../shared/z-score";
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { StatusBanner } from "../shared/status-banner";
 import { formatFixed, toFiniteNumber } from "../shared/number-format";
 
 interface ComparePlayer {
@@ -20,6 +22,7 @@ interface ComparePlayer {
 interface CompareData {
   player1: ComparePlayer;
   player2: ComparePlayer;
+  ai_recommendation?: string | null;
 }
 
 interface RosterPlayer {
@@ -30,32 +33,37 @@ interface RosterPlayer {
   mlb_id?: number;
 }
 
-function winnerBg(z: number): string {
-  if (z >= 2.0) return "bg-sem-success-subtle";
-  if (z >= 1.0) return "bg-sem-info-subtle";
-  if (z >= 0) return "bg-sem-warning-subtle";
-  return "bg-sem-risk-subtle";
-}
-
 function noop() {}
 
 export function CompareView({ data, app, navigate }: { data: CompareData; app?: any; navigate?: (data: any) => void }) {
-  const { callTool, loading } = useCallTool(app || null);
-  const [rosterMode, setRosterMode] = useState(false);
-  const [roster, setRoster] = useState<RosterPlayer[]>([]);
-  const [selectedPlayer1, setSelectedPlayer1] = useState<string | null>(null);
-  const [selectedPlayer2, setSelectedPlayer2] = useState<string | null>(null);
-  const [rosterLoading, setRosterLoading] = useState(false);
+  var callToolResult = useCallTool(app || null);
+  var callTool = callToolResult.callTool;
+  var loading = callToolResult.loading;
+  var rosterModeState = useState(false);
+  var rosterMode = rosterModeState[0];
+  var setRosterMode = rosterModeState[1];
+  var rosterState = useState<RosterPlayer[]>([]);
+  var roster = rosterState[0];
+  var setRoster = rosterState[1];
+  var sp1State = useState<string | null>(null);
+  var selectedPlayer1 = sp1State[0];
+  var setSelectedPlayer1 = sp1State[1];
+  var sp2State = useState<string | null>(null);
+  var selectedPlayer2 = sp2State[0];
+  var setSelectedPlayer2 = sp2State[1];
+  var rlState = useState(false);
+  var rosterLoading = rlState[0];
+  var setRosterLoading = rlState[1];
 
-  const nav = navigate || noop;
+  var nav = navigate || noop;
 
-  const handleLoadRoster = async () => {
+  var handleLoadRoster = async function () {
     setRosterMode(true);
     setRosterLoading(true);
     setSelectedPlayer1(null);
     setSelectedPlayer2(null);
     try {
-      const result = await callTool("yahoo_roster", {});
+      var result = await callTool("yahoo_roster", {});
       if (result && result.structuredContent) {
         var players = (result.structuredContent || {}).players || [];
         setRoster(players);
@@ -67,7 +75,7 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
     }
   };
 
-  const handleCompare = async () => {
+  var handleCompare = async function () {
     if (!selectedPlayer1 || !selectedPlayer2) return;
     var result = await callTool("yahoo_compare", { player1: selectedPlayer1, player2: selectedPlayer2 });
     if (result && result.structuredContent) {
@@ -75,7 +83,7 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
     }
   };
 
-  const handleSelectPlayer = (name: string, slot: number) => {
+  var handleSelectPlayer = function (name: string, slot: number) {
     if (slot === 1) {
       setSelectedPlayer1(selectedPlayer1 === name ? null : name);
     } else {
@@ -83,16 +91,33 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
     }
   };
 
-  const allCats = Array.from(new Set([
+  var allCats = Array.from(new Set([
     ...Object.keys(data.player1.categories || {}),
     ...Object.keys(data.player2.categories || {}),
   ]));
 
-  const chartData = allCats.map((cat) => ({
-    category: cat,
-    [data.player1.name]: (data.player1.categories || {})[cat] || 0,
-    [data.player2.name]: (data.player2.categories || {})[cat] || 0,
-  }));
+  // Calculate wins
+  var p1Wins = 0;
+  var p2Wins = 0;
+  allCats.forEach(function (cat) {
+    var v1 = toFiniteNumber((data.player1.categories || {})[cat], 0);
+    var v2 = toFiniteNumber((data.player2.categories || {})[cat], 0);
+    if (v1 > v2) p1Wins++;
+    else if (v2 > v1) p2Wins++;
+  });
+
+  var winner = p1Wins > p2Wins ? data.player1.name : p2Wins > p1Wins ? data.player2.name : null;
+  var bannerText = winner
+    ? winner.toUpperCase() + " WINS " + Math.max(p1Wins, p2Wins) + "-" + Math.min(p1Wins, p2Wins)
+    : "TIED " + p1Wins + "-" + p2Wins;
+  var bannerVariant: "winning" | "tied" = winner ? "winning" : "tied";
+
+  var chartData = allCats.map(function (cat) {
+    var obj: Record<string, any> = { category: cat };
+    obj[data.player1.name] = (data.player1.categories || {})[cat] || 0;
+    obj[data.player2.name] = (data.player2.categories || {})[cat] || 0;
+    return obj;
+  });
 
   return (
     <div className="space-y-2">
@@ -121,13 +146,13 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">Player 1</p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {roster.map((p) => {
+                  {roster.map(function (p) {
                     var isSelected = selectedPlayer1 === p.name;
                     var isOther = selectedPlayer2 === p.name;
                     return (
                       <button
                         key={"p1-" + p.name}
-                        onClick={() => handleSelectPlayer(p.name, 1)}
+                        onClick={function () { handleSelectPlayer(p.name, 1); }}
                         disabled={isOther}
                         className={"w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 " + (isSelected ? "bg-primary text-primary-foreground" : isOther ? "opacity-40 cursor-not-allowed" : "hover:bg-muted")}
                       >
@@ -143,13 +168,13 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">Player 2</p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {roster.map((p) => {
+                  {roster.map(function (p) {
                     var isSelected = selectedPlayer2 === p.name;
                     var isOther = selectedPlayer1 === p.name;
                     return (
                       <button
                         key={"p2-" + p.name}
-                        onClick={() => handleSelectPlayer(p.name, 2)}
+                        onClick={function () { handleSelectPlayer(p.name, 2); }}
                         disabled={isOther}
                         className={"w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 " + (isSelected ? "bg-primary text-primary-foreground" : isOther ? "opacity-40 cursor-not-allowed" : "hover:bg-muted")}
                       >
@@ -181,10 +206,15 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
         </Card>
       )}
 
+      {/* Winner banner */}
+      <StatusBanner text={bannerText} subtitle={data.player1.name + " vs " + data.player2.name} variant={bannerVariant === "winning" ? "success" : "tied"} />
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
       <ZScoreExplainer />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Card>
+        <Card className={p1Wins > p2Wins ? "glow-success" : ""}>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-base break-words"><PlayerName name={data.player1.name} app={app} navigate={navigate} context="default" /></CardTitle>
@@ -195,7 +225,7 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
             <ZScoreBadge z={data.player1.z_score} />
           </CardContent>
         </Card>
-        <Card>
+        <Card className={p2Wins > p1Wins ? "glow-success" : ""}>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-base break-words"><PlayerName name={data.player2.name} app={app} navigate={navigate} context="default" /></CardTitle>
@@ -224,28 +254,30 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
       )}
 
       <div className="mcp-app-scroll-x">
-        <div className="grid grid-cols-[minmax(132px,1fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)] sm:grid-cols-3 gap-2">
-          <div className="text-xs font-medium text-muted-foreground">Category</div>
-          <div className="text-xs font-medium text-right truncate">{data.player1.name}</div>
-          <div className="text-xs font-medium text-right truncate">{data.player2.name}</div>
-          {allCats.map((cat) => {
-            const v1 = toFiniteNumber((data.player1.categories || {})[cat], 0);
-            const v2 = toFiniteNumber((data.player2.categories || {})[cat], 0);
-            const p1Wins = v1 > v2;
-            const p2Wins = v2 > v1;
-            const rowBg = (p1Wins || p2Wins) ? winnerBg(p1Wins ? v1 : v2) : "";
+        <div className="space-y-1">
+          {allCats.map(function (cat) {
+            var v1 = toFiniteNumber((data.player1.categories || {})[cat], 0);
+            var v2 = toFiniteNumber((data.player2.categories || {})[cat], 0);
+            var p1Win = v1 > v2;
+            var p2Win = v2 > v1;
+            var total = Math.abs(v1) + Math.abs(v2);
+            var leftPct = total > 0 ? Math.max(15, (Math.max(0, v1 + 2) / (Math.max(0, v1 + 2) + Math.max(0, v2 + 2))) * 100) : 50;
+
             return (
-              <div key={cat} className="contents">
-                <div className={"text-sm rounded-l px-1 " + rowBg}>{cat}</div>
-                <div className={"text-sm text-right font-mono flex items-center justify-end gap-1 px-1 " + rowBg + " " + (p1Wins ? "font-bold text-primary" : "")}>
-                  {formatFixed(v1, 2, "0.00")}
-                  {p1Wins && <TrendingUp size={12} className="text-primary" />}
-                  {p2Wins && <TrendingDown size={12} className="text-muted-foreground" />}
+              <div key={cat} className={"rounded-md p-2 " + (p1Win ? "bg-sem-success-subtle/30" : p2Win ? "bg-sem-risk-subtle/30" : "")}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className={"font-mono font-bold " + (p1Win ? "text-sem-success" : "text-muted-foreground")}>
+                    {formatFixed(v1, 2, "0.00")}
+                    {p1Win && <TrendingUp size={10} className="inline ml-0.5" />}
+                  </span>
+                  <span className="text-muted-foreground font-semibold uppercase tracking-wide">{cat}</span>
+                  <span className={"font-mono font-bold " + (p2Win ? "text-sem-success" : "text-muted-foreground")}>
+                    {p2Win && <TrendingUp size={10} className="inline mr-0.5" />}
+                    {formatFixed(v2, 2, "0.00")}
+                  </span>
                 </div>
-                <div className={"text-sm text-right font-mono flex items-center justify-end gap-1 rounded-r px-1 " + rowBg + " " + (p2Wins ? "font-bold text-primary" : "")}>
-                  {formatFixed(v2, 2, "0.00")}
-                  {p2Wins && <TrendingUp size={12} className="text-primary" />}
-                  {p1Wins && <TrendingDown size={12} className="text-muted-foreground" />}
+                <div className="h-2.5 rounded-sm overflow-hidden bg-muted">
+                  <div className={"h-full rounded-sm transition-all " + (p1Win ? "bg-green-500" : p2Win ? "bg-red-500" : "bg-yellow-500")} style={{ width: leftPct + "%" }} />
                 </div>
               </div>
             );

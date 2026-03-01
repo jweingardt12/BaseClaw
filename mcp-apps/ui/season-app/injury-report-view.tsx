@@ -5,6 +5,9 @@ import { useCallTool } from "../shared/use-call-tool";
 
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
 import { Search, Loader2, CheckCircle } from "@/shared/icons";
 
 interface InjuredPlayer {
@@ -22,6 +25,7 @@ interface InjuryReportData {
   healthy_il: InjuredPlayer[];
   injured_bench: InjuredPlayer[];
   il_proper: InjuredPlayer[];
+  ai_recommendation?: string | null;
 }
 
 function PlayerRow({ player, showFind, onFind, readyToActivate, loading, app, navigate }: { player: InjuredPlayer; showFind?: boolean; onFind?: () => void; readyToActivate?: boolean; loading?: boolean; app?: any; navigate?: (data: any) => void }) {
@@ -63,8 +67,28 @@ export function InjuryReportView({ data, app, navigate }: { data: InjuryReportDa
     }
   };
 
+  var activeCount = (data.injured_active || []).length;
+  var healthyIlCount = (data.healthy_il || []).length;
+  var benchCount = (data.injured_bench || []).length;
+  var totalInjured = activeCount + healthyIlCount + benchCount;
+  var ilCount = (data.il_proper || []).length;
+
   return (
     <div className="space-y-2">
+      <StatusBanner
+        text={totalInjured + " INJURED / " + ilCount + " ON IL"}
+        subtitle={hasAnyIssues ? activeCount + " in active lineup need attention" : "Roster is healthy"}
+        variant={hasAnyIssues ? "alert" : "success"}
+      />
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={activeCount} label="Active Injured" color={activeCount > 0 ? "risk" : "success"} />
+        <KpiTile value={healthyIlCount} label="Healthy IL" color={healthyIlCount > 0 ? "warning" : "neutral"} />
+        <KpiTile value={benchCount} label="Bench Injured" color={benchCount > 0 ? "info" : "neutral"} />
+      </div>
+
       <h2 className="text-lg font-semibold">Injury Report</h2>
 
       {loading && (

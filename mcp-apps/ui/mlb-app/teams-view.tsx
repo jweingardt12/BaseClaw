@@ -1,5 +1,5 @@
-import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import { StatusBanner } from "../shared/status-banner";
 import { teamLogoUrl } from "../shared/mlb-images";
 
 interface MlbTeam {
@@ -10,20 +10,20 @@ interface MlbTeam {
 
 export function TeamsView({ data }: { data: { teams: MlbTeam[] } }) {
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2">MLB Teams</h2>
+    <div className="space-y-3">
+      <StatusBanner text="MLB Teams" subtitle={(data.teams || []).length + " teams" } variant="info" />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {(data.teams || []).map((t) => (
-          <Card key={t.id}>
-            <CardContent className="p-3 flex items-center gap-3">
+        {(data.teams || []).map(function (t) {
+          return (
+            <div key={t.id} className="glass-card p-3 flex items-center gap-3">
               <img src={teamLogoUrl(t.id)} alt={t.abbreviation} className="w-8 h-8" />
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{t.name}</p>
-                <Badge variant="secondary" className="text-xs">{t.abbreviation}</Badge>
+                <p className="text-sm font-semibold truncate">{t.name}</p>
+                <Badge variant="secondary" className="text-xs font-bold">{t.abbreviation}</Badge>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

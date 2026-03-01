@@ -65,7 +65,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         ).join("\n");
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-teams", ...data },
+          structuredContent: { type: "mlb-teams", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -89,7 +89,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         ).join("\n");
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-roster", ...data },
+          structuredContent: { type: "mlb-roster", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -116,7 +116,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
           + "  MLB ID: " + data.mlb_id;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-player", ...data },
+          structuredContent: { type: "mlb-player", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -141,7 +141,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "mlb-stats", ...data },
+          structuredContent: { type: "mlb-stats", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -166,7 +166,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
           : "No injuries reported (may be offseason)";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-injuries", ...data },
+          structuredContent: { type: "mlb-injuries", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -193,7 +193,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "mlb-standings", ...data },
+          structuredContent: { type: "mlb-standings", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -219,7 +219,7 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         ).join("\n");
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-schedule", ...data },
+          structuredContent: { type: "mlb-schedule", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

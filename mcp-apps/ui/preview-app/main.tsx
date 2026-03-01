@@ -49,7 +49,7 @@ class ViewErrorBoundary extends React.Component<
 function LoadingSpinner() {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mb-3" />
+      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mb-3 shadow-[0_0_12px_var(--color-primary)]" />
       <p className="text-muted-foreground text-sm uppercase tracking-wide">Loading view...</p>
     </div>
   );
@@ -78,7 +78,7 @@ function DataSourceToggle({ dataSource, setDataSource, className }: {
   className?: string;
 }) {
   return (
-    <div className={cn("inline-flex items-center rounded-md border border-border bg-muted/60 p-0.5 gap-0.5", className)}>
+    <div className={cn("inline-flex items-center rounded-md border border-border/60 bg-muted/40 backdrop-blur-sm p-0.5 gap-0.5", className)}>
       <button
         onClick={() => setDataSource("mock")}
         className={cn(
@@ -110,7 +110,7 @@ function DarkModeToggle({ darkMode, setDarkMode }: { darkMode: boolean; setDarkM
     <button
       onClick={() => setDarkMode(!darkMode)}
       title={darkMode ? "Day Game" : "Night Game"}
-      className="h-8 w-8 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors cursor-pointer shrink-0"
+      className="h-8 w-8 flex items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/40 hover:shadow-[0_0_8px_var(--color-primary)] transition-all cursor-pointer shrink-0"
     >
       {darkMode ? <SunIcon /> : <MoonIcon />}
     </button>
@@ -127,7 +127,7 @@ function PreviewApp() {
   const [liveApp] = useState(() => createLiveApp());
   const [mockData, setMockData] = useState<Record<string, any> | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
-    try { return localStorage.getItem("preview-dark") === "1"; } catch { return false; }
+    try { var v = localStorage.getItem("preview-dark"); return v === null ? true : v === "1"; } catch { return true; }
   });
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     const activeGroupName = VIEW_GROUPS.find(g => g.views.some(v => v.id === "matchup-detail"));
@@ -230,7 +230,7 @@ function PreviewApp() {
     <div className="preview-shell flex h-[100dvh] -m-3 overflow-hidden bg-background text-foreground" style={{ fontSize: "1rem" }}>
       {/* Mobile top bar */}
       <div
-        className="sm:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-card/95 px-3 py-2 supports-backdrop-filter:backdrop-blur-md"
+        className="sm:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-card/80 backdrop-blur-xl px-3 py-2"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -262,7 +262,7 @@ function PreviewApp() {
       {/* Sidebar */}
       <nav
         className={
-          "w-72 max-w-[86vw] flex-shrink-0 border-r border-border bg-card flex flex-col z-50 "
+          "w-72 max-w-[86vw] flex-shrink-0 border-r border-border bg-card/80 backdrop-blur-xl flex flex-col z-50 "
           + "sm:relative sm:block sm:h-full "
           + (sidebarOpen
             ? "fixed top-0 left-0 bottom-0"
@@ -271,7 +271,7 @@ function PreviewApp() {
         style={sidebarOpen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
       >
         {/* Sidebar header */}
-        <div className="flex-shrink-0 border-b border-border px-3 py-3">
+        <div className="flex-shrink-0 border-b border-border/60 px-3 py-3">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 min-w-0">
               <button
@@ -280,7 +280,7 @@ function PreviewApp() {
               >
                 <span className="text-base leading-none">{"\u2715"}</span>
               </button>
-              <h1 className="text-sm font-extrabold uppercase tracking-widest truncate">Fantasy Preview</h1>
+              <h1 className="text-sm font-extrabold uppercase tracking-widest truncate text-primary">Fantasy Preview</h1>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <Badge variant="outline" className="text-xs">{allViews.length}</Badge>
@@ -331,7 +331,7 @@ function PreviewApp() {
                         className={cn(
                           "block w-full text-left pl-4 pr-3 py-2.5 rounded-r-md text-sm transition-colors mb-px border-none cursor-pointer border-l-2",
                           activeView === v.id
-                            ? "bg-primary/10 text-primary font-bold border-l-primary"
+                            ? "bg-primary/15 text-primary font-bold border-l-primary shadow-[inset_0_0_12px_-4px_var(--color-primary)]"
                             : "text-foreground/70 hover:bg-accent/60 hover:text-foreground bg-transparent border-l-transparent"
                         )}
                         style={{ borderLeftStyle: "solid" }}
@@ -354,10 +354,10 @@ function PreviewApp() {
       >
         <div className="p-3 sm:p-4 pt-14 sm:pt-4">
           <div className="w-full">
-            <Card size="sm" className="mb-4">
+            <Card size="sm" className="mb-4 glass-card">
               <CardContent className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="app-kicker">{activeGroup ? activeGroup.name : "Preview"}</p>
+                  <p className="app-kicker text-primary">{activeGroup ? activeGroup.name : "Preview"}</p>
                   <h2 className="truncate text-base font-bold">{view ? view.label : "Select a view"}</h2>
                 </div>
                 <div className="hidden sm:flex items-center gap-2">

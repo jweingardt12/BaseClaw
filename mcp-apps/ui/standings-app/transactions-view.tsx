@@ -3,6 +3,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { mlbHeadshotUrl } from "../shared/mlb-images";
 import { TeamLogo } from "../shared/team-logo";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, UserMinus, ArrowRightLeft, HelpCircle } from "@/shared/icons";
 
 interface TransactionEntry {
@@ -17,17 +19,18 @@ interface TransactionEntry {
 interface TransactionsData {
   trans_type: string;
   transactions: TransactionEntry[];
+  ai_recommendation?: string | null;
 }
 
 function TypeIcon({ type }: { type: string }) {
-  const cls = "h-3.5 w-3.5 flex-shrink-0";
+  var cls = "h-3.5 w-3.5 flex-shrink-0";
   if (type === "add") return <UserPlus className={cls + " text-green-600"} />;
   if (type === "drop") return <UserMinus className={cls + " text-sem-risk"} />;
   if (type === "trade") return <ArrowRightLeft className={cls + " text-blue-500"} />;
   return <HelpCircle className={cls + " text-muted-foreground"} />;
 }
 
-const typeColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+var typeColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   add: "default",
   drop: "destructive",
   trade: "secondary",
@@ -77,17 +80,26 @@ export function TransactionsView({ data }: { data: TransactionsData }) {
   var dateKeys = Object.keys(dateGroups).sort().reverse();
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2">
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold">
         {"Recent Transactions" + (data.trans_type ? " (" + data.trans_type + ")" : "")}
       </h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={transactions.length} label="Total Moves" color="primary" />
+        {typeCounts["add"] && <KpiTile value={typeCounts["add"]} label="Adds" color="success" />}
+        {typeCounts["drop"] && <KpiTile value={typeCounts["drop"]} label="Drops" color="risk" />}
+        {typeCounts["trade"] && <KpiTile value={typeCounts["trade"]} label="Trades" color="info" />}
+      </div>
 
       {/* Transaction count badges */}
       {typeKeys.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {typeKeys.map(function (type) {
             return (
-              <Badge key={type} variant={typeColors[type] || "outline"} className="text-xs">
+              <Badge key={type} variant={typeColors[type] || "outline"} className="text-xs font-bold">
                 {typeCounts[type] + " " + type + (typeCounts[type] === 1 ? "" : "s")}
               </Badge>
             );
@@ -123,7 +135,7 @@ export function TransactionsView({ data }: { data: TransactionsData }) {
                           <TableCell className="w-24">
                             <div className="flex items-center gap-1.5">
                               <TypeIcon type={t.type} />
-                              <Badge variant={typeColors[t.type] || "outline"} className="text-xs">{t.type}</Badge>
+                              <Badge variant={typeColors[t.type] || "outline"} className="text-xs font-bold">{t.type}</Badge>
                             </div>
                           </TableCell>
                           <TableCell>

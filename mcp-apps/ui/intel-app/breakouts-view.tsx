@@ -2,6 +2,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useCallTool } from "../shared/use-call-tool";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { TrendingUp, TrendingDown, Loader2 } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 
@@ -17,20 +19,24 @@ interface BreakoutsData {
   type: string;
   pos_type: string;
   candidates: Candidate[];
+  ai_recommendation?: string | null;
 }
 
 export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; app: any; navigate: (data: any) => void }) {
-  const { callTool, loading } = useCallTool(app);
-  const isBreakouts = data.type === "intel-breakouts";
-  const title = isBreakouts ? "Breakout Candidates" : "Bust Candidates";
-  const subtitle = isBreakouts
-    ? "Players whose expected stats exceed actual — due for positive regression"
-    : "Players whose actual stats exceed expected — due for negative regression";
-  const Icon = isBreakouts ? TrendingUp : TrendingDown;
+  var callToolResult = useCallTool(app);
+  var callTool = callToolResult.callTool;
+  var loading = callToolResult.loading;
+  var isBreakouts = data.type === "intel-breakouts";
+  var title = isBreakouts ? "Breakout Candidates" : "Bust Candidates";
+  var subtitle = isBreakouts
+    ? "Players whose expected stats exceed actual -- due for positive regression"
+    : "Players whose actual stats exceed expected -- due for negative regression";
+  var Icon = isBreakouts ? TrendingUp : TrendingDown;
+  var candidates = data.candidates || [];
 
-  const handleTabChange = async function(value: string) {
-    const tool = isBreakouts ? "fantasy_breakout_candidates" : "fantasy_bust_candidates";
-    const result = await callTool(tool, { pos_type: value, count: 15 });
+  var handleTabChange = async function(value: string) {
+    var tool = isBreakouts ? "fantasy_breakout_candidates" : "fantasy_bust_candidates";
+    var result = await callTool(tool, { pos_type: value, count: 15 });
     if (result) navigate(result.structuredContent);
   };
 
@@ -43,6 +49,24 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
         </h2>
         <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
       </div>
+
+      {/* KPI */}
+      <div className="kpi-grid">
+        <KpiTile
+          value={candidates.length}
+          label={isBreakouts ? "Breakout Candidates" : "Bust Candidates"}
+          color={isBreakouts ? "success" : "risk"}
+        />
+        {candidates.length > 0 && (
+          <KpiTile
+            value={(isBreakouts ? "+" : "") + formatFixed(candidates[0].diff, 3, "0.000")}
+            label={"Top Diff: " + candidates[0].name}
+            color={isBreakouts ? "success" : "risk"}
+          />
+        )}
+      </div>
+
+      <AiInsight recommendation={data.ai_recommendation} />
 
       <Tabs defaultValue={data.pos_type || "B"} onValueChange={handleTabChange}>
         <TabsList>
@@ -68,8 +92,8 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(data.candidates || []).map(function(c, i) {
-              const diffColor = isBreakouts ? "text-green-600 dark:text-green-400" : "text-red-500";
+            {candidates.map(function(c, i) {
+              var diffColor = isBreakouts ? "text-green-600 dark:text-green-400" : "text-red-500";
               return (
                 <TableRow key={c.name + "-" + i} className={i < 3 ? (isBreakouts ? "bg-green-500/5" : "bg-red-500/5") : ""}>
                   <TableCell className="font-medium">{c.name}</TableCell>

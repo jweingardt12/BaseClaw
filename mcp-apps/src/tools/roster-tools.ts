@@ -63,9 +63,13 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           }
           return line;
         }).join("\n");
+        var injured = (data.players || []).filter(function (p) { return p.status && p.status !== "Healthy"; });
+        var ai_recommendation = injured.length > 0
+          ? injured.length + " player" + (injured.length === 1 ? "" : "s") + " on your roster " + (injured.length === 1 ? "has" : "have") + " an injury designation. Check IL eligibility."
+          : "Roster is fully healthy. No injury concerns.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "roster", ...data },
+          structuredContent: { type: "roster", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -95,9 +99,14 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           }
           return line;
         }).join("\n");
+        var top = (data.players || []).slice(0, 3);
+        var ai_recommendation: string | null = null;
+        if (top.length > 0) {
+          ai_recommendation = "Top available: " + top.map(function (p) { return p.name; }).join(", ") + ". These players address roster needs based on ownership trends.";
+        }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "free-agents", ...data },
+          structuredContent: { type: "free-agents", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -121,9 +130,13 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
               "  " + str(p.name).padEnd(25) + " " + (p.eligible_positions || []).join(",").padEnd(12) + " " + String(p.percent_owned || 0).padStart(3) + "% owned  (id:" + p.player_id + ")"
             ).join("\n")
           : "No free agents found matching: " + player_name;
+        var ai_recommendation: string | null = null;
+        if (data.results && data.results.length > 0) {
+          ai_recommendation = data.results.length + " result" + (data.results.length === 1 ? "" : "s") + " found for \"" + player_name + "\". Review ownership % to gauge value.";
+        }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "search", ...data },
+          structuredContent: { type: "search", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -144,9 +157,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     async ({ player_id }) => {
       try {
         const data = await apiPost<ActionResponse>("/api/add", { player_id });
+        var ai_recommendation = data.success ? "Player added successfully. Check your lineup for optimal positioning." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Add result: " + JSON.stringify(data) }],
-          structuredContent: { type: "add", ...data },
+          structuredContent: { type: "add", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -165,9 +179,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     async ({ player_id }) => {
       try {
         const data = await apiPost<ActionResponse>("/api/drop", { player_id });
+        var ai_recommendation = data.success ? "Player dropped. Consider picking up a replacement from free agents." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Drop result: " + JSON.stringify(data) }],
-          structuredContent: { type: "drop", ...data },
+          structuredContent: { type: "drop", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -186,9 +201,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     async ({ add_id, drop_id }) => {
       try {
         const data = await apiPost<ActionResponse>("/api/swap", { add_id, drop_id });
+        var ai_recommendation = data.success ? "Swap completed. Verify lineup positioning for the new player." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Swap result: " + JSON.stringify(data) }],
-          structuredContent: { type: "swap", ...data },
+          structuredContent: { type: "swap", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -209,9 +225,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         const body: Record<string, string> = { player_id };
         if (faab !== undefined) body.faab = String(faab);
         const data = await apiPost<WaiverClaimResponse>("/api/waiver-claim", body);
+        var ai_recommendation: string | null = data.message ? "Waiver claim submitted. Results process at the next waiver period." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Waiver claim result: " + JSON.stringify(data) }],
-          structuredContent: { type: "waiver-claim", ...data },
+          structuredContent: { type: "waiver-claim", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -232,9 +249,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         const body: Record<string, string> = { add_id, drop_id };
         if (faab !== undefined) body.faab = String(faab);
         const data = await apiPost<WaiverClaimSwapResponse>("/api/waiver-claim-swap", body);
+        var ai_recommendation: string | null = data.message ? "Waiver claim with drop submitted. Results process at the next waiver period." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Waiver claim+drop result: " + JSON.stringify(data) }],
-          structuredContent: { type: "waiver-claim-swap", ...data },
+          structuredContent: { type: "waiver-claim-swap", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -255,9 +273,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         const text = data.valid
           ? "Browser session is valid (" + (data.cookie_count || 0) + " Yahoo cookies)"
           : "Browser session not valid: " + (data.reason || "unknown") + ". Run './yf browser-login' to set up.";
+        var ai_recommendation = data.valid ? null : "Browser session expired. Run './yf browser-login' to enable write operations.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "browser-status", ...data },
+          structuredContent: { type: "browser-status", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -276,9 +295,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     async ({ new_name }) => {
       try {
         const data = await apiPost<ChangeTeamNameResponse>("/api/change-team-name", { new_name });
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: data.message || "Result: " + JSON.stringify(data) }],
-          structuredContent: { type: "change-team-name", ...data },
+          structuredContent: { type: "change-team-name", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -297,9 +317,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     async ({ image_path }) => {
       try {
         const data = await apiPost<ChangeTeamLogoResponse>("/api/change-team-logo", { image_path });
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: data.message || "Result: " + JSON.stringify(data) }],
-          structuredContent: { type: "change-team-logo", ...data },
+          structuredContent: { type: "change-team-logo", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -330,9 +351,15 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         } else {
           text = "Player " + player_id + " ownership: " + data.ownership_type;
         }
+        var ai_recommendation: string | null = null;
+        if (data.ownership_type === "freeagents") {
+          ai_recommendation = "This player is available as a free agent. Consider adding if they fill a roster need.";
+        } else if (data.ownership_type === "waivers") {
+          ai_recommendation = "This player is on waivers. Submit a waiver claim to add them.";
+        }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "who-owns", ...data },
+          structuredContent: { type: "who-owns", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

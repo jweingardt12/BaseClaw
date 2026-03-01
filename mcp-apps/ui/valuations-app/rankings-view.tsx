@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { Badge } from "../components/ui/badge";
+import { Card, CardContent } from "../components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -7,9 +8,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import { TeamLogo } from "../shared/team-logo";
 import { BarChart3, Loader2 } from "@/shared/icons";
 import { useCallTool } from "../shared/use-call-tool";
-import { ZScoreBar, ZScoreExplainer, getTier } from "../shared/z-score";
+import { ZScoreBar, ZScoreExplainer, getTier, tierGrade } from "../shared/z-score";
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
+import { VerdictBadge } from "../shared/verdict-badge";
+import { formatFixed } from "../shared/number-format";
 
 interface RankingEntry {
   rank: number;
@@ -26,19 +31,26 @@ interface RankingsData {
   count: number;
   source: string;
   players: RankingEntry[];
+  ai_recommendation?: string | null;
 }
 
 export function RankingsView({ data, app, navigate }: { data: RankingsData; app: any; navigate: (content: any) => void }) {
-  const { callTool, loading } = useCallTool(app);
-  const label = data.pos_type === "P" ? "Pitcher" : "Hitter";
-  let lastTier = "";
-  const chartData = (data.players || []).slice(0, 15).map((p) => ({
-    name: p.name.length > 12 ? p.name.slice(0, 12) + "..." : p.name,
-    z_score: p.z_score,
-  }));
+  var callToolResult = useCallTool(app);
+  var callTool = callToolResult.callTool;
+  var loading = callToolResult.loading;
+  var label = data.pos_type === "P" ? "Pitcher" : "Hitter";
+  var lastTier = "";
+  var players = data.players || [];
+  var topPlayer = players.length > 0 ? players[0] : null;
+  var chartData = players.slice(0, 15).map(function (p) {
+    return {
+      name: p.name.length > 12 ? p.name.slice(0, 12) + "..." : p.name,
+      z_score: p.z_score,
+    };
+  });
 
-  const handleTabChange = async (newValue: string) => {
-    const result = await callTool("yahoo_rankings", { pos_type: newValue, count: data.count || 25 });
+  var handleTabChange = async function (newValue: string) {
+    var result = await callTool("yahoo_rankings", { pos_type: newValue, count: data.count || 25 });
     if (result) {
       navigate(result.structuredContent);
     }
@@ -52,6 +64,42 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
         <Badge variant="secondary">{data.source}</Badge>
         <span className="text-xs text-muted-foreground">Top {data.count}</span>
       </div>
+
+      {/* KPI */}
+      <div className="kpi-grid mb-2">
+        {topPlayer && (
+          <KpiTile
+            value={formatFixed(topPlayer.z_score, 2, "0.00")}
+            label={"#1: " + topPlayer.name}
+            color="primary"
+          />
+        )}
+        <KpiTile value={players.length} label="Players Ranked" color="info" />
+      </div>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      {/* Top player highlight */}
+      {topPlayer && (
+        <Card className="mb-2 glow-gold border-primary/40">
+          <CardContent className="p-4 flex items-center gap-3">
+            <span className="font-mono text-xs text-muted-foreground w-6 text-right">#1</span>
+            <div className="shrink-0">
+              <TeamLogo abbrev={topPlayer.team} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xl-app font-bold truncate">
+                <PlayerName name={topPlayer.name} mlbId={topPlayer.mlb_id} app={app} navigate={navigate} context="default" />
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                {topPlayer.position && <Badge variant="outline" className="text-xs">{topPlayer.position}</Badge>}
+                {topPlayer.intel && <IntelBadge intel={topPlayer.intel} size="sm" />}
+              </div>
+            </div>
+            <VerdictBadge grade={formatFixed(topPlayer.z_score, 1, "0.0")} variant={topPlayer.z_score >= 2 ? "success" : topPlayer.z_score >= 1 ? "info" : "warning"} size="lg" />
+          </CardContent>
+        </Card>
+      )}
 
       <ZScoreExplainer />
 
@@ -93,9 +141,9 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(data.players || []).map(function (p) {
-              const tier = getTier(p.z_score);
-              const showDivider = lastTier !== "" && tier !== lastTier;
+            {players.map(function (p) {
+              var tier = getTier(p.z_score);
+              var showDivider = lastTier !== "" && tier !== lastTier;
               lastTier = tier;
               return (
                 <Fragment key={p.rank}>
@@ -103,9 +151,9 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
                     <TableRow>
                       <TableCell colSpan={5} className="py-0.5 px-0">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-px bg-border" />
-                          <span className="text-xs text-muted-foreground">{tier} Tier</span>
-                          <div className="flex-1 h-px bg-border" />
+                          <div className="flex-1 h-0.5 bg-primary/30" />
+                          <VerdictBadge grade={tierGrade(p.z_score)} size="sm" />
+                          <div className="flex-1 h-0.5 bg-primary/30" />
                         </div>
                       </TableCell>
                     </TableRow>

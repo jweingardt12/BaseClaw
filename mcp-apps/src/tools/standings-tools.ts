@@ -5,6 +5,11 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
 import {
+  generateStandingsInsight,
+  generateSeasonPaceInsight,
+  generatePowerRankInsight,
+} from "../insights.js";
+import {
   str,
   type StandingsResponse,
   type MatchupsResponse,
@@ -68,9 +73,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           "  " + String(s.rank).padStart(2) + ". " + str(s.name).padEnd(30) + " " + s.wins + "-" + s.losses
           + (s.points_for ? " (" + s.points_for + " pts)" : "")
         ).join("\n");
+        const ai_recommendation = generateStandingsInsight(data);
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "standings", ...data },
+          structuredContent: { type: "standings", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -96,9 +102,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           "  " + str(m.team1).padEnd(28) + " vs  " + str(m.team2)
           + (m.status ? "  (" + m.status + ")" : "")
         ).join("\n");
+        var ai_recommendation: string | null = data.matchups.length + " matchups for week " + weekLabel + ".";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "matchups", ...data },
+          structuredContent: { type: "matchups", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -119,9 +126,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
         const text = "Scoreboard - Week " + data.week + ":\n" + data.matchups.map((m) =>
           "  " + str(m.team1).padEnd(28) + " vs  " + str(m.team2).padEnd(28) + str(m.status)
         ).join("\n");
+        var ai_recommendation: string | null = "Live scoreboard for week " + data.week + ". " + data.matchups.length + " matchups in progress.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "scoreboard", ...data },
+          structuredContent: { type: "scoreboard", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -145,9 +153,11 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           + (data.categories || []).map((c) =>
             "  " + (c.result === "win" ? "W" : c.result === "loss" ? "L" : "T") + " " + str(c.name).padEnd(10) + " " + str(c.my_value).padStart(8) + " vs " + str(c.opp_value).padStart(8)
           ).join("\n");
+        var result = score.wins > score.losses ? "Winning" : score.wins < score.losses ? "Losing" : "Tied";
+        var ai_recommendation = result + " " + score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "") + " vs " + data.opponent + ".";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "matchup-detail", ...data },
+          structuredContent: { type: "matchup-detail", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -176,9 +186,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           + "  Playoff Teams: " + data.playoff_teams + "\n"
           + "  Max Weekly Adds: " + data.max_weekly_adds + "\n"
           + "  Your Team: " + data.team_name + " (" + data.team_id + ")";
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "info", ...data },
+          structuredContent: { type: "info", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -204,9 +215,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
         const text = "Recent transactions (" + label + "):\n" + data.transactions.map((t) =>
           "  " + str(t.type).padEnd(8) + " " + str(t.player).padEnd(25) + (t.team ? " -> " + t.team : "")
         ).join("\n");
+        var ai_recommendation: string | null = data.transactions.length + " recent transaction" + (data.transactions.length === 1 ? "" : "s") + ". Monitor league activity for waiver targets.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "transactions", ...data },
+          structuredContent: { type: "transactions", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -227,9 +239,12 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
         const text = "Stat Categories:\n" + data.categories.map((c) =>
           "  " + c.name + (c.position_type ? " (" + c.position_type + ")" : "")
         ).join("\n");
+        var batting = (data.categories || []).filter(function (c) { return c.position_type === "B"; });
+        var pitching = (data.categories || []).filter(function (c) { return c.position_type === "P"; });
+        var ai_recommendation: string | null = batting.length + " batting and " + pitching.length + " pitching categories in this league.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "stat-categories", ...data },
+          structuredContent: { type: "stat-categories", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -256,9 +271,13 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           + " " + str(p.percent_owned) + "% (" + str(p.delta) + ")"
         );
         const text = "Most Added:\n" + addedLines.join("\n") + "\n\nMost Dropped:\n" + droppedLines.join("\n");
+        var topAdded = (data.most_added || [])[0];
+        var ai_recommendation: string | null = topAdded
+          ? "Hottest pickup: " + topAdded.name + " (" + topAdded.percent_owned + "% owned, " + topAdded.delta + "). Check if available in your league."
+          : null;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "transaction-trends", ...data },
+          structuredContent: { type: "transaction-trends", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -285,9 +304,13 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           lines.push("  " + str(t.name).padEnd(30) + String(t.moves).padStart(6)
             + String(t.trades).padStart(7) + String(t.total).padStart(6));
         }
+        var mostActive = (data.teams || [])[0];
+        var ai_recommendation: string | null = mostActive
+          ? "Most active team: " + mostActive.name + " with " + mostActive.total + " total moves. Active managers often gain an edge."
+          : null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-pulse", ...data },
+          structuredContent: { type: "league-pulse", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -315,9 +338,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
           lines.push("  " + String(r.rank).padStart(3) + "  " + str(r.name).padEnd(30)
             + String(r.avg_owned_pct).padStart(8) + "%  " + r.hitting_count + "/" + r.pitching_count + marker);
         }
+        const ai_recommendation = generatePowerRankInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "power-rankings", ...data },
+          structuredContent: { type: "power-rankings", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -348,9 +372,10 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
             + record.padStart(8) + "  " + String(t.projected_wins).padStart(5)
             + "  " + String(t.magic_number).padStart(7) + "  " + t.playoff_status + marker);
         }
+        const ai_recommendation = generateSeasonPaceInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "season-pace", ...data },
+          structuredContent: { type: "season-pace", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

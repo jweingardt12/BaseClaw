@@ -1,4 +1,3 @@
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { useCallTool } from "../shared/use-call-tool";
 import { TeamLogo } from "../shared/team-logo";
@@ -17,24 +16,38 @@ interface TransactionsData {
   type: string;
   days?: number;
   transactions: Transaction[];
+  ai_recommendation?: string | null;
 }
 
 function typeColor(type: string): string {
-  const t = type.toLowerCase();
-  if (t.indexOf("il") >= 0 || t.indexOf("injured") >= 0) return "bg-red-500/20 text-red-700 dark:text-red-400";
-  if (t.indexOf("call") >= 0 || t.indexOf("recall") >= 0) return "bg-green-500/20 text-green-700 dark:text-green-400";
-  if (t.indexOf("trade") >= 0) return "bg-purple-500/20 text-purple-700 dark:text-purple-400";
-  if (t.indexOf("dfa") >= 0 || t.indexOf("release") >= 0) return "bg-orange-500/20 text-orange-700 dark:text-orange-400";
+  var t = type.toLowerCase();
+  if (t.indexOf("il") >= 0 || t.indexOf("injured") >= 0) return "bg-sem-risk-subtle text-sem-risk font-bold";
+  if (t.indexOf("call") >= 0 || t.indexOf("recall") >= 0) return "bg-sem-success-subtle text-sem-success font-bold";
+  if (t.indexOf("trade") >= 0) return "bg-purple-500/20 text-purple-700 dark:text-purple-400 font-bold";
+  if (t.indexOf("dfa") >= 0 || t.indexOf("release") >= 0) return "bg-sem-warning-subtle text-sem-warning font-bold";
   return "bg-muted text-muted-foreground";
 }
 
-export function TransactionsView({ data, app, navigate }: { data: TransactionsData; app: any; navigate: (data: any) => void }) {
-  const { callTool, loading } = useCallTool(app);
+function typeBorderColor(type: string): string {
+  var t = type.toLowerCase();
+  if (t.indexOf("il") >= 0 || t.indexOf("injured") >= 0) return "border-l-[var(--sem-risk)]";
+  if (t.indexOf("call") >= 0 || t.indexOf("recall") >= 0) return "border-l-[var(--sem-success)]";
+  if (t.indexOf("trade") >= 0) return "border-l-purple-500";
+  if (t.indexOf("dfa") >= 0 || t.indexOf("release") >= 0) return "border-l-[var(--sem-warning)]";
+  return "border-l-[var(--sem-neutral)]";
+}
 
-  const handleRefresh = async function(days: number) {
-    const result = await callTool("fantasy_transactions", { days: days });
+export function TransactionsView({ data, app, navigate }: { data: TransactionsData; app: any; navigate: (data: any) => void }) {
+  var callToolResult = useCallTool(app);
+  var callTool = callToolResult.callTool;
+  var loading = callToolResult.loading;
+
+  var handleRefresh = async function(days: number) {
+    var result = await callTool("fantasy_transactions", { days: days });
     if (result) navigate(result.structuredContent);
   };
+
+  var transactions = data.transactions || [];
 
   return (
     <div className="space-y-2">
@@ -56,38 +69,30 @@ export function TransactionsView({ data, app, navigate }: { data: TransactionsDa
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         )}
-        {(data.transactions || []).length === 0 ? (
+        {transactions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No transactions found.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Player</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead className="hidden sm:table-cell">Details</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data.transactions || []).map(function(t, i) {
-                return (
-                  <TableRow key={i}>
-                    <TableCell>
+          <div className="space-y-1.5">
+            {transactions.map(function(t, i) {
+              return (
+                <div key={i} className={"glass-card p-3 border-l-4 card-highlight flex items-center gap-3 " + typeBorderColor(t.type)}>
+                  <div className="shrink-0">
+                    <TeamLogo abbrev={t.team} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
                       <Badge variant="secondary" className={"text-xs " + typeColor(t.type)}>{t.type}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{t.player}</TableCell>
-                    <TableCell className="text-sm">
-                      <span className="flex items-center gap-1">
-                        <TeamLogo abbrev={t.team} />
-                        {t.team || "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{t.description || "—"}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      <span className="text-xs text-muted-foreground">{t.team || ""}</span>
+                    </div>
+                    <p className="text-sm font-semibold truncate">{t.player}</p>
+                    {t.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

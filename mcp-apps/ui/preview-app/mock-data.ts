@@ -25,6 +25,7 @@ export const MOCK_DATA: Record<string, any> = {
       { rank: 12, name: "Foul Territory", wins: 0, losses: 5, ties: 1, points_for: "28", team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
     ],
     playoff_teams: 6,
+    ai_recommendation: "You're 4th, 4 points from 1st. Your pitching categories lag behind — streaming SP this week could close the gap to 3rd.",
   },
 
   // ── Matchups (Week 7 Scoreboard) ──────────────────────────────────────
@@ -40,6 +41,7 @@ export const MOCK_DATA: Record<string, any> = {
       { team1: "Designated Drinkers", team2: "The Mendoza Liners", status: "12-7-1", team1_logo: "https://placehold.co/40x40/1a1a2e/white?text=T1", team2_logo: "https://placehold.co/40x40/1a1a2e/white?text=T2" },
       { team1: "Caught Stealing Hearts", team2: "Error 404: Wins Not Found", status: "9-9-2", team1_logo: "https://placehold.co/40x40/1a1a2e/white?text=T1", team2_logo: "https://placehold.co/40x40/1a1a2e/white?text=T2" },
     ],
+    ai_recommendation: "You're winning 10-8-2 against Big Poppa Pump. Focus on flipping HR and RBI — both within 2 of tying.",
   },
 
   // ── Matchup Detail (Week 7 H2H) ──────────────────────────────────────
@@ -82,6 +84,7 @@ export const MOCK_DATA: Record<string, any> = {
       // pitching subtotal: 5W, 3L, 2T
       // grand total: 10W, 8L, 2T = 20 ✓
     ],
+    ai_recommendation: "Winning 10-8-2. Your closest flip targets are H (4 behind) and NSV (1 behind). Stream a closer to flip NSV and grab a contact hitter for H.",
   },
 
   // ── Transactions ──────────────────────────────────────────────────────
@@ -127,6 +130,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Brendan Donovan", player_id: "680977", team: "STL", position: "2B,3B,OF", percent_owned: 35, delta: "-3.4", mlb_id: 680977 },
       { name: "Luis Severino", player_id: "622663", team: "NYM", position: "SP", percent_owned: 52, delta: "-3.1", mlb_id: 622663 },
     ],
+    ai_recommendation: "Esteury Ruiz (+12.3%) is the hottest add — his elite speed directly addresses your NSB weakness (10th). Grab before ownership spikes.",
   },
 
   // ── Category Check (Week 7) ───────────────────────────────────────────
@@ -159,6 +163,7 @@ export const MOCK_DATA: Record<string, any> = {
     ],
     strongest: ["HR", "XBH", "L"],
     weakest: ["NSB", "NSV", "IP"],
+    ai_recommendation: "Bottom-3 in NSB (10th), NSV (10th), and IP (9th). All are actionable — target speed on waivers and stream a closer for saves.",
   },
 
   // ── Injury Report ─────────────────────────────────────────────────────
@@ -176,6 +181,7 @@ export const MOCK_DATA: Record<string, any> = {
     il_proper: [
       { name: "Jacob deGrom", position: "SP", status: "60-Day IL", description: "Tommy John recovery", location: "il", mlb_id: 594798 },
     ],
+    ai_recommendation: "2 injured starters need attention. Move Betts to IL and activate Tatis Jr. who's healthy and burning an IL slot. Monitor Bellinger's back before Sunday.",
   },
 
   // ── Waiver Analysis ───────────────────────────────────────────────────
@@ -193,6 +199,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Cedric Mullins", pid: "656775", positions: "OF", status: "Healthy", score: 5.9, pct: 51, mlb_id: 656775, trend: { direction: "dropped", delta: "-6.4", rank: 8, percent_owned: 51 }, intel: { statcast: { quality_tier: "average", sprint_speed: 28.5, speed_pct_rank: 80, xwoba_pct_rank: 48 }, trends: { hot_cold: "cold" } } },
       { name: "Isiah Kiner-Falefa", pid: "643396", positions: "3B,SS", status: "Healthy", score: 5.1, pct: 22, mlb_id: 643396, intel: { statcast: { quality_tier: "below", xwoba_pct_rank: 32 }, trends: { hot_cold: "neutral" } } },
     ],
+    ai_recommendation: "Top target: Esteury Ruiz (45% owned). Elite sprint speed (99th percentile) directly addresses your worst category NSB (10th). Add immediately before ownership spikes.",
   },
 
   // ── Trade Evaluation ──────────────────────────────────────────────────
@@ -212,6 +219,7 @@ export const MOCK_DATA: Record<string, any> = {
       losing: ["1B"],
       gaining: ["OF", "RP"],
     },
+    ai_recommendation: "Grade: B+. Net gain of +2.6 z-score. You lose 1B depth but gain OF and saves. Worth it if you can stream a 1B replacement.",
   },
 
   // ── Free Agents ───────────────────────────────────────────────────────
@@ -229,6 +237,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Tyler O'Neill", player_id: "641933", positions: "OF", percent_owned: 38, status: "DTD", team: "BOS", mlb_id: 641933, intel: { statcast: { quality_tier: "strong", barrel_pct_rank: 85, ev_pct_rank: 82 }, trends: { hot_cold: "cold" } } },
       { name: "Josh Naylor", player_id: "647304", positions: "1B,DH", percent_owned: 71, status: "Healthy", team: "CLE", mlb_id: 647304, intel: { statcast: { quality_tier: "average", xwoba_pct_rank: 60 }, trends: { hot_cold: "warm" } } },
     ],
+    ai_recommendation: "Colt Keith is the best available — elite Statcast profile (72nd xwOBA, 68th EV) at only 55% owned. His .298/.365/.512 line screams breakout.",
   },
 
   // ── Draft Status (Round 6 of 2026 draft) ──────────────────────────────
@@ -240,6 +249,7 @@ export const MOCK_DATA: Record<string, any> = {
     my_hitters: 3,
     my_pitchers: 2,
     drafted_ids: Array.from({ length: 60 }, function (_, i) { return "player_" + i; }),
+    ai_recommendation: "Round 6 with 3 hitters and 2 pitchers. Target a hitter this round — SP value drops off a cliff after round 6.",
   },
 
   // ── Draft Recommendation (Round 6) ────────────────────────────────────
@@ -267,6 +277,7 @@ export const MOCK_DATA: Record<string, any> = {
     ],
     hitters_count: 3,
     pitchers_count: 2,
+    ai_recommendation: "Take Vladimir Guerrero Jr. (z-score 2.34). Elite bat still on the board at 1B. Your pitching is solid with 2 already — load up on hitting.",
   },
 
   // ── Draft Cheat Sheet ─────────────────────────────────────────────────
@@ -290,6 +301,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "The Lumber Yard", tendency: "Heavy on power hitters, ignores speed" },
       { name: "Strikeout Kings", tendency: "Always takes K pitchers first 3 rounds" },
     ],
+    ai_recommendation: "Dynasty Destroyers always grabs pitching early — your target aces will go fast. Grab one by round 3 or pivot to closers in round 5.",
   },
 
   // ── Best Available (Draft) ────────────────────────────────────────────
@@ -313,6 +325,7 @@ export const MOCK_DATA: Record<string, any> = {
       { rank: 14, name: "Salvador Perez", positions: ["C", "DH"], z_score: -0.18, mlb_id: 521692 },
       { rank: 15, name: "Tyler O'Neill", positions: ["OF"], z_score: -0.32, mlb_id: 641933 },
     ],
+    ai_recommendation: "Best value on the board: Vladimir Guerrero Jr. (z-score 2.34). Elite tier player — don't let him slip past round 6.",
   },
 
   // ── League History ────────────────────────────────────────────────────
@@ -501,6 +514,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Josh Hader", player_id: "623352", position: "RP", eligible_positions: ["RP"], status: "Healthy", team: "HOU", mlb_id: 623352, intel: { statcast: { quality_tier: "average", whiff_rate: 28.1, chase_rate: 29.5 }, trends: { hot_cold: "cold" }, context: { reddit_mentions: 4, reddit_sentiment: "negative", recent_headlines: ["Is Hader cooked? 5.40 ERA in May"] } } },
       { name: "Jacob deGrom", player_id: "594798", position: "IL", eligible_positions: ["SP"], status: "60-Day IL", team: "TEX", mlb_id: 594798 },
     ],
+    ai_recommendation: "Roster health: 1 DTD (Bellinger), 1 IL stash (deGrom). Bobby Witt Jr. is scorching (.355 last 14 days). Consider selling high on Corbin Carroll — Statcast numbers are below average.",
   },
 
   // ── League Info ─────────────────────────────────────────────────────────
@@ -530,6 +544,7 @@ export const MOCK_DATA: Record<string, any> = {
       { team1: "Designated Drinkers", team2: "The Mendoza Liners", status: "12-7-1" },
       { team1: "Caught Stealing Hearts", team2: "Error 404: Wins Not Found", status: "9-9-2" },
     ],
+    ai_recommendation: "You're winning 10-8-2 against Big Poppa Pump. Focus on flipping HR and RBI — both within 2 of tying.",
   },
 
   // ── Stat Categories ─────────────────────────────────────────────────────
@@ -556,6 +571,7 @@ export const MOCK_DATA: Record<string, any> = {
       { display_name: "Quality Starts", name: "QS", position_type: "P" },
       { display_name: "Net Saves", name: "NSV", position_type: "P" },
     ],
+    ai_recommendation: "Your league uses 20 categories (10B/10P). Negative categories (K-bat, L, ER) reward discipline. NSB and NSV reward elite closers and speed.",
   },
 
   // ── Lineup Optimize ─────────────────────────────────────────────────────
@@ -575,6 +591,7 @@ export const MOCK_DATA: Record<string, any> = {
     ],
     applied: false,
     message: "2 active players have no game today. 1 bench player is playing.",
+    ai_recommendation: "2 starters sitting idle while 1 bench bat has a game. Swap in Ozzie Albies at UTIL for Pete Alonso — Albies has a game today and Alonso doesn't.",
   },
 
   // ── Streaming Pitchers ──────────────────────────────────────────────────
@@ -591,6 +608,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Andrew Abbott", player_id: "680737", team: "CIN", games: 1, percent_owned: 31, score: 5.4, two_start: false, mlb_id: 680737 },
       { name: "Colin Rea", player_id: "607067", team: "MIL", games: 2, percent_owned: 18, score: 5.1, two_start: true, mlb_id: 607067 },
     ],
+    ai_recommendation: "Lead with Bryce Miller — 2 starts this week vs weak offenses. 42% owned so grab him now. Bailey Ober is your backup with 2 starts at 38% owned.",
   },
 
   // ── Daily Update ────────────────────────────────────────────────────────
@@ -621,6 +639,7 @@ export const MOCK_DATA: Record<string, any> = {
       ],
     },
     message: "Action needed: 2 active off-day players, 1 injury to monitor.",
+    ai_recommendation: "Priority 1: Handle 2 lineup issues — swap Albies in for off-day Alonso. Priority 2: Monitor Bellinger's back tightness before setting Sunday's lineup.",
   },
 
   // ── Rankings ────────────────────────────────────────────────────────────
@@ -645,6 +664,7 @@ export const MOCK_DATA: Record<string, any> = {
       { rank: 14, name: "Pete Alonso", team: "NYM", position: "1B", z_score: 0.94, mlb_id: 624413 },
       { rank: 15, name: "Julio Rodriguez", team: "SEA", position: "OF", z_score: 0.81, mlb_id: 677594 },
     ],
+    ai_recommendation: "Best value still available: Shohei Ohtani (z-score 3.12). If you can trade for him, he's the #1 overall player by a wide margin.",
   },
 
   // ── Player Comparison ───────────────────────────────────────────────────
@@ -659,6 +679,7 @@ export const MOCK_DATA: Record<string, any> = {
       z_score: 2.18,
       categories: { R: 2.5, H: 2.2, HR: 1.6, RBI: 1.8, K: 0.3, TB: 2.0, AVG: 1.9, OBP: 1.2, XBH: 1.5, NSB: 3.1 },
     },
+    ai_recommendation: "Judge wins on raw power (HR +2.2, TB +1.1, XBH +1.7) but Witt Jr. wins on speed and contact (NSB +3.6, AVG +1.1, H +0.8). Pick Judge for power cats, Witt for balanced builds.",
   },
 
   // ── Player Value ────────────────────────────────────────────────────────
@@ -680,6 +701,7 @@ export const MOCK_DATA: Record<string, any> = {
       { category: "XBH", z_score: 3.2, raw_stat: 62 },
       { category: "NSB", z_score: -0.5, raw_stat: 3 },
     ],
+    ai_recommendation: "ELITE — Judge's z-score of 2.87 is top-3 overall. Monster power categories (HR 3.8, TB 3.1, XBH 3.2) but K drag (-1.2) and no speed (-0.5) limit his floor. Untouchable in power builds.",
   },
 
   // ── Action Results ──────────────────────────────────────────────────────
@@ -688,6 +710,7 @@ export const MOCK_DATA: Record<string, any> = {
     success: true,
     message: "Successfully added Esteury Ruiz to your roster.",
     player_id: "682650",
+    ai_recommendation: "Esteury Ruiz added successfully. His elite speed should boost your NSB category immediately. Slot him in an OF or UTIL spot for today's game.",
   },
 
   "action-drop": {
@@ -695,6 +718,7 @@ export const MOCK_DATA: Record<string, any> = {
     success: true,
     message: "Successfully dropped Tommy Edman from your roster.",
     player_id: "669023",
+    ai_recommendation: "Tommy Edman dropped. He was trending down (-8.7% ownership). Good move to clear the roster spot for a higher-impact player.",
   },
 
   "action-swap": {
@@ -703,6 +727,7 @@ export const MOCK_DATA: Record<string, any> = {
     message: "Successfully added Esteury Ruiz and dropped Tommy Edman.",
     add_id: "682650",
     drop_id: "669023",
+    ai_recommendation: "Swap complete: Ruiz in, Edman out. This directly upgrades your speed and NSB production. Check the waiver wire for pitching adds with your remaining moves.",
   },
 
   // ── Category Simulate ──────────────────────────────────────────────────
@@ -735,6 +760,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "K", rank: 6, total: 12, change: -1 },
     ],
     summary: "Adding Jazz Chisholm Jr. projects to improve HR (+2), NSB (+1), R (+1), RBI (+1), TB (+1), XBH (+1) but may hurt AVG (-1), OBP (-1), K (-1). Net: +4 rank improvement across categories.",
+    ai_recommendation: "Adding Jazz Chisholm Jr. is a net positive: +4 rank improvement across categories. You gain HR, NSB, and R but sacrifice some AVG and OBP. Worth it given your speed weakness.",
   },
 
   // ── Scout Opponent ─────────────────────────────────────────────────────
@@ -774,6 +800,7 @@ export const MOCK_DATA: Record<string, any> = {
       "Your opponent is strong in power (HR, RBI) - hard to overcome, focus elsewhere",
       "Leverage your reliever advantage (HLD, NSV) - consider streaming a closer",
     ],
+    ai_recommendation: "Opponent is weak in NSB, K-pitch, NSV, and HLD. Exploit with speed adds and reliever streaming. Avoid trying to beat them in HR and RBI — they're too strong there.",
   },
 
   // ── Matchup Strategy ─────────────────────────────────────────────────────
@@ -830,6 +857,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Bryce Miller", pid: "682247", pct: 55, categories: ["ERA", "ER", "K_pitch"], team: "Mariners", games: 5, mlb_id: 682247 },
     ],
     summary: "Winning 10-8-2 with a schedule edge (+7 batter games). Target HR, RBI, OBP, XBH, ER, ERA — all within reach. Protect H, AVG, WHIP leads. Concede W, QS where opponent is dominant.",
+    ai_recommendation: "Winning 10-8-2 with a +7 batter game edge. Flip HR and RBI by adding a power bat. Protect your close leads in H, AVG, and WHIP — don't make risky moves that tank rate stats.",
   },
 
   // ── Trade Builder ────────────────────────────────────────────────────────
@@ -853,6 +881,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Kyle Tucker", player_id: "663656", position: "OF", team: "HOU", mlb_id: 663656 },
     ],
     evaluation: null,
+    ai_recommendation: "Build packages around Pete Alonso or Corbin Carroll — both are tradeable assets. Target speed (Trea Turner) or saves (Emmanuel Clase) to address your category gaps.",
   },
 
   // ── MLB Teams ───────────────────────────────────────────────────────────
@@ -1051,6 +1080,7 @@ export const MOCK_DATA: Record<string, any> = {
       z_contact_pct: 82.1,
       swstr_pct: 12.8,
     },
+    ai_recommendation: "BUY — elite barrel rate (99th percentile) with xwOBA .418 (99th). Judge is performing to his Statcast profile. Top-3 player in fantasy, period.",
   },
 
   // ── Intel: Breakout Candidates ────────────────────────────────────────
@@ -1069,6 +1099,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Xander Bogaerts", woba: 0.282, xwoba: 0.309, diff: 0.027, pa: 188 },
       { name: "Salvador Perez", woba: 0.296, xwoba: 0.321, diff: 0.025, pa: 234 },
     ],
+    ai_recommendation: "Top breakout: Adley Rutschman. xwOBA (.355) outpacing wOBA (.302) by .053 — biggest gap on the list. His bat is about to catch up to his contact quality. Buy low now.",
   },
 
   // ── Intel: Bust Candidates ────────────────────────────────────────────
@@ -1085,6 +1116,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Brendan Donovan", woba: 0.312, xwoba: 0.284, diff: 0.028, pa: 205 },
       { name: "Alex Verdugo", woba: 0.298, xwoba: 0.272, diff: 0.026, pa: 242 },
     ],
+    ai_recommendation: "Sell high alert: Luis Arraez. wOBA (.365) significantly outpacing xwOBA (.318). His .047 gap suggests he's been lucky — regression is coming. Move him while value is inflated.",
   },
 
   // ── Intel: Reddit Buzz ────────────────────────────────────────────────
@@ -1102,6 +1134,7 @@ export const MOCK_DATA: Record<string, any> = {
       { title: "Gerrit Cole scratched from tonight's start (undisclosed)", score: 521, num_comments: 203, flair: "Breaking News" },
       { title: "Is Josh Hader cooked? 5.40 ERA in May", score: 98, num_comments: 112, flair: "Player Discussion" },
     ],
+    ai_recommendation: "Key buzz: Gerrit Cole scratched from start (521 upvotes) — monitor closely if you own him. Esteury Ruiz stealing bases at an elite clip — aligns with your NSB weakness.",
   },
 
   // ── Intel: Trending ───────────────────────────────────────────────────
@@ -1115,6 +1148,7 @@ export const MOCK_DATA: Record<string, any> = {
       { title: "Corbin Carroll owners - are we selling or holding?", score: 218, num_comments: 156, flair: "Player Discussion" },
       { title: "Esteury Ruiz has stolen 8 bases in 10 days. Time to add?", score: 187, num_comments: 92, flair: "Waiver" },
     ],
+    ai_recommendation: "Breaking: Cole scratched (top post). Spencer Strider targeting June return — if he's on waivers, stash now before the rush. Julio Rodriguez's EV spike is real per Statcast.",
   },
 
   // ── Intel: Prospect Watch ─────────────────────────────────────────────
@@ -1129,6 +1163,7 @@ export const MOCK_DATA: Record<string, any> = {
       { player: "Dylan Crews", type: "Recalled", team: "WSH", date: "2026-05-09", description: "Recalled from Triple-A Rochester" },
       { player: "Junior Caminero", type: "Recalled", team: "TB", date: "2026-05-08", description: "Recalled from Triple-A Durham" },
     ],
+    ai_recommendation: "Jackson Chourio and Colton Cowser are the must-add callups. Both have plus tools and immediate fantasy impact. Kyle Manzardo is a deeper league add at 1B.",
   },
 
   // ── Intel: MLB Transactions ───────────────────────────────────────────
@@ -1147,6 +1182,7 @@ export const MOCK_DATA: Record<string, any> = {
       { player: "Dylan Crews", type: "Recalled", team: "WSH", date: "2026-05-09", description: "Recalled from Triple-A Rochester" },
       { player: "Luis Severino", type: "Placed on IL", team: "NYM", date: "2026-05-09", description: "Placed on 15-Day IL with right shoulder strain" },
     ],
+    ai_recommendation: "Spencer Strider activated — if available, add immediately. Walker Buehler and Byron Buxton to IL create roster openings. Check if their owners dropped anyone useful.",
   },
 
   // ── Set Lineup ────────────────────────────────────────────────────────
@@ -1161,6 +1197,7 @@ export const MOCK_DATA: Record<string, any> = {
     ],
     applied: 5,
     failed: 1,
+    ai_recommendation: "5 of 6 lineup moves applied successfully. Pete Alonso couldn't be moved — fill the 1B slot with another player first, then move Alonso to bench.",
   },
 
   // ── Pending Trades ──────────────────────────────────────────────────
@@ -1214,6 +1251,7 @@ export const MOCK_DATA: Record<string, any> = {
         trade_note: "Selling high on Acuna. Need a steady 1B and saves.",
       },
     ],
+    ai_recommendation: "Incoming trade from Dynasty Destroyers: Alvarez + Clase for Witt Jr. This is a sell-low on Witt. Counter with a smaller ask — Witt Jr. is too valuable to move 1-for-2.",
   },
 
   // ── Trade Action ──────────────────────────────────────────────────────
@@ -1222,6 +1260,7 @@ export const MOCK_DATA: Record<string, any> = {
     success: true,
     message: "Trade proposal sent to Strikeout Kings. Pete Alonso for Trea Turner. They have 48 hours to respond.",
     trade_details: "You send: Pete Alonso (1B). You receive: Trea Turner (SS).",
+    ai_recommendation: "Trade proposed to Strikeout Kings. Alonso for Turner is a speed-for-power swap — good move given your NSB weakness. Expect a counter within 24 hours.",
   },
 
   // ── What's New ────────────────────────────────────────────────────────
@@ -1261,6 +1300,7 @@ export const MOCK_DATA: Record<string, any> = {
       { player: "Junior Caminero", type: "Recalled", team: "TB", description: "Recalled from Triple-A Durham" },
       { player: "Colton Cowser", type: "Recalled", team: "BAL", description: "Recalled from Triple-A Norfolk" },
     ],
+    ai_recommendation: "Priority 1: Handle Bellinger's DTD status — decide if he plays Sunday. Priority 2: Evaluate Dynasty Destroyers' trade offer. Priority 3: Add Esteury Ruiz before ownership spikes.",
   },
 
   // ── Trade Finder ──────────────────────────────────────────────────────
@@ -1354,6 +1394,7 @@ export const MOCK_DATA: Record<string, any> = {
         ],
       },
     ],
+    ai_recommendation: "Best match: Caught Stealing Hearts (92 compatibility). They need power (your surplus) and have speed + saves (your gaps). Offer Pete Alonso for Trea Turner as a starting point.",
   },
 
   // ── Week Planner ──────────────────────────────────────────────────────
@@ -1373,6 +1414,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Corbin Carroll", position: "OF", positions: ["OF", "UTIL"], mlb_team: "ARI", total_games: 6, games_by_date: { "2026-05-11": true, "2026-05-12": true, "2026-05-13": true, "2026-05-14": false, "2026-05-15": true, "2026-05-16": true, "2026-05-17": true } },
     ],
     daily_totals: { "2026-05-11": 8, "2026-05-12": 7, "2026-05-13": 6, "2026-05-14": 6, "2026-05-15": 8, "2026-05-16": 5, "2026-05-17": 7 },
+    ai_recommendation: "Heavy days Tuesday and Thursday (8 games each). Light day Saturday (5 games). Consider a streaming add for Saturday to maximize at-bats on the light day.",
   },
 
   // ── Closer Monitor ────────────────────────────────────────────────────
@@ -1399,6 +1441,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Jhoan Duran", saves: "10" },
       { name: "Robert Suarez", saves: "9" },
     ],
+    ai_recommendation: "You have 1 true closer (Hader, 14 saves). Add Carlos Estevez (62% owned, 11 saves) to double your saves output. Jhoan Duran (55% owned) is the backup target.",
   },
 
   // ── Pitcher Matchup ───────────────────────────────────────────────────
@@ -1415,6 +1458,7 @@ export const MOCK_DATA: Record<string, any> = {
       { name: "Bailey Ober", player_id: "641927", mlb_team: "MIN", next_start_date: "2026-05-11", opponent: "DET", home_away: "home", opp_avg: 0.245, opp_obp: 0.308, opp_k_pct: 23.4, opp_woba: 0.302, matchup_grade: "B+", two_start: true },
       { name: "Gavin Stone", player_id: "681024", mlb_team: "LAD", next_start_date: "2026-05-15", opponent: "SF", home_away: "away", opp_avg: 0.252, opp_obp: 0.325, opp_k_pct: 21.8, opp_woba: 0.321, matchup_grade: "B", two_start: false },
     ],
+    ai_recommendation: "Best matchup this week: Zack Wheeler vs MIA (A+ grade). Worst: Gavin Stone vs SF (B grade). Start all 2-start pitchers (Cole, Burnes, Miller, Ober) for volume.",
   },
 
   // ── League Pulse ──────────────────────────────────────────────────────
@@ -1433,6 +1477,7 @@ export const MOCK_DATA: Record<string, any> = {
       { team_key: "000.l.00000.t.10", name: "The Mendoza Liners", moves: 3, trades: 0, total: 3, team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
       { team_key: "000.l.00000.t.12", name: "Foul Territory", moves: 2, trades: 0, total: 2, team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
     ],
+    ai_recommendation: "You lead the league with 15 total moves (14 adds, 1 trade). Dynasty Destroyers is close behind with 14. Stay aggressive — your activity is paying off at 4th place.",
   },
 
   // ── Power Rankings ────────────────────────────────────────────────────
@@ -1451,6 +1496,7 @@ export const MOCK_DATA: Record<string, any> = {
       { rank: 11, team_key: "000.l.00000.t.11", name: "Balk Street Boys", hitting_count: 7, pitching_count: 6, roster_size: 13, avg_owned_pct: 52.3, total_score: 53.7, is_my_team: false, team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
       { rank: 12, team_key: "000.l.00000.t.12", name: "Foul Territory", hitting_count: 6, pitching_count: 5, roster_size: 11, avg_owned_pct: 44.6, total_score: 45.1, is_my_team: false, team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
     ],
+    ai_recommendation: "Ranked 4th by roster strength (84.8 score). Your hitting ranks 2nd in the league but pitching depth is the gap. Add a SP to climb to 3rd.",
   },
 
   // ── Season Pace ───────────────────────────────────────────────────────
@@ -1472,6 +1518,7 @@ export const MOCK_DATA: Record<string, any> = {
       { rank: 11, name: "Balk Street Boys", wins: 1, losses: 5, ties: 0, weeks_played: 6, remaining_weeks: 16, win_pct: 0.167, projected_wins: 4, projected_losses: 18, is_my_team: false, playoff_status: "out", magic_number: 16, team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
       { rank: 12, name: "Foul Territory", wins: 0, losses: 5, ties: 1, weeks_played: 6, remaining_weeks: 16, win_pct: 0.083, projected_wins: 2, projected_losses: 20, is_my_team: false, playoff_status: "out", magic_number: 18, team_logo: "https://placehold.co/40x40/1a1a2e/white?text=T", manager_image: "https://placehold.co/40x40/374151/white?text=M" },
     ],
+    ai_recommendation: "On pace for 15 wins (4th place). Magic number is 4 — win 4 more matchups to clinch a playoff spot. Lock in 2 more category wins per week to stay safe.",
   },
 
   // ── Who Owns ──────────────────────────────────────────────────────────
@@ -1479,5 +1526,6 @@ export const MOCK_DATA: Record<string, any> = {
     player_key: "123.p.10918",
     ownership_type: "team",
     owner: "Home Run Heroes",
+    ai_recommendation: "Pete Alonso is on your roster (Home Run Heroes). He's a tradeable asset if you need to address your speed or saves weakness.",
   },
 };

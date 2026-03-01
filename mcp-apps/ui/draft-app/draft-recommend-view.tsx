@@ -1,9 +1,12 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 
+import { AiInsight } from "../shared/ai-insight";
 import { IntelBadge } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
 import { formatFixed } from "../shared/number-format";
+import { VerdictBadge } from "../shared/verdict-badge";
+import { getTier, tierColor, tierGrade, ZScoreBar } from "../shared/z-score";
 
 interface DraftRecommendation {
   name: string;
@@ -26,57 +29,28 @@ interface DraftRecommendData {
   hitters_count?: number;
   pitchers_count?: number;
   top_pick?: { name: string; type: string; z_score: number | null } | null;
-}
-
-function getTier(z: number | null): string {
-  if (z == null) return "?";
-  if (z >= 2.0) return "Elite";
-  if (z >= 1.0) return "Strong";
-  if (z >= 0) return "Average";
-  return "Below";
-}
-
-function tierColor(z: number | null): string {
-  if (z == null) return "bg-muted";
-  if (z >= 2.0) return "bg-green-500";
-  if (z >= 1.0) return "bg-blue-500";
-  if (z >= 0) return "bg-yellow-500";
-  return "bg-red-400";
-}
-
-function ZScoreBar({ z }: { z: number | null }) {
-  if (z == null) return <span className="text-xs text-muted-foreground">N/A</span>;
-  // Scale: -1 to 4 mapped to 0-100%
-  const pct = Math.max(0, Math.min(100, ((z + 1) / 5) * 100));
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex h-1.5 w-12 rounded-full overflow-hidden bg-muted">
-        <div className={"rounded-full " + tierColor(z)} style={{ width: pct + "%" }} />
-      </div>
-      <span className="font-mono text-xs">{formatFixed(z, 2, "0.00")}</span>
-    </div>
-  );
+  ai_recommendation?: string | null;
 }
 
 function PlayerList({ players, showTopHighlight, app, navigate }: { players: DraftRecommendation[]; showTopHighlight: boolean; app?: any; navigate?: (data: any) => void }) {
-  let lastTier = "";
+  var lastTier = "";
 
   return (
     <div className="space-y-0.5">
       {players.map(function (p, i) {
-        const tier = getTier(p.z_score);
-        const showDivider = i > 0 && tier !== lastTier;
+        var tier = getTier(p.z_score);
+        var showDivider = i > 0 && tier !== lastTier;
         lastTier = tier;
-        const posDisplay = p.positions ? p.positions.join(", ") : (p.position || "?");
-        const isTop = i === 0 && showTopHighlight;
+        var posDisplay = p.positions ? p.positions.join(", ") : (p.position || "?");
+        var isTop = i === 0 && showTopHighlight;
 
         return (
           <div key={p.name}>
             {showDivider && (
-              <div className="flex items-center gap-2 py-1">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">{tier}</span>
-                <div className="flex-1 h-px bg-border" />
+              <div className="flex items-center gap-2 py-1.5">
+                <div className="flex-1 h-0.5 bg-primary/30" />
+                <VerdictBadge grade={tierGrade(p.z_score)} size="sm" />
+                <div className="flex-1 h-0.5 bg-primary/30" />
               </div>
             )}
             <div className={"flex items-center gap-2 py-1 px-1.5 rounded " + (isTop ? "bg-primary/10 border border-primary/30" : "")}>
@@ -93,20 +67,35 @@ function PlayerList({ players, showTopHighlight, app, navigate }: { players: Dra
 }
 
 export function DraftRecommendView({ data, app, navigate }: { data: DraftRecommendData; app?: any; navigate?: (data: any) => void }) {
-  const strategy = data.recommendation || data.strategy || "";
-  const hitters = data.top_hitters || data.hitters || [];
-  const pitchers = data.top_pitchers || data.pitchers || [];
-  const hittersFirst = strategy.toLowerCase().includes("hitter");
+  var strategy = data.recommendation || data.strategy || "";
+  var hitters = data.top_hitters || data.hitters || [];
+  var pitchers = data.top_pitchers || data.pitchers || [];
+  var hittersFirst = strategy.toLowerCase().indexOf("hitter") >= 0;
 
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      {/* Hero card for top pick */}
+      {data.top_pick && (
+        <Card className="glow-gold border-primary/40">
+          <CardContent className="p-4 text-center">
+            <p className="app-kicker mb-1">Top Pick - Round {data.round}</p>
+            <p className="text-2xl-app font-bold">{data.top_pick.name}</p>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Badge variant="outline" className="text-xs">{data.top_pick.type}</Badge>
+              {data.top_pick.z_score != null && (
+                <VerdictBadge grade={formatFixed(data.top_pick.z_score, 1, "0.0")} variant={data.top_pick.z_score >= 2 ? "success" : data.top_pick.z_score >= 1 ? "info" : "warning"} size="lg" />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Round {data.round} Recommendation</CardTitle>
-            {data.top_pick && (
-              <Badge className="bg-green-600 text-white">{data.top_pick.name}</Badge>
-            )}
           </div>
         </CardHeader>
         <CardContent>

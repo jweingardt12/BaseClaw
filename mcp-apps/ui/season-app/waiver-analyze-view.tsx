@@ -10,6 +10,8 @@ import { IntelBadge } from "../shared/intel-badge";
 import { IntelPanel } from "../shared/intel-panel";
 import { PlayerName } from "../shared/player-name";
 import { TrendIndicator } from "../shared/trend-indicator";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, ArrowRightLeft, Loader2, TrendingUp } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 
@@ -38,6 +40,7 @@ interface WaiverData {
   weak_categories: (WeakCategory | string)[];
   recommendations?: WaiverPlayer[];
   players?: WaiverPlayer[];
+  ai_recommendation?: string | null;
 }
 
 function scoreBarColor(pct: number): string {
@@ -89,8 +92,22 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
     }
   };
 
+  var weakCatsCount = (data.weak_categories || []).length;
+  var topScore = players.length > 0 ? players[0].score : 0;
+  var avgOwn = players.length > 0
+    ? Math.round(players.reduce(function (sum, p) { return sum + (p.pct != null ? p.pct : (p.percent_owned || 0)); }, 0) / players.length)
+    : 0;
+
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={weakCatsCount} label="Weak Cats" color="risk" />
+        <KpiTile value={formatFixed(topScore, 1, "0.0")} label="Top Score" color="success" />
+        <KpiTile value={avgOwn + "%"} label="Avg Own%" color="neutral" />
+      </div>
+
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <TrendingUp size={18} />
         Waiver Wire Analysis - {label}

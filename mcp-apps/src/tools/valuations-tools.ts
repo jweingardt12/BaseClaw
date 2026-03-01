@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
+import { generateRankingsInsight, generateCompareInsight } from "../insights.js";
 import { str, type RankingsResponse, type CompareResponse, type ValueResponse } from "../api/types.js";
 
 const VALUATIONS_URI = "ui://fbb-mcp/valuations.html";
@@ -58,9 +59,10 @@ export function registerValuationsTools(server: McpServer, distDir: string) {
             const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
             return "  " + String(p.rank).padStart(3) + ". " + str(p.name).padEnd(25) + " " + str(p.pos).padEnd(8) + " z=" + p.z_score.toFixed(2) + tier;
           }).join("\n");
+        var ai_recommendation = generateRankingsInsight(data);
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "rankings", ...data },
+          structuredContent: { type: "rankings", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -94,10 +96,12 @@ export function registerValuationsTools(server: McpServer, distDir: string) {
           cats2[cat] = scores.player2;
           lines.push("  " + str(cat).padEnd(12) + str(scores.player1.toFixed(2)).padStart(8) + "  vs  " + str(scores.player2.toFixed(2)).padStart(8));
         }
+        var ai_recommendation = generateCompareInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: {
             type: "compare",
+            ai_recommendation,
             player1: { name: data.player1.name, z_score: final1, categories: cats1 },
             player2: { name: data.player2.name, z_score: final2, categories: cats2 },
           },
@@ -136,10 +140,12 @@ export function registerValuationsTools(server: McpServer, distDir: string) {
           categories.push({ category: cat, z_score: Number(z), raw_stat: rawStat });
           lines.push("  " + str(cat).padEnd(12) + " z=" + Number(z).toFixed(2) + (rawStat != null ? "  (" + rawStat + ")" : ""));
         }
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: {
             type: "value",
+            ai_recommendation,
             name: p.name,
             team: p.team,
             pos: p.pos,

@@ -8,6 +8,14 @@ export function getTier(z: number | null): string {
   return "Below";
 }
 
+export function tierGrade(z: number | null): string {
+  if (z == null) return "?";
+  if (z >= 2.0) return "ELITE";
+  if (z >= 1.0) return "GOOD";
+  if (z >= 0) return "FAIR";
+  return "POOR";
+}
+
 export function tierColor(z: number | null): string {
   if (z == null) return "bg-muted-foreground/30";
   if (z >= 2.0) return "bg-[#d4a017]";

@@ -5,6 +5,23 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import {
+  generateLineupInsight,
+  generateMatchupInsight,
+  generateWaiverInsight,
+  generateInjuryInsight,
+  generateCategoryInsight,
+  generateStreamingInsight,
+  generateTradeInsight,
+  generateWhatsNewInsight,
+  generateTradeFinderInsight,
+  generateCloserInsight,
+  generateScoutInsight,
+  generateWeekPlannerInsight,
+  generatePitcherMatchupInsight,
+  generateDailyUpdateInsight,
+  generateSimulateInsight,
+} from "../insights.js";
+import {
   str,
   type LineupOptimizeResponse,
   type CategoryCheckResponse,
@@ -97,9 +114,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           }
         }
         if (data.applied) lines.push("Changes applied.");
+        const ai_recommendation = generateLineupInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "lineup-optimize", ...data },
+          structuredContent: { type: "lineup-optimize", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -130,9 +148,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         }
         if (data.strongest.length > 0) lines.push("Strongest: " + data.strongest.join(", "));
         if (data.weakest.length > 0) lines.push("Weakest:   " + data.weakest.join(", "));
+        const ai_recommendation = generateCategoryInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "category-check", ...data },
+          structuredContent: { type: "category-check", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -171,9 +190,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             lines.push("  BN   " + str(p.name).padEnd(25) + " [" + str(p.status) + "]");
           }
         }
+        const ai_recommendation = generateInjuryInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "injury-report", ...data },
+          structuredContent: { type: "injury-report", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -207,9 +227,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           lines.push("  " + str(p.name).padEnd(25) + str(p.positions).padEnd(12) + str(p.pct).padStart(5)
             + "  " + str(p.score.toFixed(1)).padStart(5) + status + tier + "  (id:" + p.pid + ")");
         }
+        const ai_recommendation = generateWaiverInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "waiver-analyze", ...data },
+          structuredContent: { type: "waiver-analyze", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -242,9 +263,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             + str(p.pct).padStart(6) + "  " + str(p.score.toFixed(1)).padStart(5)
             + twoStart + tier + "  (id:" + p.pid + ")");
         }
+        const ai_recommendation = generateStreamingInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "streaming", ...data },
+          structuredContent: { type: "streaming", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -281,9 +303,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         lines.push("Get Value:     " + data.get_value.toFixed(1));
         lines.push("Net Value:     " + data.net_value.toFixed(1));
         lines.push("Trade Grade:   " + data.grade);
+        const ai_recommendation = generateTradeInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "trade-eval", ...data },
+          structuredContent: { type: "trade-eval", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -301,9 +324,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     async () => {
       try {
         const data = await apiGet<DailyUpdateResponse>("/api/daily-update");
+        const ai_recommendation = generateDailyUpdateInsight(data);
         return {
           content: [{ type: "text" as const, text: "Daily update complete" }],
-          structuredContent: { type: "daily-update", ...data },
+          structuredContent: { type: "daily-update", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -331,9 +355,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         for (const s of data.strategy) {
           lines.push("  - " + s);
         }
+        const ai_recommendation = generateScoutInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "scout-opponent", ...data },
+          structuredContent: { type: "scout-opponent", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -359,9 +384,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (data.drop_player) lines.push("Dropping: " + data.drop_player.name);
         lines.push("");
         lines.push(data.summary);
+        const ai_recommendation = generateSimulateInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "category-simulate", ...data },
+          structuredContent: { type: "category-simulate", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -392,9 +418,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (strat.lock.length > 0) lines.push("LOCK: " + strat.lock.join(", "));
         lines.push("");
         lines.push(data.summary);
+        const ai_recommendation = generateMatchupInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "matchup-strategy", ...data },
+          structuredContent: { type: "matchup-strategy", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -425,9 +452,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             lines.push("  Error moving " + m.player_id + ": " + (m.error || "unknown"));
           }
         }
+        const ai_recommendation = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "set-lineup", ...data },
+          structuredContent: { type: "set-lineup", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -450,7 +478,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (!data.trades || data.trades.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No pending trade proposals" }],
-            structuredContent: { type: "pending-trades", ...data },
+            structuredContent: { type: "pending-trades", ai_recommendation: null, ...data },
           };
         }
         const lines = ["Pending Trade Proposals:"];
@@ -465,7 +493,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "pending-trades", ...data },
+          structuredContent: { type: "pending-trades", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -495,7 +523,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         });
         return {
           content: [{ type: "text" as const, text: data.message || "Trade proposal result: " + JSON.stringify(data) }],
-          structuredContent: { type: "propose-trade", ...data },
+          structuredContent: { type: "propose-trade", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -516,7 +544,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const data = await apiPost<TradeActionResponse>("/api/accept-trade", { transaction_key, note });
         return {
           content: [{ type: "text" as const, text: data.message || "Accept trade result: " + JSON.stringify(data) }],
-          structuredContent: { type: "accept-trade", ...data },
+          structuredContent: { type: "accept-trade", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -537,7 +565,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const data = await apiPost<TradeActionResponse>("/api/reject-trade", { transaction_key, note });
         return {
           content: [{ type: "text" as const, text: data.message || "Reject trade result: " + JSON.stringify(data) }],
-          structuredContent: { type: "reject-trade", ...data },
+          structuredContent: { type: "reject-trade", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -585,9 +613,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             sections.push("  " + str(p.player).padEnd(25) + " " + str(p.type));
           }
         }
+        const ai_recommendation = generateWhatsNewInsight(data);
         return {
           content: [{ type: "text" as const, text: sections.join("\n") }],
-          structuredContent: { type: "whats-new", ...data },
+          structuredContent: { type: "whats-new", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -624,9 +653,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             lines.push("");
           }
         }
+        const ai_recommendation = generateTradeFinderInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "trade-finder", ...data },
+          structuredContent: { type: "trade-finder", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -656,9 +686,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           const days = (data.dates || []).map((d) => p.games_by_date[d] ? "  *  " : "  -  ");
           lines.push("  " + str(p.name).slice(0, 20).padEnd(20) + str(p.position).padEnd(5) + days.join(""));
         }
+        const ai_recommendation = generateWeekPlannerInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "week-planner", ...data },
+          structuredContent: { type: "week-planner", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -699,9 +730,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             lines.push("  " + String(i + 1).padStart(2) + ". " + str(p.name).padEnd(25) + " " + p.saves + " saves");
           }
         }
+        const ai_recommendation = generateCloserInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "closer-monitor", ...data },
+          structuredContent: { type: "closer-monitor", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -733,9 +765,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           lines.push("  " + str(p.name).padEnd(22) + str(p.next_start_date).slice(0, 10).padEnd(12)
             + (ha + str(p.opponent)).slice(0, 15).padEnd(15) + p.matchup_grade + ts);
         }
+        const ai_recommendation = generatePitcherMatchupInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "pitcher-matchup", ...data },
+          structuredContent: { type: "pitcher-matchup", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
+import { generatePlayerReportInsight, generateBreakoutInsight } from "../insights.js";
 import {
   str,
   type IntelPlayerReportResponse,
@@ -94,9 +95,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
           if (d.bb_rate != null) lines.push("  BB%: " + d.bb_rate);
           if (d.k_rate != null) lines.push("  K%: " + d.k_rate);
         }
+        var ai_recommendation = generatePlayerReportInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-player", ...data },
+          structuredContent: { type: "intel-player", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -122,9 +124,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
         for (const c of data.candidates) {
           lines.push("  " + str(c.name).padEnd(25) + str(c.woba.toFixed(3)).padStart(7) + "  " + str(c.xwoba.toFixed(3)).padStart(7) + "  +" + str(c.diff.toFixed(3)).padStart(6) + str(c.pa).padStart(5));
         }
+        var ai_recommendation = generateBreakoutInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-breakouts", ...data },
+          structuredContent: { type: "intel-breakouts", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -150,9 +153,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
         for (const c of data.candidates) {
           lines.push("  " + str(c.name).padEnd(25) + str(c.woba.toFixed(3)).padStart(7) + "  " + str(c.xwoba.toFixed(3)).padStart(7) + "  " + str(c.diff.toFixed(3)).padStart(7) + str(c.pa).padStart(5));
         }
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-busts", ...data },
+          structuredContent: { type: "intel-busts", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -175,9 +179,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
           const flair = p.flair ? "[" + p.flair + "] " : "";
           lines.push("  " + flair + p.title + " (score:" + p.score + ", comments:" + p.num_comments + ")");
         }
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-reddit", ...data },
+          structuredContent: { type: "intel-reddit", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -200,9 +205,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
           lines.push("  " + p.title + " (score:" + p.score + ", comments:" + p.num_comments + ")");
         }
         if ((data.posts || []).length === 0) lines.push("  No trending player posts found.");
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-trending", ...data },
+          structuredContent: { type: "intel-trending", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -225,9 +231,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
           lines.push("  " + str(t.type).padEnd(12) + " " + str(t.player).padEnd(25) + " " + str(t.team || ""));
         }
         if ((data.transactions || []).length === 0) lines.push("  No recent prospect moves found.");
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-prospects", ...data },
+          structuredContent: { type: "intel-prospects", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -251,9 +258,10 @@ export function registerIntelTools(server: McpServer, distDir: string) {
           lines.push("  " + str(t.type).padEnd(12) + " " + str(t.player).padEnd(25) + " " + str(t.team || "") + (t.description ? " - " + t.description : ""));
         }
         if ((data.transactions || []).length === 0) lines.push("  No transactions found.");
+        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-transactions", ...data },
+          structuredContent: { type: "intel-transactions", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

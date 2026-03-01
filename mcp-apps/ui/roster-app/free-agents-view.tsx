@@ -11,6 +11,7 @@ import { IntelBadge } from "../shared/intel-badge";
 import { IntelPanel } from "../shared/intel-panel";
 import { PlayerName } from "../shared/player-name";
 import { TrendIndicator } from "../shared/trend-indicator";
+import { AiInsight } from "../shared/ai-insight";
 import { Search, UserPlus, Loader2 } from "@/shared/icons";
 
 interface Player {
@@ -33,6 +34,7 @@ interface FreeAgentsData {
   query?: string;
   players?: Player[];
   results?: Player[];
+  ai_recommendation?: string | null;
 }
 
 export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; app: any; navigate: (data: any) => void }) {
@@ -70,8 +72,11 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2">{title}</h2>
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold">{title}</h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
       {data.type !== "search" && (
         <Tabs defaultValue={data.pos_type || "B"} onValueChange={handleTabChange} className="mb-2">
           <TabsList>
@@ -106,16 +111,17 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                 <TableHead>Positions</TableHead>
                 <TableHead className="text-right">% Owned</TableHead>
                 <TableHead className="w-24">Status</TableHead>
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {players.map((p) => {
+              {players.map((p, idx) => {
                 const posDisplay = p.positions || (p.eligible_positions || []).join(", ");
                 const logoUrl = p.team ? teamLogoFromAbbrev(p.team) : null;
+                var isTopThree = idx < 3;
                 return (
                   <React.Fragment key={p.player_id}>
-                  <TableRow>
+                  <TableRow className={isTopThree ? "card-highlight" : ""}>
                     <TableCell className="font-medium">
                       <span className="flex items-center" style={{ gap: "4px" }}>
                         {logoUrl && <img src={logoUrl} alt={p.team || ""} width={16} height={16} style={{ display: "inline", flexShrink: 0 }} />}
@@ -142,8 +148,9 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" onClick={() => setAddTarget(p)}>
-                        <UserPlus size={14} />
+                      <Button size="sm" onClick={() => setAddTarget(p)} className="font-bold px-3">
+                        <UserPlus size={14} className="mr-1" />
+                        ADD
                       </Button>
                     </TableCell>
                   </TableRow>

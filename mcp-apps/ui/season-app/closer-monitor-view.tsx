@@ -6,6 +6,8 @@ import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerName } from "../shared/player-name";
 
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, Loader2, ShieldCheck } from "@/shared/icons";
 
 interface CloserPlayer {
@@ -27,6 +29,7 @@ interface CloserMonitorData {
   my_closers: CloserPlayer[];
   available_closers: CloserPlayer[];
   saves_leaders: SavesLeader[];
+  ai_recommendation?: string | null;
 }
 
 export function CloserMonitorView({ data, app, navigate }: { data: CloserMonitorData; app: any; navigate: (data: any) => void }) {
@@ -45,6 +48,13 @@ export function CloserMonitorView({ data, app, navigate }: { data: CloserMonitor
 
   return (
     <div className="space-y-2">
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        <KpiTile value={myClosers.length} label="Your Closers" color="primary" />
+        <KpiTile value={available.length} label="FA Closers" color={available.length > 0 ? "success" : "neutral"} />
+      </div>
+
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <ShieldCheck size={18} />
         Closer Monitor

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { Trophy, TrendingUp, Target, Award } from "@/shared/icons";
+import { StatusBanner } from "../shared/status-banner";
 import { formatFixed } from "../shared/number-format";
 
 interface CareerEntry {
@@ -37,8 +37,8 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
   const [tab, setTab] = useState("champions");
 
   return (
-    <div className="space-y-2">
-      <h2 className="text-lg font-semibold">Record Book</h2>
+    <div className="space-y-3">
+      <StatusBanner text="Record Book" subtitle="All-time league records and milestones" variant="gold" />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList behavior="wrap">
@@ -57,91 +57,102 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
         </TabsList>
 
         <TabsContent value="champions">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Year</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead className="hidden sm:table-cell">Manager</TableHead>
-                <TableHead>Record</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data.champions || []).map((c) => (
-                <TableRow key={c.year}>
-                  <TableCell className="font-mono font-medium">{c.year}</TableCell>
-                  <TableCell className="font-medium">{c.team_name}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{c.manager}</TableCell>
-                  <TableCell className="font-mono text-sm">{c.record}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-2">
+            {(data.champions || []).map(function (c) {
+              return (
+                <div key={c.year} className="rounded-lg border bg-card glow-gold p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 border-2 border-amber-500 font-bold text-sm shrink-0">
+                      {c.year}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Trophy size={14} className="text-amber-500 shrink-0" />
+                        <span className="font-bold text-sm truncate">{c.team_name}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{c.manager}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="font-mono font-bold text-sm">{c.record}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </TabsContent>
 
         <TabsContent value="careers">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Manager</TableHead>
-                <TableHead className="text-center">Seasons</TableHead>
-                <TableHead className="text-center">W</TableHead>
-                <TableHead className="text-center">L</TableHead>
-                <TableHead className="hidden sm:table-cell text-center">T</TableHead>
-                <TableHead className="text-right">Win%</TableHead>
-                <TableHead className="hidden sm:table-cell text-center">Playoffs</TableHead>
-                <TableHead className="hidden sm:table-cell text-center">Best</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data.careers || []).map((c) => (
-                <TableRow key={c.manager}>
-                  <TableCell className="font-medium">{c.manager}</TableCell>
-                  <TableCell className="text-center font-mono">{c.seasons}</TableCell>
-                  <TableCell className="text-center font-mono">{c.wins}</TableCell>
-                  <TableCell className="text-center font-mono">{c.losses}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-center font-mono">{c.ties}</TableCell>
-                  <TableCell className="text-right font-mono">{formatFixed(c.win_pct, 1, "0.0")}%</TableCell>
-                  <TableCell className="hidden sm:table-cell text-center font-mono">{c.playoffs}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-center">
-                    <Badge variant="secondary" className="text-xs">#{c.best_finish} ({c.best_year})</Badge>
-                  </TableCell>
+          <div className="glass-card overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-bold">Manager</TableHead>
+                  <TableHead className="text-center font-bold">Seasons</TableHead>
+                  <TableHead className="text-center font-bold">W</TableHead>
+                  <TableHead className="text-center font-bold">L</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center font-bold">T</TableHead>
+                  <TableHead className="text-right font-bold">Win%</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center font-bold">Playoffs</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center font-bold">Best</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {(data.careers || []).map(function (c) {
+                  return (
+                    <TableRow key={c.manager}>
+                      <TableCell className="font-semibold">{c.manager}</TableCell>
+                      <TableCell className="text-center font-mono">{c.seasons}</TableCell>
+                      <TableCell className="text-center font-mono">{c.wins}</TableCell>
+                      <TableCell className="text-center font-mono">{c.losses}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-center font-mono">{c.ties}</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">{formatFixed(c.win_pct, 1, "0.0")}%</TableCell>
+                      <TableCell className="hidden sm:table-cell text-center font-mono">{c.playoffs}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-center">
+                        <Badge variant="secondary" className="text-xs font-bold">{"#" + c.best_finish + " (" + c.best_year + ")"}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
 
         <TabsContent value="first_picks">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(data.first_picks || []).map((fp) => (
-              <Card key={fp.year}>
-                <CardContent className="p-3">
-                  <p className="text-xs text-muted-foreground">{fp.year}</p>
-                  <p className="font-medium">{fp.player}</p>
-                </CardContent>
-              </Card>
-            ))}
+            {(data.first_picks || []).map(function (fp) {
+              return (
+                <div key={fp.year} className="rounded-lg border bg-card p-3">
+                  <p className="text-xs text-muted-foreground font-bold">{fp.year}</p>
+                  <p className="font-semibold">{fp.player}</p>
+                </div>
+              );
+            })}
           </div>
         </TabsContent>
 
         <TabsContent value="playoffs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Manager</TableHead>
-                <TableHead className="text-right">Appearances</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data.playoff_appearances || []).map((pa) => (
-                <TableRow key={pa.manager}>
-                  <TableCell className="font-medium">{pa.manager}</TableCell>
-                  <TableCell className="text-right font-mono">{pa.appearances}</TableCell>
+          <div className="glass-card overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-bold">Manager</TableHead>
+                  <TableHead className="text-right font-bold">Appearances</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {(data.playoff_appearances || []).map(function (pa) {
+                  return (
+                    <TableRow key={pa.manager}>
+                      <TableCell className="font-semibold">{pa.manager}</TableCell>
+                      <TableCell className="text-right font-mono font-bold">{pa.appearances}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

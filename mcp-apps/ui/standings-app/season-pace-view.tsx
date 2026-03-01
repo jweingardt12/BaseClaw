@@ -4,6 +4,9 @@ import { Progress } from "../components/ui/progress";
 import { Tooltip } from "../components/ui/tooltip";
 import { Info } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
+import { AiInsight } from "../shared/ai-insight";
+import { StatusBanner } from "../shared/status-banner";
+import { KpiTile } from "../shared/kpi-tile";
 
 interface SeasonPaceTeam {
   rank: number;
@@ -28,6 +31,7 @@ interface SeasonPaceData {
   end_week: number;
   playoff_teams: number;
   teams: SeasonPaceTeam[];
+  ai_recommendation?: string | null;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -41,14 +45,40 @@ export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
   var teams = data.teams || [];
   var progressPct = data.end_week > 0 ? Math.round((data.current_week / data.end_week) * 100) : 0;
 
+  var myTeam = teams.find(function (t) { return t.is_my_team; });
+  var myStatus = myTeam ? myTeam.playoff_status : "";
+  var myRank = myTeam ? myTeam.rank : null;
+  var myMagic = myTeam ? myTeam.magic_number : 0;
+  var myProjected = myTeam ? myTeam.projected_wins : 0;
+
+  var bannerVariant: "winning" | "losing" | "tied" | "gold" | "info" = "info";
+  if (myStatus === "in") bannerVariant = "winning";
+  else if (myStatus === "bubble") bannerVariant = "tied";
+  else if (myStatus === "out") bannerVariant = "losing";
+  if (myRank === 1) bannerVariant = "gold";
+
+  var bannerText = myStatus === "in" ? "PLAYOFF BOUND" : myStatus === "bubble" ? "ON THE BUBBLE" : myStatus === "out" ? "OUTSIDE LOOKING IN" : "SEASON PACE";
+  var bannerSubtitle = myTeam ? "#" + myTeam.rank + " - " + myTeam.wins + "-" + myTeam.losses + (myTeam.ties > 0 ? "-" + myTeam.ties : "") : "";
+
   return (
-    <div className="space-y-2">
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          Season Pace
-          <Badge variant="secondary" className="text-xs">Week {data.current_week}/{data.end_week}</Badge>
-          <Badge variant="outline" className="text-xs">{data.playoff_teams} playoff spots</Badge>
-        </h2>
+    <div className="space-y-3">
+      <StatusBanner
+        text={bannerText}
+        subtitle={bannerSubtitle}
+        variant={bannerVariant}
+      />
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        {myMagic > 0 && <KpiTile value={myMagic} label="Magic Number" color={myMagic <= 5 ? "success" : "warning"} />}
+        <KpiTile value={myProjected} label="Projected Wins" color="primary" />
+        {myRank && <KpiTile value={"#" + myRank} label="Current Rank" color={myRank <= (data.playoff_teams || 6) ? "success" : "risk"} />}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="text-xs">Week {data.current_week}/{data.end_week}</Badge>
+        <Badge variant="outline" className="text-xs">{data.playoff_teams} playoff spots</Badge>
       </div>
 
       <div className="space-y-1">
@@ -85,7 +115,7 @@ export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
               <TableRow
                 key={t.name}
                 className={
-                  (t.is_my_team ? "border-l-2 border-primary bg-primary/5 " : "")
+                  (t.is_my_team ? "border-l-2 border-primary bg-primary/5 glow-gold " : "")
                   + (showPlayoffLine ? "border-b-2 border-dashed border-muted-foreground/30" : "")
                 }
               >

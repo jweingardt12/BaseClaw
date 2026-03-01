@@ -2,6 +2,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { Badge } from "../components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent } from "../components/ui/card";
+import { AiInsight } from "../shared/ai-insight";
+import { KpiTile } from "../shared/kpi-tile";
 import * as React from "react";
 
 var MY_TEAM = "You Can Clip These Wings";
@@ -38,7 +40,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[] } }) {
+export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[]; ai_recommendation?: string | null } }) {
   var [showChart, setShowChart] = React.useState(false);
   var teams = (data.teams || []).slice().sort((a, b) => b.total - a.total);
   var maxTotal = teams.length > 0 ? teams[0].total : 1;
@@ -53,8 +55,16 @@ export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[] } }
   }));
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <h2 className="text-lg font-semibold">League Pulse</h2>
+
+      <AiInsight recommendation={data.ai_recommendation} />
+
+      <div className="kpi-grid">
+        {mostActive && <KpiTile value={mostActive.name} label="Most Active" color="success" />}
+        {mostActive && <KpiTile value={mostActive.total} label="Top Moves" color="primary" />}
+        {leastActive && <KpiTile value={leastActive.total} label="Least Moves" color="warning" />}
+      </div>
 
       <div className="flex gap-2 flex-wrap">
         {mostActive && <Badge className="text-xs bg-sem-success">Most Active: {mostActive.name} ({mostActive.total})</Badge>}
@@ -75,7 +85,7 @@ export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[] } }
           {teams.map((t) => {
             var isMyTeam = t.name === MY_TEAM;
             return (
-              <TableRow key={t.team_key} className={isMyTeam ? "border-l-2 border-primary bg-primary/5" : ""}>
+              <TableRow key={t.team_key} className={isMyTeam ? "border-l-2 border-primary bg-primary/5 glow-gold" : ""}>
                 <TableCell className={"font-medium" + (isMyTeam ? " text-primary" : "")}>
                   <span className="flex items-center" style={{ gap: "6px" }}>
                     {t.team_logo && <img src={t.team_logo} alt="" width={28} height={28} className="rounded-sm" style={{ flexShrink: 0 }} />}

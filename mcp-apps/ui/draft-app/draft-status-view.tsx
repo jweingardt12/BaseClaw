@@ -2,6 +2,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { KpiTile } from "../shared/kpi-tile";
+import { StatusBanner } from "../shared/status-banner";
 
 interface DraftStatusData {
   total_picks: number;
@@ -12,6 +14,7 @@ interface DraftStatusData {
   hitters?: number;
   pitchers?: number;
   drafted_ids?: string[];
+  ai_recommendation?: string | null;
 }
 
 // Roster position slots in a 23-round league
@@ -99,21 +102,26 @@ export function DraftStatusView({ data }: { data: DraftStatusData }) {
 
   var filledCount = slotStatuses.filter(function (s) { return s.filled; }).length;
   var totalSlots = ALL_SLOTS.length;
+  var draftPct = Math.round((data.total_picks / TOTAL_DRAFT_PICKS) * 100);
 
   return (
     <div className="space-y-2">
-      <h2 className="text-lg font-semibold">Draft Status</h2>
+      {/* Hero Banner */}
+      <StatusBanner
+        text={"ROUND " + data.current_round}
+        subtitle={data.total_picks + " picks made - " + draftPct + "% complete"}
+        variant="gold"
+      />
 
-      {/* Current Round - Hero */}
-      <Card className="bg-primary/5 border-primary/30">
-        <CardContent className="p-4 text-center">
-          <p className="app-kicker mb-1">Current Round</p>
-          <p className="text-4xl sm:text-5xl font-bold font-mono text-primary">{data.current_round}</p>
-          <p className="text-xs text-muted-foreground mt-1">{data.total_picks} total picks made</p>
-        </CardContent>
-      </Card>
+      {/* KPI Grid */}
+      <div className="kpi-grid">
+        <KpiTile value={data.current_round} label="Round" color="primary" />
+        <KpiTile value={myPicks} label="My Picks" color="info" />
+        <KpiTile value={hitters} label="Hitters" color="success" />
+        <KpiTile value={pitchers} label="Pitchers" color="warning" />
+      </div>
 
-      {/* Overall Draft Progress */}
+      {/* Draft Progress */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Draft Progress</CardTitle>
@@ -125,7 +133,7 @@ export function DraftStatusView({ data }: { data: DraftStatusData }) {
                 {data.total_picks + " of " + TOTAL_DRAFT_PICKS + " picks"}
               </span>
               <span className="font-mono font-medium">
-                {Math.round((data.total_picks / TOTAL_DRAFT_PICKS) * 100) + "%"}
+                {draftPct + "%"}
               </span>
             </div>
             <Progress value={data.total_picks} max={TOTAL_DRAFT_PICKS} />
@@ -169,36 +177,16 @@ export function DraftStatusView({ data }: { data: DraftStatusData }) {
               </div>
             )}
             <div className="flex-1 space-y-2">
-              <div className="app-stat-grid-3">
-                <div className="text-center">
-                  <p className="text-xl sm:text-2xl font-bold font-mono">{myPicks}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl sm:text-2xl font-bold font-mono text-blue-500">{hitters}</p>
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <p className="text-xs text-muted-foreground">Hitters</p>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl sm:text-2xl font-bold font-mono text-orange-500">{pitchers}</p>
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-orange-500" />
-                    <p className="text-xs text-muted-foreground">Pitchers</p>
-                  </div>
-                </div>
-              </div>
               {total > 0 && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="text-blue-500 font-medium">{hitterPct + "%"}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <span className="text-blue-500 font-medium">{hitterPct + "% H"}</span>
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full"
                       style={{ width: hitterPct + "%" }}
                     />
                   </div>
-                  <span className="text-orange-500 font-medium">{pitcherPct + "%"}</span>
+                  <span className="text-orange-500 font-medium">{pitcherPct + "% P"}</span>
                 </div>
               )}
             </div>
