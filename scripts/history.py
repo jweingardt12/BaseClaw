@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 import yahoo_fantasy_api as yfa
 
-from shared import get_connection, LEAGUE_ID, TEAM_ID
+from shared import get_connection, get_team_key, LEAGUE_ID, TEAM_ID
 
 
 def _load_league_keys():

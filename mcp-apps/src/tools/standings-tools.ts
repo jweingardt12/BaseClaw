@@ -175,17 +175,24 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
     async () => {
       try {
         const data = await apiGet<LeagueInfoResponse>("/api/info");
-        const text = "League Info:\n"
-          + "  Name: " + data.name + "\n"
-          + "  Draft Status: " + data.draft_status + "\n"
-          + "  Season: " + data.season + "\n"
-          + "  Start: " + data.start_date + "\n"
-          + "  End: " + data.end_date + "\n"
-          + "  Current Week: " + data.current_week + "\n"
-          + "  Teams: " + data.num_teams + "\n"
-          + "  Playoff Teams: " + data.playoff_teams + "\n"
-          + "  Max Weekly Adds: " + data.max_weekly_adds + "\n"
-          + "  Your Team: " + data.team_name + " (" + data.team_id + ")";
+        var lines = [
+          "League Info:",
+          "  Name: " + data.name,
+          "  Draft Status: " + data.draft_status,
+          "  Season: " + data.season,
+          "  Start: " + data.start_date,
+          "  End: " + data.end_date,
+          "  Current Week: " + data.current_week,
+          "  Teams: " + data.num_teams,
+          "  Playoff Teams: " + data.playoff_teams,
+          "  Max Weekly Adds: " + data.max_weekly_adds,
+          "  Your Team: " + data.team_name + " (" + data.team_id + ")",
+        ];
+        if (data.waiver_priority != null) lines.push("  Waiver Priority: " + data.waiver_priority);
+        if (data.faab_balance != null) lines.push("  FAAB Balance: $" + data.faab_balance);
+        if (data.number_of_moves != null) lines.push("  Moves Made: " + data.number_of_moves);
+        if (data.number_of_trades != null) lines.push("  Trades Made: " + data.number_of_trades);
+        var text = lines.join("\n");
         var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text }],

@@ -135,6 +135,11 @@ export interface LeagueInfoResponse {
   max_weekly_adds: number;
   team_name: string;
   team_id: string;
+  waiver_priority?: number;
+  faab_balance?: number;
+  number_of_moves?: number;
+  number_of_trades?: number;
+  clinched_playoffs?: number;
 }
 
 // Transaction Trends (cross-league)
@@ -462,6 +467,21 @@ export interface MlbGame {
 export interface MlbScheduleResponse {
   date: string;
   games: MlbGame[];
+}
+
+export interface MlbDraftPick {
+  round: string;
+  pick_number: string;
+  name: string;
+  position: string;
+  school: string;
+  team: string;
+}
+
+export interface MlbDraftResponse {
+  year: string;
+  picks: MlbDraftPick[];
+  note?: string;
 }
 
 // History responses
@@ -808,6 +828,16 @@ export interface WhoOwnsResponse {
   player_key: string;
   ownership_type: string;
   owner: string;
+}
+
+export interface PercentOwnedPlayer {
+  player_id: string;
+  name: string;
+  percent_owned: number;
+}
+
+export interface PercentOwnedResponse {
+  players: PercentOwnedPlayer[];
 }
 
 // League Pulse response

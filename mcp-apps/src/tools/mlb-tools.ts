@@ -13,6 +13,7 @@ import {
   type MlbInjuriesResponse,
   type MlbStandingsResponse,
   type MlbScheduleResponse,
+  type MlbDraftResponse,
 } from "../api/types.js";
 
 const MLB_URI = "ui://fbb-mcp/mlb.html";
@@ -220,6 +221,46 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         return {
           content: [{ type: "text" as const, text }],
           structuredContent: { type: "mlb-schedule", ai_recommendation: null, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // mlb_draft
+  registerAppTool(
+    server,
+    "mlb_draft",
+    {
+      description: "Show MLB draft picks by year. Returns draft selections with player names, teams, rounds, and positions",
+      inputSchema: { year: z.string().describe("Draft year (e.g. '2025'). Omit for current year.").default("") },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: MLB_URI } },
+    },
+    async ({ year }) => {
+      try {
+        var params: Record<string, string> = {};
+        if (year) params.year = year;
+        var data = await apiGet<MlbDraftResponse>("/api/mlb/draft", params);
+        if (data.note) {
+          return {
+            content: [{ type: "text" as const, text: data.note }],
+            structuredContent: { type: "mlb-draft", ai_recommendation: null, ...data },
+          };
+        }
+        var lines = ["MLB Draft " + (data.year || year) + ":"];
+        var currentRound = "";
+        for (var p of data.picks) {
+          if (str(p.round) !== currentRound) {
+            currentRound = str(p.round);
+            lines.push("  Round " + currentRound + ":");
+          }
+          var line = "    #" + str(p.pick_number).padStart(3) + " " + str(p.name).padEnd(25) + " " + str(p.position).padEnd(5) + " " + str(p.team);
+          if (p.school) line += " (" + p.school + ")";
+          lines.push(line);
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "mlb-draft", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

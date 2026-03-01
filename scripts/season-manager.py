@@ -18,7 +18,7 @@ except ImportError:
 
 from mlb_id_cache import get_mlb_id
 from shared import (
-    get_connection, get_league_context, get_league,
+    get_connection, get_league_context, get_league, get_team_key,
     LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
     MLB_API, mlb_fetch, TEAM_ALIASES, normalize_team_name,
     get_trend_lookup, enrich_with_intel, enrich_with_trends,
@@ -137,6 +137,40 @@ def is_il(player):
 def is_active_slot(player):
     """Check if player is in an active (non-bench, non-IL) slot"""
     return not is_bench(player) and not is_il(player)
+
+
+_cached_positions = None
+
+
+def get_roster_positions(lg):
+    """Get roster position slots from league settings, with fallback"""
+    global _cached_positions
+    if _cached_positions is not None:
+        return _cached_positions
+    try:
+        raw = lg.positions() if hasattr(lg, "positions") else None
+        if raw:
+            # lg.positions() returns list of dicts:
+            # [{"position": "C", "count": 1, "position_type": "B"}, ...]
+            positions = []
+            for p in raw:
+                pos_name = p.get("position", "")
+                count = int(p.get("count", 1))
+                for _ in range(count):
+                    positions.append(pos_name)
+            if positions:
+                _cached_positions = positions
+                return positions
+    except Exception as e:
+        print("Warning: could not fetch positions: " + str(e))
+    # Fallback to hardcoded
+    _cached_positions = [
+        "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF",
+        "Util", "Util", "BN", "BN", "BN", "BN",
+        "SP", "SP", "RP", "RP", "P", "P", "BN", "BN",
+        "IL", "IL", "IL",
+    ]
+    return _cached_positions
 
 
 def _player_info(p):
@@ -486,7 +520,7 @@ def cmd_category_check(args, as_json=False):
     sc, gm, lg = get_league()
 
     try:
-        scoreboard = lg.scoreboard()
+        scoreboard = lg.matchups()
     except Exception as e:
         if as_json:
             return {"error": "Error fetching scoreboard: " + str(e)}
@@ -789,7 +823,7 @@ def cmd_waiver_analyze(args, as_json=False):
 
     # First, get our weak categories from the scoreboard
     try:
-        scoreboard = lg.scoreboard()
+        scoreboard = lg.matchups()
     except Exception as e:
         if as_json:
             return {"error": "Error fetching scoreboard: " + str(e)}
@@ -1517,7 +1551,7 @@ def cmd_category_simulate(args, as_json=False):
 
     # 1. Get current category ranks (reuse category-check logic)
     try:
-        scoreboard = lg.scoreboard()
+        scoreboard = lg.matchups()
     except Exception as e:
         if as_json:
             return {"error": "Error fetching scoreboard: " + str(e)}
@@ -1961,7 +1995,7 @@ def cmd_scout_opponent(args, as_json=False):
             opp_weaknesses = []
 
             try:
-                scoreboard = lg.scoreboard()
+                scoreboard = lg.matchups()
                 all_teams_cats = {}
                 if isinstance(scoreboard, list):
                     for m in scoreboard:
@@ -2716,13 +2750,21 @@ def cmd_propose_trade(args, as_json=False):
     if method != "browser":
         try:
             sc, gm, lg, team = get_league_context()
-            xml = team._construct_trade_proposal_xml(
-                tradee_team_key,
-                your_player_keys=your_player_keys,
-                their_player_keys=their_player_keys,
-                trade_note=trade_note,
-            )
-            team.yhandler.post_transactions(team.league_id, xml)
+            my_team_key = team.team_key
+            players = []
+            for pk in your_player_keys:
+                players.append({
+                    "player_key": pk,
+                    "source_team_key": my_team_key,
+                    "destination_team_key": tradee_team_key,
+                })
+            for pk in their_player_keys:
+                players.append({
+                    "player_key": pk,
+                    "source_team_key": tradee_team_key,
+                    "destination_team_key": my_team_key,
+                })
+            team.propose_trade(tradee_team_key, players, trade_note)
             msg = "Trade proposed to " + tradee_team_key
             if as_json:
                 return {

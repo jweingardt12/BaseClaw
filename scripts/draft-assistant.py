@@ -13,11 +13,8 @@ from yahoo_oauth import OAuth2
 import yahoo_fantasy_api as yfa
 from valuations import load_all, get_player_by_name
 from mlb_id_cache import get_mlb_id
-from shared import enrich_with_intel
+from shared import enrich_with_intel, get_team_key, OAUTH_FILE, LEAGUE_ID
 
-# Docker paths
-OAUTH_FILE = os.environ.get("OAUTH_FILE", "/app/config/yahoo_oauth.json")
-LEAGUE_ID = os.environ.get("LEAGUE_ID", "")
 TEAM_ID = os.environ.get("TEAM_ID", "")
 
 class DraftAssistant:
@@ -25,7 +22,8 @@ class DraftAssistant:
         self.sc = OAuth2(None, None, from_file=OAUTH_FILE)
         self.gm = yfa.Game(self.sc, "mlb")
         self.lg = self.gm.to_league(LEAGUE_ID)
-        self.team = self.lg.to_team(TEAM_ID)
+        self.team_key = get_team_key(self.lg) or TEAM_ID
+        self.team = self.lg.to_team(self.team_key)
         self.drafted_players = set()
         self.my_roster = []
         self.current_round = 1
@@ -70,7 +68,7 @@ class DraftAssistant:
             for pick in draft:
                 self.drafted_players.add(pick["player_id"])
 
-            my_picks = [p for p in draft if p["team_key"] == TEAM_ID]
+            my_picks = [p for p in draft if p["team_key"] == self.team_key]
             self.current_round = len(my_picks) + 1
 
             self.my_pitchers = 0
@@ -243,7 +241,7 @@ class DraftAssistant:
                 settings = self.lg.settings()
                 num_teams = int(settings.get("num_teams", 12))
                 result["num_teams"] = num_teams
-                result["your_team_key"] = TEAM_ID
+                result["your_team_key"] = self.team_key
 
                 # Build team name mapping
                 team_names = {}

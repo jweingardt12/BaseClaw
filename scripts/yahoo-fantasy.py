@@ -8,7 +8,7 @@ import datetime
 import yahoo_fantasy_api as yfa
 from mlb_id_cache import get_mlb_id
 from shared import (
-    get_connection, get_league, get_league_context,
+    get_connection, get_league, get_league_context, get_team_key,
     LEAGUE_ID, TEAM_ID, GAME_KEY,
     enrich_with_intel, enrich_with_trends,
 )
@@ -160,10 +160,11 @@ def cmd_standings(args, as_json=False):
 def cmd_info(args, as_json=False):
     """Show league and team info"""
     sc, gm, lg = get_league()
+    my_team_key = get_team_key(lg)
     settings = lg.settings()
     team_name = "Unknown"
     try:
-        team = lg.to_team(TEAM_ID)
+        team = lg.to_team(my_team_key)
         if hasattr(team, "team_data"):
             team_name = team.team_data.get("name", "Unknown")
     except Exception:
@@ -172,14 +173,51 @@ def cmd_info(args, as_json=False):
         try:
             teams = lg.teams()
             for tk, td in teams.items():
-                if tk == TEAM_ID:
+                if tk == my_team_key:
                     team_name = td.get("name", "Unknown")
                     break
         except Exception:
             pass
 
+    # Get team details (waiver priority, FAAB, moves)
+    team_details = {}
+    try:
+        team = lg.to_team(my_team_key)
+        raw_details = team.details() if hasattr(team, "details") else None
+        if raw_details:
+            if isinstance(raw_details, list) and len(raw_details) > 0:
+                d = raw_details[0] if isinstance(raw_details[0], dict) else {}
+            elif isinstance(raw_details, dict):
+                d = raw_details
+            else:
+                d = {}
+            team_details["waiver_priority"] = d.get("waiver_priority", d.get("priority", None))
+            team_details["faab_balance"] = d.get("faab_balance", None)
+            team_details["number_of_moves"] = d.get("number_of_moves", None)
+            team_details["number_of_trades"] = d.get("number_of_trades", None)
+            team_details["clinched_playoffs"] = d.get("clinched_playoffs", None)
+    except Exception as e:
+        print("Warning: could not fetch team details: " + str(e))
+
+    # Get roster positions from league settings
+    roster_positions = []
+    try:
+        raw_positions = lg.positions() if hasattr(lg, "positions") else None
+        if raw_positions:
+            for rp in raw_positions:
+                pos_name = rp.get("position", "")
+                count = int(rp.get("count", 1))
+                pos_type = rp.get("position_type", "")
+                roster_positions.append({
+                    "position": pos_name,
+                    "count": count,
+                    "position_type": pos_type,
+                })
+    except Exception as e:
+        print("Warning: could not fetch roster positions: " + str(e))
+
     if as_json:
-        return {
+        result = {
             "name": settings.get("name", "Unknown"),
             "draft_status": settings.get("draft_status", "unknown"),
             "season": settings.get("season", "?"),
@@ -190,8 +228,14 @@ def cmd_info(args, as_json=False):
             "playoff_teams": settings.get("num_playoff_teams", "?"),
             "max_weekly_adds": settings.get("max_weekly_adds", "?"),
             "team_name": team_name,
-            "team_id": TEAM_ID,
+            "team_id": my_team_key,
         }
+        if roster_positions:
+            result["roster_positions"] = roster_positions
+        for k, v in team_details.items():
+            if v is not None:
+                result[k] = v
+        return result
 
     print("League Info:")
     print("  Name: " + settings.get("name", "Unknown"))
@@ -203,7 +247,25 @@ def cmd_info(args, as_json=False):
     print("  Teams: " + str(settings.get("num_teams", "?")))
     print("  Playoff Teams: " + str(settings.get("num_playoff_teams", "?")))
     print("  Max Weekly Adds: " + str(settings.get("max_weekly_adds", "?")))
-    print("  Your Team: " + team_name + " (" + TEAM_ID + ")")
+    print("  Your Team: " + team_name + " (" + my_team_key + ")")
+    if roster_positions:
+        slots = []
+        for rp in roster_positions:
+            pos = rp.get("position", "?")
+            cnt = rp.get("count", 1)
+            if cnt > 1:
+                slots.append(pos + "x" + str(cnt))
+            else:
+                slots.append(pos)
+        print("  Roster Slots: " + ", ".join(slots))
+    if team_details.get("waiver_priority") is not None:
+        print("  Waiver Priority: " + str(team_details.get("waiver_priority")))
+    if team_details.get("faab_balance") is not None:
+        print("  FAAB Balance: $" + str(team_details.get("faab_balance")))
+    if team_details.get("number_of_moves") is not None:
+        print("  Moves Made: " + str(team_details.get("number_of_moves")))
+    if team_details.get("number_of_trades") is not None:
+        print("  Trades Made: " + str(team_details.get("number_of_trades")))
 
 
 def cmd_search(args, as_json=False):
@@ -1717,6 +1779,43 @@ def cmd_roster_history(args, as_json=False):
         print("Error fetching roster history: " + str(e))
 
 
+def cmd_percent_owned(args, as_json=False):
+    """Get percent owned for specific players by player ID"""
+    if not args:
+        if as_json:
+            return {"error": "Usage: percent-owned <player_id> [player_id ...]"}
+        print("Usage: percent-owned <player_id> [player_id ...]")
+        return
+    sc, gm, lg = get_league()
+    try:
+        player_ids = [int(pid) for pid in args]
+        result = lg.percent_owned(player_ids)
+        if not result:
+            if as_json:
+                return {"players": []}
+            print("No ownership data returned")
+            return
+        if as_json:
+            players = []
+            for p in result:
+                players.append({
+                    "player_id": str(p.get("player_id", "")),
+                    "name": p.get("name", "Unknown"),
+                    "percent_owned": p.get("percent_owned", 0),
+                })
+            return {"players": players}
+        print("Percent Owned:")
+        for p in result:
+            name = p.get("name", "Unknown")
+            pct = p.get("percent_owned", 0)
+            pid = p.get("player_id", "?")
+            print("  " + name.ljust(25) + " " + str(pct).rjust(5) + "%  (id:" + str(pid) + ")")
+    except Exception as e:
+        if as_json:
+            return {"error": "Error fetching percent owned: " + str(e)}
+        print("Error fetching percent owned: " + str(e))
+
+
 COMMANDS = {
     "discover": cmd_discover,
     "roster": cmd_roster,
@@ -1741,6 +1840,7 @@ COMMANDS = {
     "waivers": cmd_waivers,
     "taken-players": cmd_taken_players,
     "roster-history": cmd_roster_history,
+    "percent-owned": cmd_percent_owned,
 }
 
 if __name__ == "__main__":

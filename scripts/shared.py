@@ -43,12 +43,42 @@ def mlb_fetch(endpoint):
 
 
 # ---------------------------------------------------------------------------
+# Team key auto-detection
+# ---------------------------------------------------------------------------
+_auto_team_key = None
+
+
+def get_team_key(lg=None):
+    """Get team key: env var first, then auto-detect from OAuth session.
+
+    Auto-detection calls lg.teams() and finds the team owned by the
+    current login.  The result is cached so the extra API call only
+    happens once per process.
+    """
+    global _auto_team_key
+    if TEAM_ID:
+        return TEAM_ID
+    if _auto_team_key:
+        return _auto_team_key
+    if lg is not None:
+        try:
+            teams = lg.teams()
+            for tk, td in teams.items():
+                if td.get("is_owned_by_current_login"):
+                    _auto_team_key = tk
+                    return tk
+        except Exception as e:
+            print("Warning: could not auto-detect team key: " + str(e))
+    return ""
+
+
+# ---------------------------------------------------------------------------
 # Yahoo OAuth connection
 # ---------------------------------------------------------------------------
 def get_connection():
     """Get authenticated Yahoo OAuth connection."""
-    if not LEAGUE_ID or not TEAM_ID:
-        raise RuntimeError("LEAGUE_ID and TEAM_ID environment variables are required")
+    if not LEAGUE_ID:
+        raise RuntimeError("LEAGUE_ID environment variable is required")
     sc = OAuth2(None, None, from_file=OAUTH_FILE)
     if not sc.token_is_valid():
         sc.refresh_access_token()
@@ -66,7 +96,13 @@ def get_league():
 def get_league_context():
     """Get (sc, gm, lg, team) — connection, game, league, and team objects."""
     sc, gm, lg = get_league()
-    team = lg.to_team(TEAM_ID)
+    tk = get_team_key(lg)
+    if not tk:
+        raise RuntimeError(
+            "Could not determine team key. Set TEAM_ID env var or ensure "
+            "your OAuth token is for a manager in this league."
+        )
+    team = lg.to_team(tk)
     return sc, gm, lg, team
 
 

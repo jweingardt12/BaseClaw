@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
-import { str, type RosterResponse, type FreeAgentsResponse, type SearchResponse, type ActionResponse, type WaiverClaimResponse, type WaiverClaimSwapResponse, type WhoOwnsResponse, type ChangeTeamNameResponse, type ChangeTeamLogoResponse, type PlayerStatsResponse, type WaiversResponse, type TakenPlayersResponse } from "../api/types.js";
+import { str, type RosterResponse, type FreeAgentsResponse, type SearchResponse, type ActionResponse, type WaiverClaimResponse, type WaiverClaimSwapResponse, type WhoOwnsResponse, type PercentOwnedResponse, type ChangeTeamNameResponse, type ChangeTeamLogoResponse, type PlayerStatsResponse, type WaiversResponse, type TakenPlayersResponse } from "../api/types.js";
 
 const ROSTER_URI = "ui://fbb-mcp/roster.html";
 
@@ -360,6 +360,37 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         return {
           content: [{ type: "text" as const, text }],
           structuredContent: { type: "who-owns", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_percent_owned
+  registerAppTool(
+    server,
+    "yahoo_percent_owned",
+    {
+      description: "Get percent owned for specific players by Yahoo player ID. Returns ownership percentage across all Yahoo leagues",
+      inputSchema: { ids: z.string().describe("Comma-separated Yahoo player IDs (e.g. '10660,9542')") },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: ROSTER_URI } },
+    },
+    async ({ ids }) => {
+      try {
+        var data = await apiGet<PercentOwnedResponse>("/api/percent-owned", { ids });
+        if (!data.players || data.players.length === 0) {
+          return {
+            content: [{ type: "text" as const, text: "No ownership data returned" }],
+            structuredContent: { type: "percent-owned", ai_recommendation: null, players: [] },
+          };
+        }
+        var lines = ["Percent Owned:"];
+        for (var p of data.players) {
+          lines.push("  " + str(p.name).padEnd(25) + " " + String(p.percent_owned).padStart(5) + "%  (id:" + str(p.player_id) + ")");
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "percent-owned", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

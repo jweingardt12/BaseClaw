@@ -667,6 +667,19 @@ def api_who_owns():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/percent-owned")
+def api_percent_owned():
+    try:
+        ids = request.args.get("ids", "")
+        if not ids:
+            return jsonify({"error": "Missing ids parameter (comma-separated player IDs)"}), 400
+        args = [pid.strip() for pid in ids.split(",") if pid.strip()]
+        result = yahoo_fantasy.cmd_percent_owned(args, as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/league-pulse")
 def api_league_pulse():
     try:
