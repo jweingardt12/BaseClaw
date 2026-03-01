@@ -17,7 +17,7 @@ import {
   type StatcastCompareResponse,
 } from "../api/types.js";
 
-const INTEL_URI = "ui://fbb-mcp/intel.html";
+const INTEL_URI = "ui://baseclaw/intel.html";
 
 export function registerIntelTools(server: McpServer, distDir: string) {
   registerAppResource(

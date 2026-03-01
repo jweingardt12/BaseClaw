@@ -1,7 +1,7 @@
 services:
-  fbb-mcp:
+  baseclaw:
     build: .
-    container_name: fbb-mcp
+    container_name: baseclaw
     volumes:
       - ./config:/app/config
       - ./data:/app/data

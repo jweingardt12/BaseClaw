@@ -4,7 +4,7 @@
 # running in a Docker container on the same machine or local network.
 #
 # Setup:
-#   1. Make sure the fbb-mcp Docker container is running
+#   1. Make sure the baseclaw Docker container is running
 #   2. Set ENABLE_WRITE_OPS=true in .env for lineup/trade operations
 #   3. Copy this file to your OpenClaw config directory
 #   4. Run: openclaw start
@@ -14,9 +14,9 @@ agents:
     model: anthropic/claude-sonnet-4-5
     persona: ./AGENTS.md
     mcp_servers:
-      - name: fbb-mcp
+      - name: baseclaw
         command: docker
-        args: [exec, -i, fbb-mcp, node, /app/mcp-apps/dist/main.js, --stdio]
+        args: [exec, -i, baseclaw, node, /app/mcp-apps/dist/main.js, --stdio]
         env:
           ENABLE_WRITE_OPS: "true"
     schedules: ./openclaw-cron-examples.json

@@ -77,7 +77,7 @@ async function main() {
       provider,
       issuerUrl: new URL(SERVER_URL),
       resourceServerUrl: new URL(SERVER_URL + "/mcp"),
-      scopesSupported: ["fbb-mcp"],
+      scopesSupported: ["baseclaw"],
     }));
 
     app.get("/login", (req, res) => {
@@ -113,7 +113,7 @@ async function main() {
       }
     });
 
-    const auth = requireBearerAuth({ verifier: provider, requiredScopes: ["fbb-mcp"] });
+    const auth = requireBearerAuth({ verifier: provider, requiredScopes: ["baseclaw"] });
     app.post("/mcp", auth, handleMcp);
     app.get("/mcp", auth, handleMcp);
     app.delete("/mcp", async (_req, res) => {

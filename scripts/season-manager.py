@@ -7557,6 +7557,352 @@ def cmd_weekly_narrative(args, as_json=False):
         print("Error building weekly narrative: " + str(e))
 
 
+def _safe(fn, args=None):
+    """Call a function with as_json=True, returning error dict on failure."""
+    try:
+        return fn(args or [], as_json=True) or {}
+    except Exception as e:
+        return {"_error": str(e)}
+
+
+def _extract_category_impact(sim):
+    """Extract category impact and net improvement from simulation result."""
+    net_improvement = 0
+    category_impact = []
+    for cat in sim.get("simulated_ranks", []):
+        change = cat.get("change", 0)
+        if change != 0:
+            category_impact.append(cat.get("name", "") + " " + ("+" if change > 0 else "") + str(change))
+            net_improvement += change
+    return category_impact, net_improvement
+
+
+def _grade_trade(net_z):
+    """Grade a trade based on z-score differential (matches cmd_trade_eval scale)."""
+    if net_z > 3.0:
+        return "Strong Accept"
+    elif net_z > 1.0:
+        return "Accept"
+    elif net_z > -1.0:
+        return "Fair Trade"
+    elif net_z > -3.0:
+        return "Decline"
+    return "Strong Decline"
+
+
+def cmd_game_day_manager(args, as_json=False):
+    """Game-day pipeline: schedule, weather, injuries, lineup, streaming"""
+    mlb = importlib.import_module("mlb-data")
+
+    schedule = _safe(mlb.cmd_schedule)
+    weather = _safe(mlb.cmd_weather)
+    injuries = _safe(cmd_injury_report)
+    lineup = _safe(cmd_lineup_optimize)
+    streaming = _safe(cmd_streaming)
+
+    # Build weather risks
+    weather_risks = []
+    for g in weather.get("games", []):
+        if g.get("weather_risk", "none") != "none" and not g.get("is_dome", False):
+            weather_risks.append({
+                "game": str(g.get("away", "")) + " @ " + str(g.get("home", "")),
+                "risk": g.get("weather_risk", ""),
+                "note": g.get("weather_note", ""),
+            })
+
+    # Build lineup changes
+    lineup_changes = []
+    for s in lineup.get("suggested_swaps", []):
+        lineup_changes.append({
+            "bench": s.get("bench_player", ""),
+            "start": s.get("start_player", ""),
+            "position": s.get("position", ""),
+        })
+
+    # Streaming suggestion
+    streaming_suggestion = None
+    recs = streaming.get("recommendations", [])
+    if recs:
+        top = recs[0]
+        streaming_suggestion = {
+            "name": top.get("name", ""),
+            "team": top.get("team", ""),
+            "games": top.get("games", 0),
+            "score": top.get("score", 0),
+        }
+
+    # Summary
+    parts = []
+    parts.append(str(len(lineup_changes)) + " lineup swap(s)")
+    parts.append(str(len(weather_risks)) + " weather risk(s)")
+    injured_count = len(injuries.get("injured_active", []))
+    if injured_count:
+        parts.append(str(injured_count) + " injured starter(s)")
+    summary = " | ".join(parts)
+
+    result = {
+        "schedule": schedule,
+        "weather_risks": weather_risks,
+        "injuries": injuries,
+        "lineup_changes": lineup_changes,
+        "streaming_suggestion": streaming_suggestion,
+        "summary": summary,
+    }
+
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def cmd_waiver_deadline_prep(args, as_json=False):
+    """Pre-deadline waiver analysis with FAAB bids and simulation"""
+    count = args[0] if args else "5"
+
+    cat_check = _safe(cmd_category_check)
+    waiver_b = _safe(cmd_waiver_analyze, ["B", count])
+    waiver_p = _safe(cmd_waiver_analyze, ["P", count])
+    injury = _safe(cmd_injury_report)
+
+    # Build weak categories list
+    weak_categories = cat_check.get("weakest", [])
+
+    # Simulate top candidates
+    ranked_claims = []
+    all_recs = []
+    for label, waiver in [("B", waiver_b), ("P", waiver_p)]:
+        for rec in (waiver or {}).get("recommendations", [])[:3]:
+            all_recs.append((label, rec))
+
+    for label, rec in all_recs:
+        name = rec.get("name", "")
+        pid = rec.get("pid", "")
+        score = rec.get("score", 0)
+        pct = rec.get("pct", 0)
+
+        sim = _safe(cmd_category_simulate, [name])
+        category_impact, net_improvement = _extract_category_impact(sim)
+
+        # Simple FAAB bid based on score
+        faab_bid = max(1, min(50, int(score * 3)))
+
+        ranked_claims.append({
+            "player": name,
+            "player_id": pid,
+            "pos_type": label,
+            "percent_owned": pct,
+            "score": score,
+            "faab_bid": faab_bid,
+            "net_rank_improvement": net_improvement,
+            "category_impact": category_impact,
+        })
+
+    # Sort by score descending
+    ranked_claims.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+    # Roster issues check
+    roster_issues = []
+    for p in injury.get("injured_active", []):
+        roster_issues.append("Injured starter: " + str(p.get("name", "")))
+    for p in injury.get("healthy_il", []):
+        roster_issues.append("Healthy on IL: " + str(p.get("name", "")))
+
+    result = {
+        "weak_categories": weak_categories,
+        "ranked_claims": ranked_claims,
+        "roster_issues": roster_issues,
+        "category_check": cat_check,
+        "waiver_batters": waiver_b,
+        "waiver_pitchers": waiver_p,
+    }
+
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def cmd_trade_pipeline(args, as_json=False):
+    """End-to-end trade search, evaluation, and proposal prep"""
+    from valuations import get_player_zscore
+
+    finder = _safe(cmd_trade_finder)
+
+    partners = []
+    for p in (finder.get("partners") or [])[:3]:
+        team_name = p.get("team_name", "")
+        team_key = p.get("team_key", "")
+        comp_cats = p.get("complementary_categories", [])
+
+        proposals = []
+        for pkg in (p.get("packages") or [])[:2]:
+            give_names = [player.get("name", "") for player in pkg.get("give", [])]
+            get_names = [player.get("name", "") for player in pkg.get("get", [])]
+
+            # Get z-score values for each player
+            give_value = 0
+            get_value = 0
+            for name in give_names:
+                z_info = get_player_zscore(name)
+                if z_info:
+                    give_value += z_info.get("z_final", 0)
+            for name in get_names:
+                z_info = get_player_zscore(name)
+                if z_info:
+                    get_value += z_info.get("z_final", 0)
+
+            net_value = get_value - give_value
+            grade = _grade_trade(net_value)
+
+            # Simulate category impact for the first get player
+            category_impact = []
+            if get_names:
+                sim = _safe(cmd_category_simulate, get_names[:1])
+                category_impact, _ = _extract_category_impact(sim)
+
+            proposals.append({
+                "give": give_names,
+                "get": get_names,
+                "give_value": round(give_value, 2),
+                "get_value": round(get_value, 2),
+                "net_value": round(net_value, 2),
+                "grade": grade,
+                "category_impact": category_impact,
+            })
+
+        partners.append({
+            "team": team_name,
+            "team_key": team_key,
+            "complementary_categories": comp_cats,
+            "proposals": proposals,
+        })
+
+    result = {
+        "weak_categories": finder.get("weak_categories", []),
+        "strong_categories": finder.get("strong_categories", []),
+        "partners": partners,
+    }
+
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def cmd_weekly_digest(args, as_json=False):
+    """End-of-week summary with narrative"""
+    yf = importlib.import_module("yahoo-fantasy")
+
+    standings = _safe(yf.cmd_standings)
+    matchup = _safe(yf.cmd_matchup_detail)
+    transactions = _safe(yf.cmd_transactions, ["", "10"])
+    whats_new = _safe(cmd_whats_new)
+    roster_stats = _safe(cmd_roster_stats)
+    achievements = _safe(cmd_achievements)
+
+    # Build matchup result text
+    score = matchup.get("score", {})
+    matchup_result = str(score.get("wins", 0)) + "-" + str(score.get("losses", 0)) + "-" + str(score.get("ties", 0))
+    opponent = matchup.get("opponent", "Unknown")
+
+    # Count roster moves this week
+    move_count = len(transactions.get("transactions", []))
+
+    # Achievements earned
+    earned = []
+    for a in achievements.get("achievements", []):
+        if a.get("earned"):
+            earned.append(a.get("name", ""))
+
+    # Use existing weekly narrative command for richer prose
+    narr_data = _safe(cmd_weekly_narrative)
+    narrative = narr_data.get("narrative", "")
+    if not narrative:
+        narrative = "Week " + str(matchup.get("week", "?")) + " vs " + opponent + ": " + matchup_result + "."
+
+    result = {
+        "week": matchup.get("week", "?"),
+        "opponent": opponent,
+        "matchup_result": matchup_result,
+        "standings": standings,
+        "transactions": transactions,
+        "move_count": move_count,
+        "achievements_earned": earned,
+        "narrative": narrative,
+        "matchup": matchup,
+        "roster_stats": roster_stats,
+        "whats_new": whats_new,
+    }
+
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def cmd_season_checkpoint(args, as_json=False):
+    """Monthly strategic assessment with playoff path"""
+    yf = importlib.import_module("yahoo-fantasy")
+
+    standings = _safe(yf.cmd_standings)
+    pace = _safe(cmd_season_pace)
+    playoff = _safe(cmd_playoff_planner)
+    trends = _safe(cmd_category_trends)
+    trade_finder = _safe(cmd_trade_finder)
+
+    # Strategic assessment
+    current_rank = playoff.get("current_rank", "?")
+    playoff_prob = playoff.get("playoff_probability", 0)
+    target_cats = playoff.get("target_categories", [])
+    punt_cats = playoff.get("punt_categories", [])
+
+    # Category trajectory
+    improving = []
+    declining = []
+    for cat in trends.get("categories", []):
+        trend_dir = cat.get("trend", "")
+        if trend_dir == "improving":
+            improving.append(cat.get("name", ""))
+        elif trend_dir == "declining":
+            declining.append(cat.get("name", ""))
+
+    # Trade recommendations
+    trade_recs = []
+    for p in (trade_finder.get("partners") or [])[:2]:
+        trade_recs.append(p.get("team_name", "") + " (complementary: " + ", ".join(p.get("complementary_categories", [])) + ")")
+
+    # Build summary
+    summary_parts = []
+    summary_parts.append("Rank " + str(current_rank) + " | Playoff probability: " + str(playoff_prob) + "%")
+    if target_cats:
+        summary_parts.append("Target: " + ", ".join(target_cats[:3]))
+    if punt_cats:
+        summary_parts.append("Punt: " + ", ".join(punt_cats[:2]))
+    if declining:
+        summary_parts.append("DECLINING: " + ", ".join(declining[:3]))
+    if improving:
+        summary_parts.append("Improving: " + ", ".join(improving[:3]))
+    summary = " | ".join(summary_parts)
+
+    result = {
+        "current_rank": current_rank,
+        "playoff_probability": playoff_prob,
+        "target_categories": target_cats,
+        "punt_categories": punt_cats,
+        "category_trajectory": {
+            "improving": improving,
+            "declining": declining,
+        },
+        "trade_recommendations": trade_recs,
+        "summary": summary,
+        "standings": standings,
+        "pace": pace,
+        "playoff_planner": playoff,
+        "category_trends": trends,
+        "trade_finder": trade_finder,
+    }
+
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
 COMMANDS = {
     "lineup-optimize": cmd_lineup_optimize,
     "category-check": cmd_category_check,
@@ -7592,6 +7938,11 @@ COMMANDS = {
     "rival-history": cmd_rival_history,
     "achievements": cmd_achievements,
     "weekly-narrative": cmd_weekly_narrative,
+    "game-day-manager": cmd_game_day_manager,
+    "waiver-deadline-prep": cmd_waiver_deadline_prep,
+    "trade-pipeline": cmd_trade_pipeline,
+    "weekly-digest": cmd_weekly_digest,
+    "season-checkpoint": cmd_season_checkpoint,
 }
 
 if __name__ == "__main__":

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# fbb-mcp installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/jweingardt12/fbb-mcp/main/scripts/install.sh | bash
-# Uninstall: curl -fsSL https://raw.githubusercontent.com/jweingardt12/fbb-mcp/main/scripts/install.sh | bash -s -- --uninstall
+# BaseClaw installer
+# Usage: curl -fsSL https://raw.githubusercontent.com/jweingardt12/baseclaw/main/scripts/install.sh | bash
+# Uninstall: curl -fsSL https://raw.githubusercontent.com/jweingardt12/baseclaw/main/scripts/install.sh | bash -s -- --uninstall
 
-REPO="jweingardt12/fbb-mcp"
+REPO="jweingardt12/baseclaw"
 RAW="https://raw.githubusercontent.com/$REPO/main"
-INSTALL_DIR="${FBB_MCP_DIR:-$HOME/.fbb-mcp}"
-CONTAINER="fbb-mcp"
-SERVER_NAME="fbb-mcp"
+INSTALL_DIR="${BASECLAW_DIR:-$HOME/.baseclaw}"
+CONTAINER="baseclaw"
+SERVER_NAME="baseclaw"
 
 # Colors (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -61,7 +61,7 @@ has_real_value() {
   [ -n "$val" ] && [[ "$val" != your_*_here ]]
 }
 
-# Add or remove fbb-mcp from an MCP JSON config file
+# Add or remove BaseClaw from an MCP JSON config file
 manage_mcp_config() {
   local action="$1" cfg_path="$2"
   if [ "$HAS_PYTHON" != "true" ]; then return 1; fi
@@ -105,7 +105,7 @@ docker_exec_interactive() {
 # Uninstall
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--uninstall" ]; then
-  info "Uninstalling fbb-mcp..."
+  info "Uninstalling BaseClaw..."
 
   if [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
     (cd "$INSTALL_DIR" && docker compose down 2>/dev/null) || true
@@ -126,7 +126,7 @@ if [ "${1:-}" = "--uninstall" ]; then
     fi
   done
 
-  ok "fbb-mcp uninstalled"
+  ok "BaseClaw uninstalled"
   exit 0
 fi
 
@@ -313,7 +313,7 @@ if [ -d "$HOME/.openclaw" ]; then
   read -rp "Configure OpenClaw agent? [Y/n] " DO_OC
   DO_OC="${DO_OC:-Y}"
   if [[ "$DO_OC" =~ ^[Yy] ]]; then
-    OC_DIR="$HOME/.openclaw/workspace/fbb-mcp"
+    OC_DIR="$HOME/.openclaw/workspace/baseclaw"
     mkdir -p "$OC_DIR"
     cp "$INSTALL_DIR/openclaw-config.yaml" "$OC_DIR/"
     cp "$INSTALL_DIR/AGENTS.md" "$OC_DIR/"
@@ -327,7 +327,7 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 echo "============================================"
-printf "  ${GREEN}${BOLD}fbb-mcp installed${NC}\n"
+printf "  ${GREEN}${BOLD}BaseClaw installed${NC}\n"
 echo "============================================"
 echo ""
 echo "  Install dir:  $INSTALL_DIR"

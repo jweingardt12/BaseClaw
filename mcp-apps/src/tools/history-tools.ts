@@ -16,7 +16,7 @@ import {
   type RosterHistoryResponse,
 } from "../api/types.js";
 
-const HISTORY_URI = "ui://fbb-mcp/history.html";
+const HISTORY_URI = "ui://baseclaw/history.html";
 
 export function registerHistoryTools(server: McpServer, distDir: string) {
   registerAppResource(

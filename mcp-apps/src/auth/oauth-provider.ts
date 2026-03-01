@@ -119,7 +119,7 @@ export class YahooFantasyOAuthProvider implements OAuthServerProvider {
       return {
         token,
         clientId: "master",
-        scopes: ["fbb-mcp"],
+        scopes: ["baseclaw"],
         expiresAt: nowSeconds() + 31536000, // 1 year
       };
     }

@@ -7,7 +7,7 @@ import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { generateRankingsInsight, generateCompareInsight } from "../insights.js";
 import { str, type RankingsResponse, type CompareResponse, type ValueResponse } from "../api/types.js";
 
-const VALUATIONS_URI = "ui://fbb-mcp/valuations.html";
+const VALUATIONS_URI = "ui://baseclaw/valuations.html";
 
 export function registerValuationsTools(server: McpServer, distDir: string) {
   registerAppResource(

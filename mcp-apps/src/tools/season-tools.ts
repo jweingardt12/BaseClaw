@@ -63,7 +63,7 @@ import {
   type WeeklyNarrativeResponse,
 } from "../api/types.js";
 
-export const SEASON_URI = "ui://fbb-mcp/season.html";
+export const SEASON_URI = "ui://baseclaw/season.html";
 
 export function registerSeasonTools(server: McpServer, distDir: string, writesEnabled: boolean = false) {
   registerAppResource(

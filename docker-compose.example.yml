@@ -1,9 +1,9 @@
 # Example docker-compose for pulling the published image.
 # Copy this file to docker-compose.yml and configure .env before running.
 services:
-  fbb-mcp:
-    image: ghcr.io/jweingardt12/fbb-mcp:latest
-    container_name: fbb-mcp
+  baseclaw:
+    image: ghcr.io/jweingardt12/baseclaw:latest
+    container_name: baseclaw
     volumes:
       - ./config:/app/config
       - ./data:/app/data

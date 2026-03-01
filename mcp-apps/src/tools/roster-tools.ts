@@ -6,7 +6,7 @@ import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { str, type RosterResponse, type FreeAgentsResponse, type SearchResponse, type ActionResponse, type WaiverClaimResponse, type WaiverClaimSwapResponse, type WhoOwnsResponse, type PercentOwnedResponse, type ChangeTeamNameResponse, type ChangeTeamLogoResponse, type PlayerStatsResponse, type WaiversResponse, type TakenPlayersResponse } from "../api/types.js";
 
-const ROSTER_URI = "ui://fbb-mcp/roster.html";
+const ROSTER_URI = "ui://baseclaw/roster.html";
 
 export function registerRosterTools(server: McpServer, distDir: string, writesEnabled: boolean = false) {
   // Register the app resource for roster UI

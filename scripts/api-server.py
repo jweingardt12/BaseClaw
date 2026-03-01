@@ -1591,6 +1591,52 @@ def workflow_trade_analysis():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/workflow/game-day-manager")
+def workflow_game_day_manager():
+    try:
+        data = season_manager.cmd_game_day_manager([], as_json=True)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/workflow/waiver-deadline-prep")
+def workflow_waiver_deadline_prep():
+    try:
+        count = request.args.get("count", "5")
+        data = season_manager.cmd_waiver_deadline_prep([count], as_json=True)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/workflow/trade-pipeline")
+def workflow_trade_pipeline():
+    try:
+        data = season_manager.cmd_trade_pipeline([], as_json=True)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/workflow/weekly-digest")
+def workflow_weekly_digest():
+    try:
+        data = season_manager.cmd_weekly_digest([], as_json=True)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/workflow/season-checkpoint")
+def workflow_season_checkpoint():
+    try:
+        data = season_manager.cmd_season_checkpoint([], as_json=True)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # --- News (RotoWire RSS) ---
 
 

@@ -18,6 +18,11 @@ import {
   type TradeAnalysisResponse,
   type InjuryReportResponse,
   type LineupOptimizeResponse,
+  type GameDayManagerResponse,
+  type WaiverDeadlinePrepResponse,
+  type TradePipelineResponse,
+  type WeeklyDigestResponse,
+  type SeasonCheckpointResponse,
 } from "../api/types.js";
 import { SEASON_URI } from "./season-tools.js";
 
@@ -323,6 +328,230 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { type: "trade-analysis", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_game_day_manager
+  registerAppTool(
+    server,
+    "yahoo_game_day_manager",
+    {
+      description: "Game-day pipeline: today's schedule, weather risks, injury check, lineup optimization, and streaming recommendation — all in one call. Run before first pitch to catch late scratches and weather delays.",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        const data = await apiGet<GameDayManagerResponse>("/api/workflow/game-day-manager");
+
+        const lines: string[] = [];
+        lines.push(header("GAME_DAY_MANAGER", data.summary || "game-day check"));
+
+        // Weather risks
+        if ((data.weather_risks || []).length > 0) {
+          lines.push("");
+          lines.push("WEATHER RISKS:");
+          for (const w of data.weather_risks) {
+            lines.push("  " + str(w.game) + " — " + str(w.risk) + " (" + str(w.note) + ")");
+          }
+        }
+
+        // Lineup changes
+        if ((data.lineup_changes || []).length > 0) {
+          lines.push("");
+          lines.push("LINEUP SWAPS:");
+          for (const s of data.lineup_changes) {
+            lines.push("  Bench " + str(s.bench) + " -> Start " + str(s.start) + " (" + str(s.position) + ")");
+          }
+        } else {
+          lines.push("Lineup already optimal — no swaps needed.");
+        }
+
+        // Streaming suggestion
+        if (data.streaming_suggestion) {
+          const ss = data.streaming_suggestion;
+          lines.push("");
+          lines.push("STREAMING: " + str(ss.name) + " (" + str(ss.team) + ", " + ss.games + " games, score=" + ss.score + ")");
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "game-day-manager", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_waiver_deadline_prep
+  registerAppTool(
+    server,
+    "yahoo_waiver_deadline_prep",
+    {
+      description: "Pre-deadline waiver analysis: identifies your weak categories, ranks waiver candidates with FAAB bid recommendations and simulated category impact. Run before waiver deadline to make informed claims.",
+      inputSchema: { count: z.number().describe("Number of candidates per position type").default(5) },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async ({ count }) => {
+      try {
+        const data = await apiGet<WaiverDeadlinePrepResponse>("/api/workflow/waiver-deadline-prep", { count: String(count) });
+
+        const lines: string[] = [];
+        lines.push(header("WAIVER_DEADLINE_PREP", (data.ranked_claims || []).length + " candidates | weak: " + (data.weak_categories || []).join(", ")));
+
+        // Roster issues
+        if ((data.roster_issues || []).length > 0) {
+          lines.push("");
+          lines.push("ROSTER ISSUES:");
+          for (const issue of data.roster_issues) {
+            lines.push("  ! " + issue);
+          }
+        }
+
+        // Ranked claims
+        if ((data.ranked_claims || []).length > 0) {
+          lines.push("");
+          lines.push("RANKED CLAIMS:");
+          for (const [i, claim] of (data.ranked_claims || []).entries()) {
+            const label = claim.pos_type === "B" ? "BAT" : "PIT";
+            lines.push("  " + (i + 1) + ". [" + label + "] " + str(claim.player)
+              + " (FAAB $" + claim.faab_bid + " | " + str(claim.percent_owned) + "% owned"
+              + " | net rank " + (claim.net_rank_improvement >= 0 ? "+" : "") + claim.net_rank_improvement + ")");
+            if (claim.category_impact.length > 0) {
+              lines.push("     impact: " + claim.category_impact.join(", "));
+            }
+          }
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "waiver-deadline-prep", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_trade_pipeline
+  registerAppTool(
+    server,
+    "yahoo_trade_pipeline",
+    {
+      description: "End-to-end trade search: finds complementary trade partners, evaluates package values, simulates category impact, and grades each proposal. Returns ready-to-propose trade packages.",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        const data = await apiGet<TradePipelineResponse>("/api/workflow/trade-pipeline");
+
+        const lines: string[] = [];
+        lines.push(header("TRADE_PIPELINE", (data.partners || []).length + " partner(s) | weak: " + (data.weak_categories || []).join(", ")));
+
+        for (const partner of data.partners || []) {
+          lines.push("");
+          lines.push("PARTNER: " + str(partner.team) + " — complementary: " + (partner.complementary_categories || []).join(", "));
+          for (const [i, prop] of (partner.proposals || []).entries()) {
+            lines.push("  " + (i + 1) + ". Give: " + prop.give.join(", ") + " (" + prop.give_value + "z)"
+              + " -> Get: " + prop.get.join(", ") + " (" + prop.get_value + "z)"
+              + " | Net: " + (prop.net_value >= 0 ? "+" : "") + prop.net_value + "z"
+              + " | Grade: " + prop.grade);
+            if (prop.category_impact.length > 0) {
+              lines.push("     impact: " + prop.category_impact.join(", "));
+            }
+          }
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "trade-pipeline", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_weekly_digest
+  registerAppTool(
+    server,
+    "yahoo_weekly_digest",
+    {
+      description: "End-of-week summary: matchup result, standings position, transactions, achievements, and a prose narrative. Use for weekly reporting and season tracking.",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        const data = await apiGet<WeeklyDigestResponse>("/api/workflow/weekly-digest");
+
+        const lines: string[] = [];
+        lines.push(header("WEEKLY_DIGEST", "Week " + str(data.week) + " vs " + str(data.opponent) + " | " + str(data.matchup_result)));
+
+        lines.push("");
+        lines.push(data.narrative || "");
+
+        if (data.move_count > 0) {
+          lines.push("Transactions: " + data.move_count);
+        }
+
+        if ((data.achievements_earned || []).length > 0) {
+          lines.push("Achievements: " + data.achievements_earned.join(", "));
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "weekly-digest", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_season_checkpoint
+  registerAppTool(
+    server,
+    "yahoo_season_checkpoint",
+    {
+      description: "Monthly strategic assessment: current rank, playoff probability, category trajectory (improving/declining), punt strategy, and trade recommendations. Run monthly to track season-long progress.",
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async () => {
+      try {
+        const data = await apiGet<SeasonCheckpointResponse>("/api/workflow/season-checkpoint");
+
+        const traj = data.category_trajectory || { improving: [], declining: [] };
+
+        const lines: string[] = [];
+        lines.push(header("SEASON_CHECKPOINT", data.summary || ""));
+
+        lines.push("");
+        lines.push("RANK: " + str(data.current_rank) + " | PLAYOFF: " + str(data.playoff_probability) + "%");
+
+        if ((data.target_categories || []).length > 0) {
+          lines.push("TARGET CATEGORIES: " + data.target_categories.join(", "));
+        }
+        if ((data.punt_categories || []).length > 0) {
+          lines.push("PUNT CATEGORIES: " + data.punt_categories.join(", "));
+        }
+
+        if (traj.improving.length > 0) {
+          lines.push("IMPROVING: " + traj.improving.join(", "));
+        }
+        if (traj.declining.length > 0) {
+          lines.push("DECLINING: " + traj.declining.join(", "));
+        }
+
+        if ((data.trade_recommendations || []).length > 0) {
+          lines.push("");
+          lines.push("TRADE TARGETS:");
+          for (const rec of data.trade_recommendations) {
+            lines.push("  " + rec);
+          }
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "season-checkpoint", ...data },
         };
       } catch (e) { return toolError(e); }
     },

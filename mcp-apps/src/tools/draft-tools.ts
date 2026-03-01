@@ -14,7 +14,7 @@ import {
   type BestAvailableResponse,
 } from "../api/types.js";
 
-const DRAFT_URI = "ui://fbb-mcp/draft.html";
+const DRAFT_URI = "ui://baseclaw/draft.html";
 
 export function registerDraftTools(server: McpServer, distDir: string) {
   registerAppResource(

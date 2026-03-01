@@ -24,7 +24,7 @@ import {
   type SeasonPaceResponse,
 } from "../api/types.js";
 
-const STANDINGS_URI = "ui://fbb-mcp/standings.html";
+const STANDINGS_URI = "ui://baseclaw/standings.html";
 
 export function registerStandingsTools(server: McpServer, distDir: string) {
   registerAppResource(

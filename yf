@@ -3,7 +3,7 @@
 # Usage: ./yf <command> [args]
 
 export PATH="/usr/local/bin:$PATH"
-CONTAINER="fbb-mcp"
+CONTAINER="baseclaw"
 API_BASE="http://localhost:8766"
 
 # --- JSON pretty-printer: jq if available, else python3 ---

@@ -1,11 +1,20 @@
 [
   {
-    "name": "Daily lineup + morning briefing",
+    "name": "Daily morning briefing + auto lineup",
     "schedule": { "kind": "cron", "expr": "0 9 * * *", "tz": "America/New_York" },
     "sessionTarget": "isolated",
     "payload": {
       "kind": "agentTurn",
       "message": "Daily routine. Call yahoo_morning_briefing, then yahoo_auto_lineup. Execute any priority-1 action items (injured starters, pending trades). Report actions taken in 2-3 sentences."
+    }
+  },
+  {
+    "name": "Daily pre-lock lineup check",
+    "schedule": { "kind": "cron", "expr": "30 10 * * *", "tz": "America/New_York" },
+    "sessionTarget": "isolated",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Pre-lock check. Call yahoo_game_day_manager. If weather risks or late scratches affect your lineup, make adjustments. Report any changes."
     }
   },
   {
@@ -18,21 +27,48 @@
     }
   },
   {
-    "name": "Midweek waiver check",
-    "schedule": { "kind": "cron", "expr": "0 10 * * 3", "tz": "America/New_York" },
+    "name": "Tuesday waiver deadline prep",
+    "schedule": { "kind": "cron", "expr": "0 20 * * 2", "tz": "America/New_York" },
     "sessionTarget": "isolated",
     "payload": {
       "kind": "agentTurn",
-      "message": "Midweek waiver wire check. Call yahoo_waiver_recommendations. If any recommendation has a strong category improvement, execute the top add/drop. Report what you found and any actions taken."
+      "message": "Waiver deadline approaching. Call yahoo_waiver_deadline_prep. Review ranked claims with FAAB bids. If any recommendation shows strong net z-score improvement, submit the top waiver claim. Report recommendations and actions taken."
     }
   },
   {
-    "name": "Weekend roster health audit",
+    "name": "Thursday streaming check",
+    "schedule": { "kind": "cron", "expr": "0 9 * * 4", "tz": "America/New_York" },
+    "sessionTarget": "isolated",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Midweek streaming check. Call yahoo_streaming to find two-start pitchers and favorable matchups. If any streaming add improves counting stats, execute the top add. Report findings."
+    }
+  },
+  {
+    "name": "Saturday roster audit",
     "schedule": { "kind": "cron", "expr": "0 9 * * 6", "tz": "America/New_York" },
     "sessionTarget": "isolated",
     "payload": {
       "kind": "agentTurn",
       "message": "Weekend roster audit. Call yahoo_roster_health_check. Report any critical or warning issues found. If there are healthy players stuck on IL, flag them for activation."
+    }
+  },
+  {
+    "name": "Sunday weekly digest",
+    "schedule": { "kind": "cron", "expr": "0 21 * * 0", "tz": "America/New_York" },
+    "sessionTarget": "isolated",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "End of week. Call yahoo_weekly_digest. Report the week's result, key performers, standings movement, and notable roster moves. Keep the narrative concise."
+    }
+  },
+  {
+    "name": "Monthly season checkpoint",
+    "schedule": { "kind": "cron", "expr": "0 10 1 * *", "tz": "America/New_York" },
+    "sessionTarget": "isolated",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Monthly check-in. Call yahoo_season_checkpoint. Report: strategic assessment, category trajectory, trade recommendations, and playoff outlook. Highlight any categories trending the wrong direction."
     }
   }
 ]

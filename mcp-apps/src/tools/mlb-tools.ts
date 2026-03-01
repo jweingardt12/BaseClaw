@@ -17,7 +17,7 @@ import {
   type WeatherResponse,
 } from "../api/types.js";
 
-const MLB_URI = "ui://fbb-mcp/mlb.html";
+const MLB_URI = "ui://baseclaw/mlb.html";
 
 export function registerMlbTools(server: McpServer, distDir: string) {
   registerAppResource(

@@ -1,13 +1,13 @@
 {
   "mcpServers": {
-    "fbb-mcp": {
+    "baseclaw": {
       "command": "npx",
       "args": [
         "tsx",
         "mcp-apps/main.ts",
         "--stdio"
       ],
-      "cwd": "/path/to/fbb-mcp",
+      "cwd": "/path/to/baseclaw",
       "env": {
         "PYTHON_API_URL": "http://localhost:8766"
       }

@@ -1626,3 +1626,84 @@ export interface WeeklyNarrativeResponse {
   narrative: string;
 }
 
+// --- New workflow orchestrator response types ---
+
+export interface GameDayManagerResponse {
+  schedule: MlbScheduleResponse | { _error?: string };
+  weather_risks: Array<{ game: string; risk: string; note: string }>;
+  injuries: InjuryReportResponse | { _error?: string };
+  lineup_changes: Array<{ bench: string; start: string; position: string }>;
+  streaming_suggestion: { name: string; team: string; games: number; score: number } | null;
+  summary: string;
+}
+
+export interface WaiverDeadlinePrepResponse {
+  weak_categories: string[];
+  ranked_claims: Array<{
+    player: string;
+    player_id: string;
+    pos_type: string;
+    percent_owned: number;
+    score: number;
+    faab_bid: number;
+    net_rank_improvement: number;
+    category_impact: string[];
+  }>;
+  roster_issues: string[];
+  category_check: CategoryCheckResponse | { _error?: string };
+  waiver_batters: WaiverAnalyzeResponse | { _error?: string };
+  waiver_pitchers: WaiverAnalyzeResponse | { _error?: string };
+}
+
+export interface TradePipelineProposal {
+  give: string[];
+  get: string[];
+  give_value: number;
+  get_value: number;
+  net_value: number;
+  grade: string;
+  category_impact: string[];
+}
+
+export interface TradePipelinePartner {
+  team: string;
+  team_key: string;
+  complementary_categories: string[];
+  proposals: TradePipelineProposal[];
+}
+
+export interface TradePipelineResponse {
+  weak_categories: string[];
+  strong_categories: string[];
+  partners: TradePipelinePartner[];
+}
+
+export interface WeeklyDigestResponse {
+  week: string | number;
+  opponent: string;
+  matchup_result: string;
+  standings: StandingsResponse | { _error?: string };
+  transactions: TransactionsResponse | { _error?: string };
+  move_count: number;
+  achievements_earned: string[];
+  narrative: string;
+  matchup: MatchupDetailResponse | { _error?: string };
+  roster_stats: RosterStatsResponse | { _error?: string };
+  whats_new: WhatsNewResponse | { _error?: string };
+}
+
+export interface SeasonCheckpointResponse {
+  current_rank: number | string;
+  playoff_probability: number;
+  target_categories: string[];
+  punt_categories: string[];
+  category_trajectory: { improving: string[]; declining: string[] };
+  trade_recommendations: string[];
+  summary: string;
+  standings: StandingsResponse | { _error?: string };
+  pace: SeasonPaceResponse | { _error?: string };
+  playoff_planner: PlayoffPlannerResponse | { _error?: string };
+  category_trends: CategoryTrendsResponse | { _error?: string };
+  trade_finder: TradeFinderResponse | { _error?: string };
+}
+
