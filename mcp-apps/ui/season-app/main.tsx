@@ -19,6 +19,7 @@ import { TradeFinderView } from "./trade-finder-view";
 import { WeekPlannerView } from "./week-planner-view";
 import { CloserMonitorView } from "./closer-monitor-view";
 import { PitcherMatchupView } from "./pitcher-matchup-view";
+import { MorningBriefingView } from "./morning-briefing-view";
 import "../globals.css";
 
 function SeasonApp() {
@@ -47,6 +48,7 @@ function SeasonApp() {
           case "week-planner": return <WeekPlannerView data={data} />;
           case "closer-monitor": return <CloserMonitorView data={data} app={app} navigate={navigate} />;
           case "pitcher-matchup": return <PitcherMatchupView data={data} />;
+          case "morning-briefing": return <MorningBriefingView data={data} app={app} navigate={navigate} />;
           default: return <div className="p-4 text-muted-foreground">Unknown view: {toolName}</div>;
         }
       }}

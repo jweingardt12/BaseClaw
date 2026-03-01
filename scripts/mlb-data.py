@@ -273,6 +273,103 @@ def cmd_draft(args, as_json=False):
             print(line)
 
 
+# Domed/retractable roof stadiums (no weather risk)
+DOME_STADIUMS = {
+    "Tropicana Field": "TBR",
+    "American Family Field": "MIL",       # retractable
+    "Chase Field": "ARI",                 # retractable
+    "Globe Life Field": "TEX",
+    "Minute Maid Park": "HOU",            # retractable
+    "Rogers Centre": "TOR",               # retractable
+    "loanDepot park": "MIA",              # retractable
+    "T-Mobile Park": "SEA",               # retractable
+}
+
+# Lowercase lookup for fuzzy matching
+_DOME_VENUES_LOWER = {v.lower(): v for v in DOME_STADIUMS}
+
+
+def _is_dome_venue(venue_name):
+    """Check if venue is a dome/retractable roof stadium"""
+    if not venue_name:
+        return False
+    lower = venue_name.lower()
+    # Exact lowercase match
+    if lower in _DOME_VENUES_LOWER:
+        return True
+    # Partial match (handles name variations like "loanDepot park" vs "LoanDepot Park")
+    for dome_lower in _DOME_VENUES_LOWER:
+        if dome_lower in lower or lower in dome_lower:
+            return True
+    return False
+
+
+def cmd_weather(args, as_json=False):
+    """Check weather/venue risk for today's games"""
+    import statsapi
+
+    game_date = args[0] if args else str(date.today())
+
+    try:
+        schedule = statsapi.schedule(date=game_date)
+    except Exception as e:
+        if as_json:
+            return {"error": "Could not fetch schedule: " + str(e)}
+        print("Error: " + str(e))
+        return
+
+    games = []
+    for game in schedule:
+        home_team = game.get("home_name", "")
+        away_team = game.get("away_name", "")
+        venue = game.get("venue_name", "")
+        game_time = game.get("game_datetime", "")
+        status = game.get("status", "")
+
+        is_dome = _is_dome_venue(venue)
+
+        # Determine weather risk level
+        if is_dome:
+            weather_risk = "none"
+            weather_note = "Domed/retractable roof stadium"
+        elif status in ("Postponed", "Suspended"):
+            weather_risk = "postponed"
+            weather_note = "Game " + status.lower()
+        else:
+            weather_risk = "outdoor"
+            weather_note = "Outdoor stadium - check local forecast"
+
+        games.append({
+            "away": away_team,
+            "home": home_team,
+            "venue": venue,
+            "game_time": game_time,
+            "status": status,
+            "is_dome": is_dome,
+            "weather_risk": weather_risk,
+            "weather_note": weather_note,
+        })
+
+    dome_count = sum(1 for g in games if g.get("is_dome"))
+    result = {
+        "date": game_date,
+        "games": games,
+        "dome_count": dome_count,
+        "outdoor_count": len(games) - dome_count,
+    }
+
+    if as_json:
+        return result
+
+    print("Weather Risk Report - " + game_date)
+    print("=" * 60)
+    for g in games:
+        risk_label = "[DOME]" if g.get("is_dome") else "[OUTDOOR]"
+        print("  " + g.get("away", "?") + " @ " + g.get("home", "?") + " - " + g.get("venue", "?") + " " + risk_label)
+    print("")
+    print("  Dome/retractable: " + str(result.get("dome_count", 0)) + "  Outdoor: " + str(result.get("outdoor_count", 0)))
+
+
 COMMANDS = {
     "teams": cmd_teams,
     "roster": cmd_roster,
@@ -282,6 +379,7 @@ COMMANDS = {
     "standings": cmd_standings,
     "schedule": cmd_schedule,
     "draft": cmd_draft,
+    "weather": cmd_weather,
 }
 
 if __name__ == "__main__":
@@ -297,6 +395,7 @@ if __name__ == "__main__":
         print("  standings  - Division standings")
         print("  schedule   - Todays games (or date)")
         print("  draft      - MLB draft picks by year")
+        print("  weather    - Weather/venue risk for games")
         sys.exit(1)
 
     cmd = sys.argv[1]

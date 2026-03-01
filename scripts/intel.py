@@ -829,20 +829,21 @@ def get_regression_signal(player_name):
 # 5c. Player Splits (MLB Stats API)
 # ============================================================
 
-def _fetch_player_splits(mlb_id):
+def _fetch_player_splits(mlb_id, stat_group="hitting"):
     """Fetch player splits (vs LHP/RHP, home/away) via MLB Stats API.
-    Returns dict: {vs_lhp: {avg, obp, slg, ops}, vs_rhp: {...}, home: {...}, away: {...}}
+    stat_group: 'hitting' or 'pitching'
+    Returns dict: {vs_lhp: {avg, obp, slg, ops, pa}, vs_rhp: {...}, home: {...}, away: {...}}
     """
     if not mlb_id:
         return {}
-    cache_key = ("player_splits", mlb_id)
+    cache_key = ("player_splits", mlb_id, stat_group)
     cached = _cache_get(cache_key, TTL_SPLITS)
     if cached is not None:
         return cached
     try:
         endpoint = (
             "/people/" + str(mlb_id)
-            + "/stats?stats=statSplits&group=hitting"
+            + "/stats?stats=statSplits&group=" + stat_group
             + "&season=" + str(YEAR)
             + "&sitCodes=vl,vr,h,a"
         )
@@ -858,19 +859,30 @@ def _fetch_player_splits(mlb_id):
 
         def _parse_splits(api_data, sit_mapping):
             parsed = {}
-            for stat_group in api_data.get("stats", []):
-                for split in stat_group.get("splits", []):
+            for sg in api_data.get("stats", []):
+                for split in sg.get("splits", []):
                     sit_code = split.get("split", {}).get("code", "")
                     mapped_key = sit_mapping.get(sit_code)
                     if not mapped_key:
                         continue
                     stat = split.get("stat", {})
-                    parsed[mapped_key] = {
+                    entry = {
                         "avg": _safe_float(stat.get("avg")),
                         "obp": _safe_float(stat.get("obp")),
                         "slg": _safe_float(stat.get("slg")),
                         "ops": _safe_float(stat.get("ops")),
                     }
+                    # PA: try plateAppearances, fall back to atBats + walks
+                    pa = _safe_float(stat.get("plateAppearances"))
+                    if pa is None:
+                        ab = _safe_float(stat.get("atBats"), 0)
+                        bb = _safe_float(stat.get("baseOnBalls"), 0)
+                        hbp = _safe_float(stat.get("hitByPitch"), 0)
+                        sf = _safe_float(stat.get("sacFlies"), 0)
+                        computed = ab + bb + hbp + sf
+                        pa = computed if computed > 0 else None
+                    entry["pa"] = int(pa) if pa is not None else None
+                    parsed[mapped_key] = entry
             return parsed
 
         result = _parse_splits(data, sit_map)
@@ -880,7 +892,7 @@ def _fetch_player_splits(mlb_id):
             try:
                 fallback_endpoint = (
                     "/people/" + str(mlb_id)
-                    + "/stats?stats=statSplits&group=hitting"
+                    + "/stats?stats=statSplits&group=" + stat_group
                     + "&season=" + str(YEAR - 1)
                     + "&sitCodes=vl,vr,h,a"
                 )
@@ -1470,6 +1482,41 @@ def _build_statcast(name, mlb_id):
             except Exception as e:
                 print("Warning: pitch arsenal failed for " + str(name) + ": " + str(e))
 
+            # xERA / ERA regression analysis for pitchers
+            try:
+                fg_pitch = _fetch_fangraphs_regression_pitching()
+                fg_row = _find_in_fangraphs(name, fg_pitch)
+                if fg_row:
+                    era_val = _safe_float(fg_row.get("era"))
+                    siera_val = _safe_float(fg_row.get("siera"))
+                    fip_val = _safe_float(fg_row.get("fip"))
+                    xfip_val = _safe_float(fg_row.get("xfip"))
+                    ip_val = _safe_float(fg_row.get("ip"))
+                    # Use SIERA as xERA proxy (best ERA predictor available)
+                    xera_val = siera_val
+                    era_minus_xera = None
+                    regression_signal = None
+                    if era_val is not None and xera_val is not None:
+                        era_minus_xera = round(era_val - xera_val, 2)
+                        if era_minus_xera > 0.5:
+                            regression_signal = "buy"
+                        elif era_minus_xera < -0.5:
+                            regression_signal = "sell"
+                        else:
+                            regression_signal = "hold"
+                    result["era_analysis"] = {
+                        "era": era_val,
+                        "xera": xera_val,
+                        "fip": fip_val,
+                        "xfip": xfip_val,
+                        "era_minus_xera": era_minus_xera,
+                        "era_regression_signal": regression_signal,
+                        "ip": ip_val,
+                        "xera_source": "SIERA",
+                    }
+            except Exception as e:
+                print("Warning: xERA analysis failed for " + str(name) + ": " + str(e))
+
         if not expected_row and not statcast_row and not sprint_row:
             result["note"] = "Player not found in Savant leaderboards (may not meet minimum PA/IP threshold)"
 
@@ -1585,6 +1632,35 @@ def _build_trends(name, mlb_id):
             "splits": splits,
             "games_total": len(games),
         }
+
+        # ERA regression flagging for pitchers
+        if player_type == "pitcher":
+            try:
+                fg_pitch = _fetch_fangraphs_regression_pitching()
+                fg_row = _find_in_fangraphs(name, fg_pitch)
+                if fg_row:
+                    era_val = _safe_float(fg_row.get("era"))
+                    siera_val = _safe_float(fg_row.get("siera"))
+                    if era_val is not None and siera_val is not None:
+                        era_diff = era_val - siera_val
+                        trend_notes = result.get("trend_notes", [])
+                        if era_diff > 0.5:
+                            trend_notes.append(
+                                "ERA regression candidate (buy): ERA "
+                                + str(round(era_val, 2))
+                                + " vs xERA " + str(round(siera_val, 2))
+                            )
+                        elif era_diff < -0.5:
+                            trend_notes.append(
+                                "ERA regression candidate (sell): ERA "
+                                + str(round(era_val, 2))
+                                + " vs xERA " + str(round(siera_val, 2))
+                            )
+                        if trend_notes:
+                            result["trend_notes"] = trend_notes
+            except Exception as e:
+                print("Warning: ERA regression check failed for " + str(name) + ": " + str(e))
+
         return result
     except Exception as e:
         print("Warning: _build_trends failed for " + str(name) + ": " + str(e))
@@ -1697,6 +1773,83 @@ def _build_discipline(name):
         return {"error": str(e)}
 
 
+def _build_splits(name, player_type):
+    """Build platoon split analysis (vs LHP/RHP) for player intel.
+    Returns dict with vs_LHP, vs_RHP, platoon_advantage, platoon_differential.
+    """
+    try:
+        mlb_id = get_mlb_id(name)
+        if not mlb_id:
+            return {"note": "Could not resolve MLB ID for splits lookup"}
+
+        stat_group = "pitching" if player_type == "pitcher" else "hitting"
+        raw_splits = _fetch_player_splits(mlb_id, stat_group=stat_group)
+        if not raw_splits:
+            return {"note": "No split data available"}
+
+        vs_lhp = raw_splits.get("vs_lhp")
+        vs_rhp = raw_splits.get("vs_rhp")
+
+        if not vs_lhp and not vs_rhp:
+            return {"note": "No platoon split data available"}
+
+        result = {}
+
+        # Format vs_LHP and vs_RHP sections
+        for key, label in [("vs_lhp", "vs_LHP"), ("vs_rhp", "vs_RHP")]:
+            split_data = raw_splits.get(key)
+            if split_data:
+                result[label] = {
+                    "avg": split_data.get("avg"),
+                    "obp": split_data.get("obp"),
+                    "slg": split_data.get("slg"),
+                    "ops": split_data.get("ops"),
+                    "sample_pa": split_data.get("pa"),
+                }
+
+        # Compute platoon advantage and differential
+        lhp_ops = vs_lhp.get("ops") if vs_lhp else None
+        rhp_ops = vs_rhp.get("ops") if vs_rhp else None
+
+        if lhp_ops is not None and rhp_ops is not None:
+            diff = round(abs(lhp_ops - rhp_ops), 3)
+            result["platoon_differential"] = diff
+            if diff < 0.030:
+                result["platoon_advantage"] = "neutral"
+            elif lhp_ops > rhp_ops:
+                result["platoon_advantage"] = "LHP"
+            else:
+                result["platoon_advantage"] = "RHP"
+
+        # Include home/away if available
+        home = raw_splits.get("home")
+        away = raw_splits.get("away")
+        if home:
+            result["home"] = {
+                "avg": home.get("avg"),
+                "obp": home.get("obp"),
+                "slg": home.get("slg"),
+                "ops": home.get("ops"),
+                "sample_pa": home.get("pa"),
+            }
+        if away:
+            result["away"] = {
+                "avg": away.get("avg"),
+                "obp": away.get("obp"),
+                "slg": away.get("slg"),
+                "ops": away.get("ops"),
+                "sample_pa": away.get("pa"),
+            }
+
+        if raw_splits.get("data_season"):
+            result["data_season"] = raw_splits.get("data_season")
+
+        return result
+    except Exception as e:
+        print("Warning: _build_splits failed for " + str(name) + ": " + str(e))
+        return {"error": str(e)}
+
+
 # ============================================================
 # 10. Main Functions: player_intel() and batch_intel()
 # ============================================================
@@ -1706,10 +1859,10 @@ def player_intel(name, include=None):
     Get comprehensive intelligence packet for a player.
 
     include: list of sections to fetch. None = all.
-    Valid sections: 'statcast', 'trends', 'context', 'discipline', 'percentiles'
+    Valid sections: 'statcast', 'trends', 'context', 'discipline', 'percentiles', 'splits'
     """
     if include is None:
-        include = ["statcast", "trends", "context", "discipline", "percentiles"]
+        include = ["statcast", "trends", "context", "discipline", "percentiles", "splits"]
 
     result = {"name": name}
 
@@ -1730,6 +1883,10 @@ def player_intel(name, include=None):
 
     if "percentiles" in include:
         result["percentiles"] = _build_percentiles(name, mlb_id)
+
+    if "splits" in include:
+        player_type = _detect_player_type(name, mlb_id)
+        result["splits"] = _build_splits(name, player_type)
 
     return result
 
@@ -1882,6 +2039,48 @@ def cmd_player_report(args, as_json=False):
         print("SAVANT PERCENTILES")
         print("-" * 30)
         print("  " + percentiles.get("note", ""))
+
+    splits = intel_data.get("splits", {})
+    if splits and not splits.get("error") and not splits.get("note"):
+        splits_season = splits.get("data_season")
+        splits_label = ""
+        if splits_season:
+            splits_label = " [" + str(splits_season) + " data]"
+        print("")
+        print("PLATOON SPLITS" + splits_label)
+        print("-" * 30)
+        for split_key, split_label in [("vs_LHP", "vs LHP"), ("vs_RHP", "vs RHP")]:
+            split_data = splits.get(split_key)
+            if split_data:
+                pa_str = ""
+                if split_data.get("sample_pa") is not None:
+                    pa_str = " (" + str(split_data.get("sample_pa")) + " PA)"
+                print("  " + split_label + pa_str + ":"
+                      + " AVG " + str(split_data.get("avg", "N/A"))
+                      + " | OBP " + str(split_data.get("obp", "N/A"))
+                      + " | SLG " + str(split_data.get("slg", "N/A"))
+                      + " | OPS " + str(split_data.get("ops", "N/A")))
+        advantage = splits.get("platoon_advantage")
+        diff = splits.get("platoon_differential")
+        if advantage:
+            print("  Platoon advantage: " + str(advantage)
+                  + " (OPS diff: " + str(diff) + ")")
+        for split_key, split_label in [("home", "Home"), ("away", "Away")]:
+            split_data = splits.get(split_key)
+            if split_data:
+                pa_str = ""
+                if split_data.get("sample_pa") is not None:
+                    pa_str = " (" + str(split_data.get("sample_pa")) + " PA)"
+                print("  " + split_label + pa_str + ":"
+                      + " AVG " + str(split_data.get("avg", "N/A"))
+                      + " | OBP " + str(split_data.get("obp", "N/A"))
+                      + " | SLG " + str(split_data.get("slg", "N/A"))
+                      + " | OPS " + str(split_data.get("ops", "N/A")))
+    elif splits and splits.get("note"):
+        print("")
+        print("PLATOON SPLITS")
+        print("-" * 30)
+        print("  " + splits.get("note", ""))
 
 
 def cmd_breakouts(args, as_json=False):

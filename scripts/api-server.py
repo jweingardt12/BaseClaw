@@ -812,6 +812,18 @@ def api_roster_stats():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/faab-recommend")
+def api_faab_recommend():
+    try:
+        name = request.args.get("name", "")
+        if not name:
+            return jsonify({"error": "name parameter required"}), 400
+        result = season_manager.cmd_faab_recommend([name], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/roster-history")
 def api_roster_history():
     try:
@@ -940,6 +952,17 @@ def api_mlb_schedule():
         if date_arg:
             args.append(date_arg)
         result = mlb_data.cmd_schedule(args, as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/mlb/weather")
+def api_mlb_weather():
+    try:
+        game_date = request.args.get("date", "")
+        args = [game_date] if game_date else []
+        result = mlb_data.cmd_weather(args, as_json=True)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

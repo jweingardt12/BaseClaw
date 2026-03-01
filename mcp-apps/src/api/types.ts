@@ -484,6 +484,25 @@ export interface MlbDraftResponse {
   note?: string;
 }
 
+// Weather/venue risk responses
+export interface WeatherGame {
+  away: string;
+  home: string;
+  venue: string;
+  game_time: string;
+  status: string;
+  is_dome: boolean;
+  weather_risk: string;
+  weather_note: string;
+}
+
+export interface WeatherResponse {
+  date: string;
+  games: WeatherGame[];
+  dome_count: number;
+  outdoor_count: number;
+}
+
 // History responses
 export interface SeasonResult {
   year: number;
@@ -1061,6 +1080,27 @@ export interface PitcherMatchupResponse {
   start_date: string;
   end_date: string;
   pitchers: PitcherMatchupEntry[];
+}
+
+// FAAB Recommendation response
+export interface FaabRecommendPlayer {
+  name: string;
+  z_final: number;
+  tier: string;
+  pos: string;
+  team: string;
+}
+
+export interface FaabRecommendResponse {
+  player: FaabRecommendPlayer;
+  recommended_bid: number;
+  bid_range: { low: number; high: number };
+  faab_remaining: number;
+  faab_after: number;
+  pct_of_budget: number;
+  reasoning: string[];
+  category_impact: Record<string, { add_z: number; drop_z: number; delta: number; direction: string }>;
+  improving_categories: string[];
 }
 
 // --- News response types ---

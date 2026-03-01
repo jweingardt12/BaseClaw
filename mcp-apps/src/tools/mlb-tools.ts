@@ -14,6 +14,7 @@ import {
   type MlbStandingsResponse,
   type MlbScheduleResponse,
   type MlbDraftResponse,
+  type WeatherResponse,
 } from "../api/types.js";
 
 const MLB_URI = "ui://fbb-mcp/mlb.html";
@@ -261,6 +262,52 @@ export function registerMlbTools(server: McpServer, distDir: string) {
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { type: "mlb-draft", ai_recommendation: null, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_weather
+  registerAppTool(
+    server,
+    "yahoo_weather",
+    {
+      description: "Check weather/venue risk for MLB games. Shows which games are in domed vs outdoor stadiums to help with lineup and streaming decisions",
+      inputSchema: { date: z.string().describe("Date in YYYY-MM-DD format, empty for today").default("") },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: MLB_URI } },
+    },
+    async ({ date }) => {
+      try {
+        var params: Record<string, string> = {};
+        if (date) params.date = date;
+        var data = await apiGet<WeatherResponse>("/api/mlb/weather", params);
+        var lines = ["Weather Risk Report - " + data.date, ""];
+        var dome: string[] = [];
+        var outdoor: string[] = [];
+        for (var g of data.games) {
+          var label = g.is_dome ? "[DOME]" : "[OUTDOOR]";
+          var line = "  " + g.away + " @ " + g.home + " - " + g.venue + " " + label;
+          if (g.is_dome) {
+            dome.push(line);
+          } else {
+            outdoor.push(line);
+          }
+        }
+        if (outdoor.length > 0) {
+          lines.push("OUTDOOR (check forecast):");
+          lines.push.apply(lines, outdoor);
+          lines.push("");
+        }
+        if (dome.length > 0) {
+          lines.push("DOME/RETRACTABLE (no weather risk):");
+          lines.push.apply(lines, dome);
+          lines.push("");
+        }
+        lines.push("Dome: " + data.dome_count + "  Outdoor: " + data.outdoor_count);
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "weather", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

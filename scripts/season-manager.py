@@ -3967,6 +3967,103 @@ def cmd_roster_stats(args, as_json=False):
         print("Error fetching roster stats: " + str(e))
 
 
+def cmd_faab_recommend(args, as_json=False):
+    """Recommend FAAB bid amount for a player
+    Args: player_name
+    """
+    if not args:
+        if as_json:
+            return {"error": "Usage: faab-recommend <player_name>"}
+        print("Usage: faab-recommend <player_name>")
+        return
+
+    player_name = " ".join(args)
+    sc, gm, lg = get_league()
+
+    # Get FAAB balance
+    faab_remaining = 100  # default
+    try:
+        team = lg.to_team(TEAM_ID)
+        details = team.details() if hasattr(team, "details") else None
+        if details:
+            d = details[0] if isinstance(details, list) and len(details) > 0 else (details if isinstance(details, dict) else {})
+            fb = d.get("faab_balance", None)
+            if fb is not None:
+                faab_remaining = int(fb)
+    except Exception as e:
+        print("Warning: could not fetch FAAB balance: " + str(e))
+
+    # Get player z-score and value
+    from valuations import get_player_zscore, project_category_impact
+    player_info = get_player_zscore(player_name)
+    if not player_info:
+        if as_json:
+            return {"error": "Player not found: " + player_name}
+        print("Player not found: " + player_name)
+        return
+
+    z_final = player_info.get("z_final", 0)
+    tier = player_info.get("tier", "Streamable")
+
+    # Calculate recommended bid based on z-score and remaining budget
+    # Higher z-score = higher bid, scaled by remaining budget
+    if z_final >= 4.0:  # Untouchable
+        bid_pct = 0.25
+    elif z_final >= 2.0:  # Core
+        bid_pct = 0.15
+    elif z_final >= 1.0:  # Solid
+        bid_pct = 0.08
+    elif z_final >= 0.0:  # Fringe
+        bid_pct = 0.04
+    else:  # Streamable
+        bid_pct = 0.01
+
+    recommended_bid = max(1, int(faab_remaining * bid_pct))
+    bid_low = max(1, int(recommended_bid * 0.7))
+    bid_high = min(faab_remaining, int(recommended_bid * 1.4))
+
+    # Get category impact
+    impact = project_category_impact([player_name], [])
+    improving = impact.get("improving_categories", [])
+
+    # Build reasoning
+    reasons = []
+    reasons.append("Player value: " + tier + " tier (z=" + str(round(z_final, 2)) + ")")
+    reasons.append("FAAB remaining: $" + str(faab_remaining))
+    if improving:
+        reasons.append("Improves: " + ", ".join(improving[:4]))
+
+    result = {
+        "player": {
+            "name": player_info.get("name", player_name),
+            "z_final": z_final,
+            "tier": tier,
+            "pos": player_info.get("pos", ""),
+            "team": player_info.get("team", ""),
+        },
+        "recommended_bid": recommended_bid,
+        "bid_range": {"low": bid_low, "high": bid_high},
+        "faab_remaining": faab_remaining,
+        "faab_after": faab_remaining - recommended_bid,
+        "pct_of_budget": round(recommended_bid / max(faab_remaining, 1) * 100, 1),
+        "reasoning": reasons,
+        "category_impact": impact.get("category_impact", {}),
+        "improving_categories": improving,
+    }
+
+    if as_json:
+        return result
+
+    # CLI output
+    print("FAAB Recommendation: " + player_info.get("name", player_name))
+    print("=" * 50)
+    print("  Recommended Bid: $" + str(recommended_bid) + " (range: $" + str(bid_low) + "-$" + str(bid_high) + ")")
+    print("  FAAB Remaining: $" + str(faab_remaining) + " -> $" + str(faab_remaining - recommended_bid))
+    print("  Budget %: " + str(round(recommended_bid / max(faab_remaining, 1) * 100, 1)) + "%")
+    for r in reasons:
+        print("  " + r)
+
+
 COMMANDS = {
     "lineup-optimize": cmd_lineup_optimize,
     "category-check": cmd_category_check,
@@ -3991,6 +4088,7 @@ COMMANDS = {
     "closer-monitor": cmd_closer_monitor,
     "pitcher-matchup": cmd_pitcher_matchup,
     "roster-stats": cmd_roster_stats,
+    "faab-recommend": cmd_faab_recommend,
 }
 
 if __name__ == "__main__":

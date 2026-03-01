@@ -43,6 +43,7 @@ import {
   type CloserMonitorResponse,
   type PitcherMatchupResponse,
   type RosterStatsResponse,
+  type FaabRecommendResponse,
 } from "../api/types.js";
 
 export const SEASON_URI = "ui://fbb-mcp/season.html";
@@ -814,6 +815,53 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { type: "roster-stats", ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
+  // yahoo_faab_recommend
+  registerAppTool(
+    server,
+    "yahoo_faab_recommend",
+    {
+      description: "Recommend a FAAB bid amount for a player based on z-score value, remaining budget, and category need",
+      inputSchema: { player_name: z.string().describe("Name of the player to bid on") },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: SEASON_URI } },
+    },
+    async ({ player_name }) => {
+      try {
+        var data = await apiGet<FaabRecommendResponse>("/api/faab-recommend", { name: player_name });
+        if ((data as any).error) {
+          return toolError((data as any).error);
+        }
+        var lines = [
+          "FAAB Recommendation: " + str(data.player.name),
+          "  Position: " + str(data.player.pos) + "  Team: " + str(data.player.team),
+          "  Tier: " + str(data.player.tier) + " (z=" + str(data.player.z_final) + ")",
+          "",
+          "  Recommended Bid: $" + str(data.recommended_bid) + " (range: $" + str(data.bid_range.low) + "-$" + str(data.bid_range.high) + ")",
+          "  FAAB Remaining: $" + str(data.faab_remaining) + " -> $" + str(data.faab_after),
+          "  Budget %: " + str(data.pct_of_budget) + "%",
+          "",
+        ];
+        if (data.reasoning.length > 0) {
+          lines.push("Reasoning:");
+          for (var r of data.reasoning) {
+            lines.push("  - " + r);
+          }
+        }
+        if (data.improving_categories.length > 0) {
+          lines.push("");
+          lines.push("Improves categories: " + data.improving_categories.join(", "));
+        }
+        var ai_recommendation = "Bid $" + str(data.recommended_bid) + " (" + str(data.pct_of_budget) + "% of budget) for " + str(data.player.name)
+          + " (" + str(data.player.tier) + " tier). Range: $" + str(data.bid_range.low) + "-$" + str(data.bid_range.high) + "."
+          + (data.improving_categories.length > 0 ? " Improves: " + data.improving_categories.join(", ") + "." : "");
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "faab-recommend", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
