@@ -1474,6 +1474,13 @@ def cmd_player_stats(args, as_json=False):
 
     sc, gm, lg = get_league()
 
+    def _extract_name(p):
+        """Extract player name string — handles both str and dict formats"""
+        n = p.get("name", "")
+        if isinstance(n, dict):
+            return n.get("full", n.get("first", "") + " " + n.get("last", ""))
+        return str(n)
+
     # Look up player — try roster first (cheap), then player_details (searches all)
     try:
         found = None
@@ -1483,7 +1490,7 @@ def cmd_player_stats(args, as_json=False):
         roster = team.roster()
         if roster:
             for p in roster:
-                if name.lower() in p.get("name", "").lower():
+                if name.lower() in _extract_name(p).lower():
                     found = p
                     break
 
@@ -1503,7 +1510,7 @@ def cmd_player_stats(args, as_json=False):
             return
 
         player_id = found.get("player_id", "")
-        player_name = found.get("name", name)
+        player_name = _extract_name(found) or name
 
         # Build the player_stats call
         kwargs = {}
