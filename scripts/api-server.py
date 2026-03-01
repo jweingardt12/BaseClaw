@@ -20,6 +20,7 @@ season_manager = importlib.import_module("season-manager")
 import valuations
 import history
 import intel
+import news
 import yahoo_browser
 
 app = Flask(__name__)
@@ -1332,6 +1333,92 @@ def workflow_trade_analysis():
             "trade_eval": trade_eval,
             "intel": intel_data,
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- News (RotoWire RSS) ---
+
+
+@app.route("/api/news")
+def api_news():
+    try:
+        limit = request.args.get("limit", "20")
+        result = news.cmd_news([limit], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/news/player")
+def api_news_player():
+    try:
+        name = request.args.get("name", "")
+        if not name:
+            return jsonify({"error": "Missing name parameter"}), 400
+        result = news.cmd_news_player([name], as_json=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- Strategy / Advanced Analysis ---
+
+
+@app.route("/api/probable-pitchers")
+def api_probable_pitchers():
+    try:
+        days = request.args.get("days", "7")
+        result = season_manager.fetch_probable_pitchers(int(days))
+        return jsonify({"pitchers": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/schedule-analysis")
+def api_schedule_analysis():
+    try:
+        team_name = request.args.get("team", "")
+        days = request.args.get("days", "14")
+        if not team_name:
+            return jsonify({"error": "Missing team parameter"}), 400
+        result = season_manager.analyze_schedule_density(team_name, int(days))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/category-impact", methods=["POST"])
+def api_category_impact():
+    try:
+        data = request.get_json(silent=True) or {}
+        add_players = data.get("add_players", [])
+        drop_players = data.get("drop_players", [])
+        result = valuations.project_category_impact(add_players, drop_players)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/regression-candidates")
+def api_regression_candidates():
+    try:
+        result = intel.detect_regression_candidates()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/player-tier")
+def api_player_tier():
+    try:
+        name = request.args.get("name", "")
+        if not name:
+            return jsonify({"error": "Missing name parameter"}), 400
+        result = valuations.get_player_zscore(name)
+        if result is None:
+            return jsonify({"error": "Player not found: " + name}), 404
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

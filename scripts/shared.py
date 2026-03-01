@@ -116,6 +116,44 @@ def normalize_team_name(name):
 
 
 # ---------------------------------------------------------------------------
+# TTL cache helpers (shared across intel.py, news.py, etc.)
+# ---------------------------------------------------------------------------
+def cache_get(cache_dict, key, ttl_seconds):
+    """Get cached value if not expired."""
+    entry = cache_dict.get(key)
+    if entry is None:
+        return None
+    data, fetch_time = entry
+    if time.time() - fetch_time > ttl_seconds:
+        del cache_dict[key]
+        return None
+    return data
+
+
+def cache_set(cache_dict, key, data):
+    """Store value in cache with current timestamp."""
+    cache_dict[key] = (data, time.time())
+
+
+# ---------------------------------------------------------------------------
+# Player name normalization (shared across intel.py, news.py, etc.)
+# ---------------------------------------------------------------------------
+def normalize_player_name(name):
+    """Normalize player name for matching across sources."""
+    if not name:
+        return ""
+    name = name.strip().lower()
+    # Handle "Last, First" format
+    if "," in name:
+        parts = name.split(",", 1)
+        name = parts[1].strip() + " " + parts[0].strip()
+    # Remove Jr., Sr., III, etc.
+    for suffix in [" jr.", " sr.", " iii", " ii", " iv"]:
+        name = name.replace(suffix, "")
+    return name.strip()
+
+
+# ---------------------------------------------------------------------------
 # Transaction trend cache
 # ---------------------------------------------------------------------------
 _trend_cache = {"data": None, "time": 0}

@@ -1019,6 +1019,87 @@ export interface PitcherMatchupResponse {
   pitchers: PitcherMatchupEntry[];
 }
 
+// --- News response types ---
+
+export interface NewsEntry {
+  player: string;
+  headline: string;
+  timestamp: string;
+  injury_flag: boolean;
+  impact?: string;
+  source?: string;
+}
+
+export interface NewsFeedResponse {
+  news: NewsEntry[];
+  count: number;
+}
+
+export interface PlayerNewsResponse {
+  news: NewsEntry[];
+  player: string;
+  count: number;
+  note?: string;
+}
+
+// --- Strategy / Advanced Analysis response types ---
+
+export interface ProbablePitcher {
+  pitcher: string;
+  team: string;
+  date: string;
+  opponent?: string;
+  home_away?: string;
+}
+
+export interface ProbablePitchersResponse {
+  pitchers: ProbablePitcher[];
+}
+
+export interface ScheduleAnalysisResponse {
+  team: string;
+  days: number;
+  games_total: number;
+  games_this_week: number;
+  games_next_week: number;
+  off_days: number;
+  density_rating: string;
+  [key: string]: unknown;
+}
+
+export interface CategoryImpactResponse {
+  category_impact: Record<string, { add_z: number; drop_z: number; delta: number; direction: string }>;
+  net_z_change: number;
+  improving_categories: string[];
+  declining_categories: string[];
+  assessment: string;
+  [key: string]: unknown;
+}
+
+export interface RegressionCandidate {
+  name: string;
+  signal: string;
+  details: string;
+  [key: string]: unknown;
+}
+
+export interface RegressionCandidatesResponse {
+  buy_low_hitters: RegressionCandidate[];
+  sell_high_hitters: RegressionCandidate[];
+  buy_low_pitchers: RegressionCandidate[];
+  sell_high_pitchers: RegressionCandidate[];
+  [key: string]: unknown;
+}
+
+export interface PlayerTierResponse {
+  name: string;
+  tier: string;
+  z_final: number;
+  per_category_zscores: Record<string, number>;
+  rank: number;
+  [key: string]: unknown;
+}
+
 // --- Workflow (aggregated) response types ---
 
 export interface ActionItem {

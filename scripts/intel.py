@@ -35,6 +35,8 @@ TTL_PYBASEBALL = 3600    # 1 hour
 TTL_FANGRAPHS = 21600    # 6 hours
 TTL_REDDIT = 900          # 15 minutes
 TTL_MLB = 1800            # 30 minutes
+TTL_SPLITS = 86400        # 24 hours (splits are stable)
+TTL_WAR = 86400           # 24 hours
 
 
 # ============================================================
@@ -404,6 +406,748 @@ def _fetch_mlb_game_log(mlb_id, stat_group="hitting", days=30):
     except Exception as e:
         print("Warning: MLB game log fetch failed for " + str(mlb_id) + ": " + str(e))
         return []
+
+
+# ============================================================
+# 5b. Regression & Buy-Low/Sell-High Detection
+# ============================================================
+
+def _fetch_fangraphs_regression_batting():
+    """Fetch FanGraphs batting stats needed for regression detection.
+    Extracts BABIP, wOBA, wRC+ for BABIP-based luck signals.
+    """
+    cache_key = ("fangraphs_regression_batting", YEAR)
+    cached = _cache_get(cache_key, TTL_FANGRAPHS)
+    if cached is not None:
+        return cached
+    try:
+        from pybaseball import batting_stats
+        year = YEAR
+        df = batting_stats(year, qual=25)
+        if (df is None or len(df) == 0) and date.today().month < 5:
+            year = YEAR - 1
+            df = batting_stats(year, qual=25)
+        result = {}
+        if df is not None:
+            for _, row in df.iterrows():
+                name = row.get("Name", "")
+                if name:
+                    result[name.lower()] = {
+                        "babip": row.get("BABIP", None),
+                        "woba": row.get("wOBA", None),
+                        "wrc_plus": row.get("wRC+", None),
+                        "pa": row.get("PA", None),
+                        "data_season": year,
+                    }
+        _cache_set(cache_key, result)
+        return result
+    except Exception as e:
+        print("Warning: FanGraphs regression batting fetch failed: " + str(e))
+        return {}
+
+
+def _fetch_fangraphs_regression_pitching():
+    """Fetch FanGraphs pitching stats needed for regression detection.
+    Extracts ERA, FIP, xFIP, BABIP, LOB%, SIERA for luck-based signals.
+    """
+    cache_key = ("fangraphs_regression_pitching", YEAR)
+    cached = _cache_get(cache_key, TTL_FANGRAPHS)
+    if cached is not None:
+        return cached
+    try:
+        from pybaseball import pitching_stats
+        year = YEAR
+        df = pitching_stats(year, qual=25)
+        if (df is None or len(df) == 0) and date.today().month < 5:
+            year = YEAR - 1
+            df = pitching_stats(year, qual=25)
+        result = {}
+        if df is not None:
+            for _, row in df.iterrows():
+                name = row.get("Name", "")
+                if name:
+                    result[name.lower()] = {
+                        "era": row.get("ERA", None),
+                        "fip": row.get("FIP", None),
+                        "xfip": row.get("xFIP", None),
+                        "babip": row.get("BABIP", None),
+                        "lob_pct": row.get("LOB%", None),
+                        "siera": row.get("SIERA", None),
+                        "ip": row.get("IP", None),
+                        "data_season": year,
+                    }
+        _cache_set(cache_key, result)
+        return result
+    except Exception as e:
+        print("Warning: FanGraphs regression pitching fetch failed: " + str(e))
+        return {}
+
+
+def detect_regression_candidates():
+    """Detect buy-low and sell-high candidates based on underlying metrics."""
+    cache_key = ("regression_candidates",)
+    cached = _cache_get(cache_key, TTL_SAVANT)
+    if cached is not None:
+        return cached
+
+    result = {
+        "buy_low_hitters": [],
+        "sell_high_hitters": [],
+        "buy_low_pitchers": [],
+        "sell_high_pitchers": [],
+    }
+
+    # ------------------------------------------------------------------
+    # Hitters: combine Savant xwOBA vs wOBA with FanGraphs BABIP
+    # ------------------------------------------------------------------
+    try:
+        savant_bat = _fetch_savant_expected("batter")
+        fg_bat = _fetch_fangraphs_regression_batting()
+
+        for key, row in (savant_bat or {}).items():
+            if key.startswith("id:") or key.startswith("__"):
+                continue
+            try:
+                xwoba = float(row.get("est_woba", 0))
+                woba = float(row.get("woba", 0))
+                pa = int(float(row.get("pa", 0)))
+                if pa < 50:
+                    continue
+                name = row.get("player_name", key)
+
+                # Look up FanGraphs BABIP for this player
+                fg_row = _find_in_fangraphs(name, fg_bat)
+                babip = None
+                if fg_row:
+                    babip_raw = fg_row.get("babip")
+                    if babip_raw is not None:
+                        try:
+                            babip = float(babip_raw)
+                        except (ValueError, TypeError):
+                            babip = None
+
+                woba_diff = xwoba - woba
+
+                # Buy-low hitter: xwOBA >> wOBA AND/OR low BABIP
+                if woba_diff >= 0.025:
+                    details_parts = [
+                        "xwOBA " + str(round(xwoba, 3))
+                        + " vs wOBA " + str(round(woba, 3))
+                        + " (+" + str(round(woba_diff, 3)) + ")"
+                    ]
+                    signal = "xwOBA >> wOBA"
+                    if babip is not None and babip < 0.260:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3))
+                            + " (very low, likely unlucky)"
+                        )
+                        signal = "xwOBA >> wOBA + low BABIP"
+                    elif babip is not None and babip < 0.280:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3)) + " (below avg)"
+                        )
+                    result["buy_low_hitters"].append({
+                        "name": name,
+                        "signal": signal,
+                        "details": "; ".join(details_parts),
+                        "xwoba": round(xwoba, 3),
+                        "woba": round(woba, 3),
+                        "diff": round(woba_diff, 3),
+                        "babip": round(babip, 3) if babip is not None else None,
+                        "pa": pa,
+                    })
+                elif babip is not None and babip < 0.260 and woba_diff >= 0.010:
+                    # Low BABIP alone with modest xwOBA edge
+                    result["buy_low_hitters"].append({
+                        "name": name,
+                        "signal": "low BABIP",
+                        "details": (
+                            "BABIP " + str(round(babip, 3))
+                            + " (very low); xwOBA " + str(round(xwoba, 3))
+                            + " vs wOBA " + str(round(woba, 3))
+                        ),
+                        "xwoba": round(xwoba, 3),
+                        "woba": round(woba, 3),
+                        "diff": round(woba_diff, 3),
+                        "babip": round(babip, 3),
+                        "pa": pa,
+                    })
+
+                # Sell-high hitter: wOBA >> xwOBA AND/OR high BABIP
+                sell_diff = woba - xwoba
+                if sell_diff >= 0.025:
+                    details_parts = [
+                        "wOBA " + str(round(woba, 3))
+                        + " vs xwOBA " + str(round(xwoba, 3))
+                        + " (-" + str(round(sell_diff, 3)) + ")"
+                    ]
+                    signal = "wOBA >> xwOBA"
+                    if babip is not None and babip > 0.370:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3))
+                            + " (very high, likely lucky)"
+                        )
+                        signal = "wOBA >> xwOBA + high BABIP"
+                    elif babip is not None and babip > 0.340:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3)) + " (above avg)"
+                        )
+                    result["sell_high_hitters"].append({
+                        "name": name,
+                        "signal": signal,
+                        "details": "; ".join(details_parts),
+                        "xwoba": round(xwoba, 3),
+                        "woba": round(woba, 3),
+                        "diff": round(sell_diff, 3),
+                        "babip": round(babip, 3) if babip is not None else None,
+                        "pa": pa,
+                    })
+                elif babip is not None and babip > 0.370 and sell_diff >= 0.010:
+                    # High BABIP alone with modest overperformance
+                    result["sell_high_hitters"].append({
+                        "name": name,
+                        "signal": "high BABIP",
+                        "details": (
+                            "BABIP " + str(round(babip, 3))
+                            + " (very high); wOBA " + str(round(woba, 3))
+                            + " vs xwOBA " + str(round(xwoba, 3))
+                        ),
+                        "xwoba": round(xwoba, 3),
+                        "woba": round(woba, 3),
+                        "diff": round(sell_diff, 3),
+                        "babip": round(babip, 3),
+                        "pa": pa,
+                    })
+            except (ValueError, TypeError):
+                continue
+    except Exception as e:
+        print("Warning: hitter regression detection failed: " + str(e))
+
+    # Sort hitters by magnitude of difference
+    result["buy_low_hitters"].sort(key=lambda x: -x.get("diff", 0))
+    result["sell_high_hitters"].sort(key=lambda x: -x.get("diff", 0))
+
+    # ------------------------------------------------------------------
+    # Pitchers: combine FanGraphs FIP/xFIP/ERA/LOB% with Savant xwOBA
+    # ------------------------------------------------------------------
+    try:
+        savant_pit = _fetch_savant_expected("pitcher")
+        fg_pit = _fetch_fangraphs_regression_pitching()
+
+        for name_lower, fg_row in (fg_pit or {}).items():
+            try:
+                era = fg_row.get("era")
+                fip = fg_row.get("fip")
+                xfip = fg_row.get("xfip")
+                babip_raw = fg_row.get("babip")
+                lob_pct_raw = fg_row.get("lob_pct")
+                ip = fg_row.get("ip")
+
+                if era is None or fip is None:
+                    continue
+                era = float(era)
+                fip = float(fip)
+                ip_val = float(ip) if ip is not None else 0
+                if ip_val < 20:
+                    continue
+
+                xfip_val = float(xfip) if xfip is not None else None
+                babip = float(babip_raw) if babip_raw is not None else None
+                lob_pct = float(lob_pct_raw) if lob_pct_raw is not None else None
+
+                # Reconstruct display name from FanGraphs lowercase key
+                display_name = name_lower.title()
+
+                # Try to find Savant data for extra context
+                savant_row = _find_in_savant(display_name, savant_pit)
+                savant_xwoba = None
+                savant_woba = None
+                if savant_row:
+                    savant_xwoba_raw = savant_row.get("est_woba")
+                    savant_woba_raw = savant_row.get("woba")
+                    if savant_xwoba_raw:
+                        try:
+                            savant_xwoba = float(savant_xwoba_raw)
+                        except (ValueError, TypeError):
+                            pass
+                    if savant_woba_raw:
+                        try:
+                            savant_woba = float(savant_woba_raw)
+                        except (ValueError, TypeError):
+                            pass
+
+                era_fip_diff = era - fip
+
+                # Buy-low pitcher: FIP << ERA (unlucky) or xFIP << ERA
+                if era_fip_diff >= 0.75:
+                    details_parts = [
+                        "ERA " + str(round(era, 2))
+                        + " vs FIP " + str(round(fip, 2))
+                        + " (gap " + str(round(era_fip_diff, 2)) + ")"
+                    ]
+                    signal = "FIP << ERA"
+                    if xfip_val is not None and (era - xfip_val) >= 0.75:
+                        details_parts.append(
+                            "xFIP " + str(round(xfip_val, 2))
+                        )
+                        signal = "FIP/xFIP << ERA"
+                    if babip is not None and babip > 0.330:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3))
+                            + " (high, likely unlucky)"
+                        )
+                        signal = signal + " + high BABIP"
+                    if savant_xwoba is not None and savant_woba is not None:
+                        if savant_xwoba < savant_woba:
+                            details_parts.append(
+                                "Savant xwOBA " + str(round(savant_xwoba, 3))
+                                + " < wOBA " + str(round(savant_woba, 3))
+                            )
+                    result["buy_low_pitchers"].append({
+                        "name": display_name,
+                        "signal": signal,
+                        "details": "; ".join(details_parts),
+                        "era": round(era, 2),
+                        "fip": round(fip, 2),
+                        "xfip": round(xfip_val, 2) if xfip_val is not None else None,
+                        "babip": round(babip, 3) if babip is not None else None,
+                        "lob_pct": round(lob_pct, 1) if lob_pct is not None else None,
+                        "ip": round(ip_val, 1),
+                    })
+
+                # Sell-high pitcher: ERA << FIP (overperforming) or high LOB%
+                fip_era_diff = fip - era
+                if fip_era_diff >= 0.75:
+                    details_parts = [
+                        "ERA " + str(round(era, 2))
+                        + " vs FIP " + str(round(fip, 2))
+                        + " (gap " + str(round(fip_era_diff, 2)) + ")"
+                    ]
+                    signal = "ERA << FIP"
+                    if lob_pct is not None and lob_pct > 80.0:
+                        details_parts.append(
+                            "LOB% " + str(round(lob_pct, 1))
+                            + "% (unsustainably high)"
+                        )
+                        signal = "ERA << FIP + high LOB%"
+                    if babip is not None and babip < 0.260:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3))
+                            + " (low, likely lucky)"
+                        )
+                    result["sell_high_pitchers"].append({
+                        "name": display_name,
+                        "signal": signal,
+                        "details": "; ".join(details_parts),
+                        "era": round(era, 2),
+                        "fip": round(fip, 2),
+                        "xfip": round(xfip_val, 2) if xfip_val is not None else None,
+                        "babip": round(babip, 3) if babip is not None else None,
+                        "lob_pct": round(lob_pct, 1) if lob_pct is not None else None,
+                        "ip": round(ip_val, 1),
+                    })
+                elif lob_pct is not None and lob_pct > 80.0 and fip_era_diff >= 0.40:
+                    # High LOB% alone with moderate overperformance
+                    details_parts = [
+                        "LOB% " + str(round(lob_pct, 1))
+                        + "% (unsustainably high)"
+                    ]
+                    details_parts.append(
+                        "ERA " + str(round(era, 2))
+                        + " vs FIP " + str(round(fip, 2))
+                    )
+                    if babip is not None and babip < 0.260:
+                        details_parts.append(
+                            "BABIP " + str(round(babip, 3))
+                            + " (low, likely lucky)"
+                        )
+                    result["sell_high_pitchers"].append({
+                        "name": display_name,
+                        "signal": "high LOB%",
+                        "details": "; ".join(details_parts),
+                        "era": round(era, 2),
+                        "fip": round(fip, 2),
+                        "xfip": round(xfip_val, 2) if xfip_val is not None else None,
+                        "babip": round(babip, 3) if babip is not None else None,
+                        "lob_pct": round(lob_pct, 1),
+                        "ip": round(ip_val, 1),
+                    })
+            except (ValueError, TypeError):
+                continue
+    except Exception as e:
+        print("Warning: pitcher regression detection failed: " + str(e))
+
+    # Sort pitchers by ERA-FIP gap magnitude
+    result["buy_low_pitchers"].sort(
+        key=lambda x: -(x.get("era", 0) - x.get("fip", 0))
+    )
+    result["sell_high_pitchers"].sort(
+        key=lambda x: -(x.get("fip", 0) - x.get("era", 0))
+    )
+
+    _cache_set(cache_key, result)
+    return result
+
+
+def get_regression_signal(player_name):
+    """Get regression signal for a specific player.
+    Returns dict with 'signal', 'category', and 'details' if found, else None.
+    """
+    if not player_name:
+        return None
+    try:
+        candidates = detect_regression_candidates()
+        if not candidates:
+            return None
+        norm = _normalize_name(player_name)
+        for category in ["buy_low_hitters", "sell_high_hitters",
+                         "buy_low_pitchers", "sell_high_pitchers"]:
+            for entry in candidates.get(category, []):
+                entry_norm = _normalize_name(entry.get("name", ""))
+                if entry_norm == norm:
+                    return {
+                        "category": category,
+                        "signal": entry.get("signal", ""),
+                        "details": entry.get("details", ""),
+                    }
+                # Partial match: all parts of search name in entry name
+                parts = norm.split()
+                if parts and all(p in entry_norm for p in parts):
+                    return {
+                        "category": category,
+                        "signal": entry.get("signal", ""),
+                        "details": entry.get("details", ""),
+                    }
+        return None
+    except Exception as e:
+        print("Warning: get_regression_signal failed for "
+              + str(player_name) + ": " + str(e))
+        return None
+
+
+# ============================================================
+# 5c. Player Splits (MLB Stats API)
+# ============================================================
+
+def _fetch_player_splits(mlb_id):
+    """Fetch player splits (vs LHP/RHP, home/away) via MLB Stats API.
+    Returns dict: {vs_lhp: {avg, obp, slg, ops}, vs_rhp: {...}, home: {...}, away: {...}}
+    """
+    if not mlb_id:
+        return {}
+    cache_key = ("player_splits", mlb_id)
+    cached = _cache_get(cache_key, TTL_SPLITS)
+    if cached is not None:
+        return cached
+    try:
+        endpoint = (
+            "/people/" + str(mlb_id)
+            + "/stats?stats=statSplits&group=hitting"
+            + "&season=" + str(YEAR)
+            + "&sitCodes=vl,vr,h,a"
+        )
+        data = _mlb_fetch(endpoint)
+
+        # Map sitCode abbreviations to readable keys
+        sit_map = {
+            "vl": "vs_lhp",
+            "vr": "vs_rhp",
+            "h": "home",
+            "a": "away",
+        }
+
+        def _parse_splits(api_data, sit_mapping):
+            parsed = {}
+            for stat_group in api_data.get("stats", []):
+                for split in stat_group.get("splits", []):
+                    sit_code = split.get("split", {}).get("code", "")
+                    mapped_key = sit_mapping.get(sit_code)
+                    if not mapped_key:
+                        continue
+                    stat = split.get("stat", {})
+                    parsed[mapped_key] = {
+                        "avg": _safe_float(stat.get("avg")),
+                        "obp": _safe_float(stat.get("obp")),
+                        "slg": _safe_float(stat.get("slg")),
+                        "ops": _safe_float(stat.get("ops")),
+                    }
+            return parsed
+
+        result = _parse_splits(data, sit_map)
+
+        # Pre-season fallback: if empty and before May, try last year
+        if not result and date.today().month < 5:
+            try:
+                fallback_endpoint = (
+                    "/people/" + str(mlb_id)
+                    + "/stats?stats=statSplits&group=hitting"
+                    + "&season=" + str(YEAR - 1)
+                    + "&sitCodes=vl,vr,h,a"
+                )
+                fb_data = _mlb_fetch(fallback_endpoint)
+                result = _parse_splits(fb_data, sit_map)
+                if result:
+                    result["data_season"] = YEAR - 1
+            except Exception:
+                pass
+
+        _cache_set(cache_key, result)
+        return result
+    except Exception as e:
+        print("Warning: player splits fetch failed for "
+              + str(mlb_id) + ": " + str(e))
+        return {}
+
+
+# ============================================================
+# 5d. Enhanced Transaction Tracking (Call-Ups)
+# ============================================================
+
+def _fetch_callups(days=3):
+    """Fetch recent minor-to-major league transactions (call-ups).
+    Filters existing transaction data for callup-type moves.
+    Returns list of {player_name, team, date, type, description}.
+    """
+    cache_key = ("callups", days)
+    cached = _cache_get(cache_key, TTL_MLB)
+    if cached is not None:
+        return cached
+    try:
+        all_transactions = _fetch_mlb_transactions(days)
+        callup_keywords = ["Recalled", "Selected", "Purchased", "Contract Selected"]
+        callups = []
+        for tx in all_transactions:
+            tx_type = tx.get("type", "")
+            tx_desc = tx.get("description", "")
+            is_callup = False
+            for keyword in callup_keywords:
+                if keyword.lower() in tx_type.lower() or keyword.lower() in tx_desc.lower():
+                    is_callup = True
+                    break
+            if is_callup:
+                callups.append({
+                    "player_name": tx.get("player_name", ""),
+                    "team": tx.get("team", ""),
+                    "date": tx.get("date", ""),
+                    "type": tx_type,
+                    "description": tx_desc,
+                })
+        _cache_set(cache_key, callups)
+        return callups
+    except Exception as e:
+        print("Warning: callups fetch failed: " + str(e))
+        return []
+
+
+# ============================================================
+# 5e. FanGraphs Prospect Board
+# ============================================================
+
+def _fetch_prospect_board():
+    """Fetch FanGraphs prospect board data.
+    Returns list of {name, team, position, overall_rank, eta, risk,
+    scouting_grades: {hit, power, speed, arm, field, overall}}.
+    """
+    cache_key = ("prospect_board",)
+    cached = _cache_get(cache_key, TTL_FANGRAPHS)
+    if cached is not None:
+        return cached
+    try:
+        url = "https://www.fangraphs.com/api/prospects/board/data?type=0"
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=30) as response:
+            raw = response.read().decode("utf-8")
+        data = json.loads(raw)
+
+        prospects = []
+        if not isinstance(data, list):
+            # Sometimes the response wraps in an object
+            data = data.get("data", data.get("prospects", []))
+        if not isinstance(data, list):
+            _cache_set(cache_key, [])
+            return []
+
+        for entry in data:
+            try:
+                prospect = {
+                    "name": entry.get("PlayerName", entry.get("playerName", "")),
+                    "team": entry.get("Team", entry.get("team", "")),
+                    "position": entry.get("Position", entry.get("position", "")),
+                    "overall_rank": _safe_float(
+                        entry.get("OverallRank", entry.get("overallRank",
+                        entry.get("rankOverall", None)))
+                    ),
+                    "eta": entry.get("ETA", entry.get("eta", "")),
+                    "risk": entry.get("Risk", entry.get("risk", "")),
+                    "scouting_grades": {
+                        "hit": _safe_float(entry.get("Hit", entry.get("hit", None))),
+                        "power": _safe_float(entry.get("Game", entry.get("power",
+                            entry.get("Power", None)))),
+                        "speed": _safe_float(entry.get("Speed", entry.get("speed", None))),
+                        "arm": _safe_float(entry.get("Arm", entry.get("arm", None))),
+                        "field": _safe_float(entry.get("Field", entry.get("field", None))),
+                        "overall": _safe_float(entry.get("FV", entry.get("fv",
+                            entry.get("futureValue", None)))),
+                    },
+                }
+                prospects.append(prospect)
+            except Exception:
+                continue
+
+        _cache_set(cache_key, prospects)
+        return prospects
+    except Exception as e:
+        print("Warning: FanGraphs prospect board fetch failed: " + str(e))
+        return []
+
+
+# ============================================================
+# 5f. WAR & League Leaders
+# ============================================================
+
+def _fetch_war(player_type="bat"):
+    """Fetch WAR data via pybaseball bwar_bat() or bwar_pitch().
+    Returns dict keyed by lowercase player name with WAR value.
+    """
+    cache_key = ("war", player_type)
+    cached = _cache_get(cache_key, TTL_WAR)
+    if cached is not None:
+        return cached
+    try:
+        if player_type == "bat":
+            from pybaseball import bwar_bat
+            df_all = bwar_bat()
+        else:
+            from pybaseball import bwar_pitch
+            df_all = bwar_pitch()
+
+        if df_all is None or len(df_all) == 0:
+            _cache_set(cache_key, {})
+            return {}
+
+        # Filter to current year
+        year_col = None
+        for col_name in ["year_ID", "yearID", "year", "Year", "season"]:
+            if col_name in df_all.columns:
+                year_col = col_name
+                break
+
+        df = df_all
+        if year_col is not None:
+            df = df_all[df_all[year_col] == YEAR]
+            # Pre-season fallback: re-filter same data, no re-download
+            if len(df) == 0 and date.today().month < 5:
+                df = df_all[df_all[year_col] == YEAR - 1]
+
+        # Build result dict keyed by lowercase name
+        result = {}
+        name_col = None
+        for col_name in ["name_common", "Name", "name", "player_name"]:
+            if col_name in df.columns:
+                name_col = col_name
+                break
+
+        war_col = None
+        for col_name in ["WAR", "war", "bWAR"]:
+            if col_name in df.columns:
+                war_col = col_name
+                break
+
+        if name_col is not None and war_col is not None:
+            for _, row in df.iterrows():
+                name = row.get(name_col, "")
+                war_val = row.get(war_col, None)
+                if name and war_val is not None:
+                    try:
+                        result[str(name).lower()] = float(war_val)
+                    except (ValueError, TypeError):
+                        continue
+
+        _cache_set(cache_key, result)
+        return result
+    except Exception as e:
+        print("Warning: WAR fetch failed for " + player_type + ": " + str(e))
+        return {}
+
+
+def _fetch_league_leaders(stat_type="hitting", count=10):
+    """Fetch league leaders from MLB Stats API.
+    stat_type: 'hitting' or 'pitching'
+    Returns list of {player, team, stat, value, rank}.
+    """
+    cache_key = ("league_leaders", stat_type, count)
+    cached = _cache_get(cache_key, TTL_MLB)
+    if cached is not None:
+        return cached
+
+    # Map stat_type to relevant leader categories
+    if stat_type == "hitting":
+        categories = ["homeRuns", "battingAverage", "runsBattedIn",
+                       "stolenBases", "onBasePlusSlugging"]
+    else:
+        categories = ["earnedRunAverage", "strikeouts", "wins",
+                       "walksAndHitsPerInningPitched", "saves"]
+
+    all_leaders = {}
+    for category in categories:
+        try:
+            endpoint = (
+                "/stats/leaders?leaderCategories=" + category
+                + "&season=" + str(YEAR)
+                + "&limit=" + str(count)
+            )
+            data = _mlb_fetch(endpoint)
+            leaders = []
+            for leader_group in data.get("leagueLeaders", []):
+                for entry in leader_group.get("leaders", []):
+                    person = entry.get("person", {})
+                    team = entry.get("team", {})
+                    leaders.append({
+                        "player": person.get("fullName", ""),
+                        "team": team.get("name", ""),
+                        "stat": category,
+                        "value": entry.get("value", ""),
+                        "rank": entry.get("rank", 0),
+                    })
+            all_leaders[category] = leaders
+        except Exception as e:
+            print("Warning: league leaders fetch failed for "
+                  + category + ": " + str(e))
+            all_leaders[category] = []
+
+    _cache_set(cache_key, all_leaders)
+    return all_leaders
+
+
+def get_player_war(player_name):
+    """Get a player's WAR. Returns float or None."""
+    if not player_name:
+        return None
+    try:
+        norm = player_name.strip().lower()
+        # Try batting WAR first
+        bat_war = _fetch_war("bat")
+        if norm in bat_war:
+            return bat_war[norm]
+        # Try partial match on batting
+        for key, val in bat_war.items():
+            parts = norm.split()
+            if parts and all(p in key for p in parts):
+                return val
+        # Try pitching WAR
+        pitch_war = _fetch_war("pitch")
+        if norm in pitch_war:
+            return pitch_war[norm]
+        # Try partial match on pitching
+        for key, val in pitch_war.items():
+            parts = norm.split()
+            if parts and all(p in key for p in parts):
+                return val
+        return None
+    except Exception as e:
+        print("Warning: get_player_war failed for "
+              + str(player_name) + ": " + str(e))
+        return None
 
 
 # ============================================================

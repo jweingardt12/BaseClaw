@@ -41,56 +41,49 @@ def get_db():
     return db
 
 
+def _parse_schedule_response(data):
+    """Parse MLB Schedule API JSON into a list of game dicts."""
+    games = []
+    for date_data in data.get("dates", []):
+        for game in date_data.get("games", []):
+            away = game.get("teams", {}).get("away", {}).get("team", {}).get("name", "")
+            home = game.get("teams", {}).get("home", {}).get("team", {}).get("name", "")
+            away_pitcher = ""
+            home_pitcher = ""
+            away_probable = game.get("teams", {}).get("away", {}).get("probablePitcher", {})
+            home_probable = game.get("teams", {}).get("home", {}).get("probablePitcher", {})
+            if away_probable:
+                away_pitcher = away_probable.get("fullName", "")
+            if home_probable:
+                home_pitcher = home_probable.get("fullName", "")
+            games.append({
+                "away_name": away,
+                "home_name": home,
+                "game_date": date_data.get("date", ""),
+                "status": game.get("status", {}).get("detailedState", ""),
+                "away_probable_pitcher": away_pitcher,
+                "home_probable_pitcher": home_pitcher,
+            })
+    return games
+
+
 def get_todays_schedule():
-    """Get today's MLB schedule"""
+    """Get today's MLB schedule with probable pitchers"""
     today = date.today().isoformat()
-    if statsapi:
-        try:
-            return statsapi.schedule(date=today)
-        except Exception as e:
-            print("  Warning: statsapi schedule failed, falling back to urllib: " + str(e))
-    # Fallback to urllib
-    try:
-        data = mlb_fetch("/schedule?sportId=1&date=" + today)
-        games = []
-        for date_data in data.get("dates", []):
-            for game in date_data.get("games", []):
-                away = game.get("teams", {}).get("away", {}).get("team", {}).get("name", "")
-                home = game.get("teams", {}).get("home", {}).get("team", {}).get("name", "")
-                games.append({
-                    "away_name": away,
-                    "home_name": home,
-                    "game_date": date_data.get("date", ""),
-                    "status": game.get("status", {}).get("detailedState", ""),
-                })
-        return games
-    except Exception as e:
-        print("  Warning: schedule fetch failed: " + str(e))
-        return []
+    return get_schedule_for_range(today, today)
 
 
 def get_schedule_for_range(start_date, end_date):
-    """Get MLB schedule for a date range"""
+    """Get MLB schedule for a date range with probable pitchers"""
     if statsapi:
         try:
-            return statsapi.schedule(start_date=start_date, end_date=end_date)
+            return statsapi.schedule(start_date=start_date, end_date=end_date, hydrate="probablePitcher")
         except Exception as e:
             print("  Warning: statsapi range schedule failed: " + str(e))
     # Fallback
     try:
-        data = mlb_fetch("/schedule?sportId=1&startDate=" + start_date + "&endDate=" + end_date)
-        games = []
-        for date_data in data.get("dates", []):
-            for game in date_data.get("games", []):
-                away = game.get("teams", {}).get("away", {}).get("team", {}).get("name", "")
-                home = game.get("teams", {}).get("home", {}).get("team", {}).get("name", "")
-                games.append({
-                    "away_name": away,
-                    "home_name": home,
-                    "game_date": date_data.get("date", ""),
-                    "status": game.get("status", {}).get("detailedState", ""),
-                })
-        return games
+        data = mlb_fetch("/schedule?sportId=1&startDate=" + start_date + "&endDate=" + end_date + "&hydrate=probablePitcher")
+        return _parse_schedule_response(data)
     except Exception as e:
         print("  Warning: range schedule fetch failed: " + str(e))
         return []
@@ -158,6 +151,117 @@ def _player_info(p):
     }
 
 
+# ---------- Schedule Analysis Helpers ----------
+
+
+def fetch_probable_pitchers(days=7):
+    """Fetch probable starters from MLB schedule for the next N days.
+    Returns a list of dicts: {date, team, pitcher, opponent, home_away}
+    """
+    try:
+        start = date.today().isoformat()
+        end = (date.today() + timedelta(days=days - 1)).isoformat()
+        schedule = get_schedule_for_range(start, end)
+        pitchers = []
+        for game in schedule:
+            game_date = game.get("game_date", "")
+            away_team = game.get("away_name", "")
+            home_team = game.get("home_name", "")
+            away_pitcher = game.get("away_probable_pitcher", "")
+            home_pitcher = game.get("home_probable_pitcher", "")
+            if away_pitcher:
+                pitchers.append({
+                    "date": game_date,
+                    "team": away_team,
+                    "pitcher": away_pitcher,
+                    "opponent": home_team,
+                    "home_away": "away",
+                })
+            if home_pitcher:
+                pitchers.append({
+                    "date": game_date,
+                    "team": home_team,
+                    "pitcher": home_pitcher,
+                    "opponent": away_team,
+                    "home_away": "home",
+                })
+        return pitchers
+    except Exception as e:
+        print("  Warning: probable pitchers fetch failed: " + str(e))
+        return []
+
+
+def analyze_schedule_density(team_name, days=14):
+    """Analyze schedule density for a team over the next N days.
+    Returns: {team, games_total, games_this_week, games_next_week, off_days, density_rating}
+    """
+    try:
+        start = date.today()
+        end = start + timedelta(days=days - 1)
+        schedule = get_schedule_for_range(start.isoformat(), end.isoformat())
+
+        norm = normalize_team_name(team_name)
+        full_name = TEAM_ALIASES.get(team_name, team_name)
+        norm_full = normalize_team_name(full_name)
+
+        # Collect game dates for this team
+        game_dates = set()
+        for game in schedule:
+            away = normalize_team_name(game.get("away_name", ""))
+            home = normalize_team_name(game.get("home_name", ""))
+            if norm in away or norm in home or norm_full in away or norm_full in home:
+                gd = game.get("game_date", "")
+                if gd:
+                    game_dates.add(gd)
+
+        games_total = len(game_dates)
+
+        # Split into this week (days 0-6) and next week (days 7-13)
+        this_week_dates = set()
+        next_week_dates = set()
+        for i in range(min(days, 7)):
+            this_week_dates.add((start + timedelta(days=i)).isoformat())
+        for i in range(7, min(days, 14)):
+            next_week_dates.add((start + timedelta(days=i)).isoformat())
+
+        games_this_week = len(game_dates & this_week_dates)
+        games_next_week = len(game_dates & next_week_dates)
+
+        # Count off days in the full range
+        all_range_dates = set()
+        for i in range(days):
+            all_range_dates.add((start + timedelta(days=i)).isoformat())
+        off_days = len(all_range_dates - game_dates)
+
+        # Density rating based on average games per week
+        avg_per_week = games_total / max(days / 7.0, 1)
+        if avg_per_week >= 7:
+            density_rating = "heavy"
+        elif avg_per_week <= 5:
+            density_rating = "light"
+        else:
+            density_rating = "normal"
+
+        return {
+            "team": team_name,
+            "games_total": games_total,
+            "games_this_week": games_this_week,
+            "games_next_week": games_next_week,
+            "off_days": off_days,
+            "density_rating": density_rating,
+        }
+    except Exception as e:
+        print("  Warning: schedule density analysis failed: " + str(e))
+        return {
+            "team": team_name,
+            "games_total": 0,
+            "games_this_week": 0,
+            "games_next_week": 0,
+            "off_days": 0,
+            "density_rating": "unknown",
+        }
+
+
 # ---------- Commands ----------
 
 
@@ -198,11 +302,25 @@ def cmd_lineup_optimize(args, as_json=False):
         print("Games today: " + str(len(schedule)))
         print("")
 
+    # Z-score tier-based lineup optimization
+    from valuations import get_player_zscore
+
     active_off_day = []   # Players in lineup whose team is OFF
     bench_playing = []    # Bench players whose team IS playing
     il_players = []       # Players on IL
     active_playing = []   # Active players who are playing (good)
     bench_off_day = []    # Bench players on off day (fine)
+
+    # Enrich roster with z-score tiers
+    for p in roster:
+        name = p.get("name", "Unknown")
+        z_info = get_player_zscore(name)
+        if z_info:
+            p["_tier"] = z_info.get("tier", "Streamable")
+            p["_z_final"] = z_info.get("z_final", 0)
+        else:
+            p["_tier"] = "Streamable"
+            p["_z_final"] = 0
 
     for p in roster:
         name = p.get("name", "Unknown")
@@ -225,13 +343,16 @@ def cmd_lineup_optimize(args, as_json=False):
             else:
                 active_off_day.append(p)
 
-    # Build swap suggestions
+    # Build swap suggestions - tier-aware
+    # Untouchable/Core players should NOT be benched just for off days
+    # Only suggest swapping Solid/Fringe/Streamable tier active off-day players
     swaps = []
     if active_off_day and bench_playing:
-        bench_avail = list(bench_playing)
+        # Sort bench players by z-score (best first) for better swap quality
+        bench_avail = sorted(bench_playing, key=lambda x: x.get("_z_final", 0), reverse=True)
         for off_player in active_off_day:
             off_pos = get_player_position(off_player)
-            off_name = off_player.get("name", "Unknown")
+            off_tier = off_player.get("_tier", "Streamable")
             # Find a bench player eligible for that position
             match = None
             for bp in bench_avail:
@@ -248,12 +369,21 @@ def cmd_lineup_optimize(args, as_json=False):
         for off_p, bench_p in swaps:
             swap_list.append({
                 "bench_player": off_p.get("name", "Unknown"),
+                "bench_player_tier": off_p.get("_tier", "Unknown"),
                 "start_player": bench_p.get("name", "Unknown"),
+                "start_player_tier": bench_p.get("_tier", "Unknown"),
                 "position": get_player_position(off_p),
             })
-        active_off_day_info = [_player_info(p) for p in active_off_day]
-        bench_playing_info = [_player_info(p) for p in bench_playing]
-        il_players_info = [_player_info(p) for p in il_players]
+
+        def _player_info_with_tier(p):
+            info = _player_info(p)
+            info["tier"] = p.get("_tier", "Unknown")
+            info["z_score"] = round(p.get("_z_final", 0), 2)
+            return info
+
+        active_off_day_info = [_player_info_with_tier(p) for p in active_off_day]
+        bench_playing_info = [_player_info_with_tier(p) for p in bench_playing]
+        il_players_info = [_player_info_with_tier(p) for p in il_players]
         all_players = active_off_day_info + bench_playing_info + il_players_info
         enrich_with_intel(all_players)
         return {
@@ -647,7 +777,7 @@ def cmd_injury_report(args, as_json=False):
 
 
 def cmd_waiver_analyze(args, as_json=False):
-    """Score free agents by how much they'd improve your weakest categories"""
+    """Score free agents using z-score projections and category need"""
     pos_type = args[0] if args else "B"
     count = int(args[1]) if len(args) > 1 else 15
 
@@ -731,7 +861,7 @@ def cmd_waiver_analyze(args, as_json=False):
 
     # Fetch free agents
     try:
-        fa = lg.free_agents(pos_type)[:count * 2]  # Fetch extra to filter
+        fa = lg.free_agents(pos_type)[:count * 2]
     except Exception as e:
         if as_json:
             return {"error": "Error fetching free agents: " + str(e)}
@@ -744,15 +874,50 @@ def cmd_waiver_analyze(args, as_json=False):
         print("No free agents found")
         return
 
-    # Score each free agent
-    scored = []
-    weak_cat_names = [c[0] for c in weak_cats] if weak_cats else []
-    db = None
+    # Z-score based scoring with regression awareness
+    from valuations import get_player_zscore, POS_BONUS
+
+    # Try to load regression signals
     try:
-        db = get_db()
+        from intel import get_regression_signal
+        _has_regression = True
+    except Exception:
+        _has_regression = False
+
+    weak_cat_names = [c[0] for c in weak_cats] if weak_cats else []
+
+    # Get drop candidates from roster (respect regression buy-low protection)
+    drop_candidates = []
+    try:
+        team = lg.to_team(TEAM_ID)
+        roster = team.roster()
+        for p in roster:
+            if is_il(p):
+                continue
+            name = p.get("name", "Unknown")
+            z_info = get_player_zscore(name)
+            tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
+            z_val = z_info.get("z_final", 0) if z_info else 0
+            if tier in ("Fringe", "Streamable"):
+                # Check regression signal - don't recommend dropping buy-low candidates
+                reg_signal = None
+                if _has_regression:
+                    try:
+                        reg_signal = get_regression_signal(name)
+                    except Exception:
+                        pass
+                if reg_signal and reg_signal.get("category", "").startswith("buy"):
+                    continue  # Protect buy-low candidates from being dropped
+                drop_candidates.append({
+                    "name": name,
+                    "player_id": str(p.get("player_id", "")),
+                    "tier": tier,
+                    "z_score": round(z_val, 2),
+                })
     except Exception:
         pass
 
+    scored = []
     for p in fa:
         name = p.get("name", "Unknown")
         pid = p.get("player_id", "?")
@@ -760,35 +925,48 @@ def cmd_waiver_analyze(args, as_json=False):
         positions = ",".join(p.get("eligible_positions", ["?"]))
         status = p.get("status", "")
 
-        # Track ownership
-        if db and pid != "?":
+        # Z-score based scoring
+        z_info = get_player_zscore(name)
+        if z_info:
+            z_final = z_info.get("z_final", 0)
+            tier = z_info.get("tier", "Streamable")
+            per_cat = z_info.get("per_category_zscores", {})
+
+            # Base score from z-score (scaled to be comparable range)
+            score = z_final * 10.0
+
+            # Category need bonus: boost if player is strong in our weak categories
+            for cat_name in weak_cat_names:
+                cat_z = per_cat.get(cat_name, 0)
+                if cat_z > 0:
+                    score += cat_z * 5.0  # Significant bonus for helping weak cats
+
+            # Positional scarcity bonus
+            for pos_str in p.get("eligible_positions", []):
+                bonus = POS_BONUS.get(pos_str, 0)
+                if bonus > 0:
+                    score += bonus * 3.0
+        else:
+            # Fallback: use ownership as rough proxy
+            score = float(pct) if pct else 0
+            tier = "Unknown"
+            z_final = 0
+
+        # Regression signal: boost buy-low, penalize sell-high
+        reg_signal = None
+        if _has_regression:
             try:
-                db.execute(
-                    "INSERT OR REPLACE INTO ownership_history (player_id, date, pct_owned) VALUES (?, ?, ?)",
-                    (str(pid), date.today().isoformat(), float(pct) if pct else 0)
-                )
+                reg_signal = get_regression_signal(name)
             except Exception:
                 pass
+        if reg_signal:
+            cat = reg_signal.get("category", "")
+            if cat.startswith("buy"):
+                score += 10.0  # Buy-low candidates are undervalued
+            elif cat.startswith("sell"):
+                score -= 5.0   # Sell-high candidates may regress
 
-        # Score: use percent_owned as a proxy for value, boost if player helps weak categories
-        score = float(pct) if pct else 0
-
-        # Bonus for trending up (check ownership history)
-        if db and pid != "?":
-            try:
-                cursor = db.execute(
-                    "SELECT pct_owned FROM ownership_history WHERE player_id = ? ORDER BY date DESC LIMIT 2",
-                    (str(pid),)
-                )
-                rows = cursor.fetchall()
-                if len(rows) >= 2:
-                    trend = rows[0][0] - rows[1][0]
-                    if trend > 0:
-                        score += trend * 0.5  # Bonus for trending up
-            except Exception:
-                pass
-
-        # Skip injured players unless specifically looking
+        # Penalty for injured players
         if status and status not in ("", "Healthy"):
             score *= 0.5
 
@@ -799,14 +977,10 @@ def cmd_waiver_analyze(args, as_json=False):
             "positions": positions,
             "status": status,
             "score": score,
+            "z_score": round(z_final, 2),
+            "tier": tier,
+            "regression": reg_signal.get("signal", "") if reg_signal else None,
         })
-
-    if db:
-        try:
-            db.commit()
-            db.close()
-        except Exception:
-            pass
 
     # Sort by score
     scored.sort(key=lambda x: -x["score"])
@@ -827,6 +1001,9 @@ def cmd_waiver_analyze(args, as_json=False):
                 "positions": p["positions"],
                 "status": p["status"],
                 "score": round(p["score"], 1),
+                "z_score": p.get("z_score", 0),
+                "tier": p.get("tier", "Unknown"),
+                "regression": p.get("regression"),
                 "intel": p.get("intel"),
                 "trend": p.get("trend"),
                 "mlb_id": get_mlb_id(p.get("name", "")),
@@ -835,21 +1012,29 @@ def cmd_waiver_analyze(args, as_json=False):
             "pos_type": pos_type,
             "weak_categories": weak_list,
             "recommendations": recs,
+            "drop_candidates": drop_candidates[:5],
         }
 
-    print("Top " + str(count) + " Waiver Recommendations:")
+    print("Top " + str(count) + " Waiver Recommendations (Z-Score Based):")
     print("")
-    print("  " + "Player".ljust(25) + "Pos".ljust(12) + "Own%".rjust(5) + "  Score  Status")
-    print("  " + "-" * 60)
+    print("  " + "Player".ljust(25) + "Pos".ljust(10) + "Z".rjust(6) + "  Tier".ljust(14) + "  Score  Status")
+    print("  " + "-" * 75)
 
     for p in scored[:count]:
         status_str = ""
         if p["status"]:
             status_str = " [" + p["status"] + "]"
-        line = ("  " + p["name"].ljust(25) + p["positions"].ljust(12)
-                + str(p["pct"]).rjust(5) + "  " + str(round(p["score"], 1)).rjust(5)
+        line = ("  " + p["name"].ljust(25) + p["positions"].ljust(10)
+                + str(p.get("z_score", 0)).rjust(6) + "  " + p.get("tier", "?").ljust(12)
+                + "  " + str(round(p["score"], 1)).rjust(5)
                 + status_str + "  (id:" + str(p["pid"]) + ")")
         print(line)
+
+    if drop_candidates:
+        print("")
+        print("Drop Candidates (Fringe/Streamable tier on roster):")
+        for dc in drop_candidates[:5]:
+            print("  " + dc["name"].ljust(25) + " Z=" + str(dc["z_score"]) + " [" + dc["tier"] + "]")
 
     if weak_cat_names:
         print("")
@@ -933,7 +1118,9 @@ def cmd_streaming(args, as_json=False):
         print("No free agent pitchers found")
         return
 
-    # Score pitchers
+    # Score pitchers using z-scores + matchup quality
+    from valuations import get_player_zscore
+
     scored = []
     for p in fa_pitchers:
         name = p.get("name", "Unknown")
@@ -952,7 +1139,7 @@ def cmd_streaming(args, as_json=False):
         if "SP" not in elig:
             continue
 
-        # Score based on: team games (two-start potential) + ownership %
+        # Count team games this week
         games = 0
         for tn, gc in team_games.items():
             if normalize_team_name(team_name) in normalize_team_name(tn):
@@ -963,12 +1150,33 @@ def cmd_streaming(args, as_json=False):
                 games = gc
                 break
 
-        score = float(pct) if pct else 0
-        # Bonus for teams with more games (two-start potential)
+        # Z-score based quality scoring
+        z_info = get_player_zscore(name)
+        if z_info:
+            z_final = z_info.get("z_final", 0)
+            tier = z_info.get("tier", "Streamable")
+            per_cat = z_info.get("per_category_zscores", {})
+
+            # Base quality from z-score
+            score = z_final * 3.0
+
+            # Statcast quality: K z-score, ERA z-score, WHIP z-score
+            k_z = per_cat.get("K", 0)
+            era_z = per_cat.get("ERA", 0)
+            whip_z = per_cat.get("WHIP", 0)
+            statcast_bonus = (k_z + era_z + whip_z) / 3.0
+            score += statcast_bonus * 2.0
+        else:
+            # Fallback
+            z_final = 0
+            tier = "Unknown"
+            score = float(pct) / 10.0 if pct else 0
+
+        # Two-start bonus
         if games >= 7:
-            score += 20  # Strong two-start bonus
+            score += 20.0
         elif games >= 6:
-            score += 10
+            score += 10.0
 
         scored.append({
             "name": name,
@@ -978,6 +1186,8 @@ def cmd_streaming(args, as_json=False):
             "games": games,
             "positions": positions,
             "score": score,
+            "z_score": round(z_final, 2),
+            "tier": tier,
         })
 
     scored.sort(key=lambda x: -x["score"])
@@ -999,6 +1209,8 @@ def cmd_streaming(args, as_json=False):
                 "team": p["team"],
                 "games": p["games"],
                 "score": round(p["score"], 1),
+                "z_score": p.get("z_score", 0),
+                "tier": p.get("tier", "Unknown"),
                 "intel": p.get("intel"),
                 "trend": p.get("trend"),
                 "mlb_id": get_mlb_id(p.get("name", "")),
@@ -1009,15 +1221,16 @@ def cmd_streaming(args, as_json=False):
             "recommendations": recs,
         }
 
-    print("Top Streaming Pitcher Recommendations:")
+    print("Top Streaming Pitcher Recommendations (Z-Score Based):")
     print("")
-    print("  " + "Pitcher".ljust(25) + "Team".ljust(15) + "Games".rjust(5) + "  Own%".rjust(6) + "  Score")
-    print("  " + "-" * 65)
+    print("  " + "Pitcher".ljust(25) + "Team".ljust(12) + "Z".rjust(6) + " Tier".ljust(13) + "Games".rjust(5) + "  Score")
+    print("  " + "-" * 75)
 
     for p in scored[:15]:
         two_start = " *2S*" if p["games"] >= 7 else ""
-        line = ("  " + p["name"].ljust(25) + p["team"].ljust(15)
-                + str(p["games"]).rjust(5) + str(p["pct"]).rjust(6)
+        line = ("  " + p["name"].ljust(25) + p["team"].ljust(12)
+                + str(p.get("z_score", 0)).rjust(6) + " " + p.get("tier", "?").ljust(12)
+                + str(p["games"]).rjust(5)
                 + "  " + str(round(p["score"], 1)).rjust(5)
                 + two_start + "  (id:" + str(p["pid"]) + ")")
         print(line)
@@ -1027,7 +1240,7 @@ def cmd_streaming(args, as_json=False):
 
 
 def cmd_trade_eval(args, as_json=False):
-    """Evaluate a potential trade"""
+    """Evaluate a potential trade using z-score valuations and tier system"""
     if len(args) < 2:
         if as_json:
             return {"error": "Usage: trade-eval <give_ids> <get_ids>"}
@@ -1040,7 +1253,7 @@ def cmd_trade_eval(args, as_json=False):
     get_ids = args[1].split(",")
 
     if not as_json:
-        print("Trade Evaluation")
+        print("Trade Evaluation (Z-Score Based)")
         print("=" * 50)
 
     sc, gm, lg, team = get_league_context()
@@ -1054,68 +1267,75 @@ def cmd_trade_eval(args, as_json=False):
         print("Error fetching roster: " + str(e))
         return
 
-    # Get stat categories
-    try:
-        categories = lg.stat_categories()
-    except Exception:
-        categories = []
-
     # Look up players by ID
     give_players = []
     get_players = []
 
-    # Find give players in our roster
     for pid in give_ids:
         pid = pid.strip()
-        found = False
         for p in roster:
-            roster_pid = str(p.get("player_id", ""))
-            if roster_pid == pid:
+            if str(p.get("player_id", "")) == pid:
                 give_players.append(p)
-                found = True
                 break
-        if not found:
-            if not as_json:
-                print("Warning: player " + pid + " not found on your roster")
 
     # For get players, search the league
     for pid in get_ids:
         pid = pid.strip()
         player_key = GAME_KEY + ".p." + pid
-        try:
-            get_players.append({
-                "player_id": pid,
-                "player_key": player_key,
-                "name": "Player " + pid,
-            })
-        except Exception:
-            get_players.append({
-                "player_id": pid,
-                "name": "Player " + pid,
-            })
+        get_players.append({
+            "player_id": pid,
+            "player_key": player_key,
+            "name": "Player " + pid,
+        })
 
-    give_value = 0
-    for p in give_players:
-        pct = p.get("percent_owned", 0)
-        value = float(pct) if pct else 50
-        give_value += value
+    # Z-score valuation for all players
+    from valuations import get_player_zscore, POS_BONUS
 
-    get_value = 0
-    for p in get_players:
-        pct = p.get("percent_owned", 0)
-        value = float(pct) if pct else 50
-        get_value += value
+    def _eval_player(p):
+        """Get z-score info for a player, with fallback"""
+        name = p.get("name", "Unknown")
+        info = get_player_zscore(name)
+        if info:
+            return info
+        # Fallback: estimate from percent_owned (legacy)
+        pct = float(p.get("percent_owned", 0)) if p.get("percent_owned") else 0
+        # Map 0-100% owned to roughly -1 to 6 z-score range
+        z_est = (pct / 100.0) * 7.0 - 1.0
+        return {
+            "name": name,
+            "z_final": round(z_est, 2),
+            "z_total": round(z_est, 2),
+            "tier": "Fringe" if z_est >= 0 else "Streamable",
+            "per_category_zscores": {},
+            "rank": 0,
+            "pos": ",".join(p.get("eligible_positions", [])),
+            "type": "B",
+        }
 
+    give_evals = [_eval_player(p) for p in give_players]
+    get_evals = [_eval_player(p) for p in get_players]
+
+    give_value = sum(e.get("z_final", 0) for e in give_evals)
+    get_value = sum(e.get("z_final", 0) for e in get_evals)
     diff = get_value - give_value
 
-    # Grade the trade
-    if diff > 30:
+    # Warnings
+    warnings = []
+    for e in give_evals:
+        tier = e.get("tier", "Streamable")
+        if tier == "Untouchable":
+            warnings.append("WARNING: Trading away Untouchable-tier " + e.get("name", "") + " (Z=" + str(e.get("z_final", 0)) + ")")
+        elif tier == "Core":
+            warnings.append("CAUTION: Trading away Core-tier " + e.get("name", "") + " (Z=" + str(e.get("z_final", 0)) + ")")
+
+    # Grade the trade based on z-score differential
+    if diff > 3.0:
         grade = "Strong Accept"
-    elif diff > 10:
+    elif diff > 1.0:
         grade = "Accept"
-    elif diff > -10:
+    elif diff > -1.0:
         grade = "Fair Trade"
-    elif diff > -30:
+    elif diff > -3.0:
         grade = "Decline"
     else:
         grade = "Strong Decline"
@@ -1132,33 +1352,47 @@ def cmd_trade_eval(args, as_json=False):
     losing = give_positions - get_positions
     gaining = get_positions - give_positions
 
+    # Positional scarcity impact
+    pos_warnings = []
+    for pos in losing:
+        bonus = POS_BONUS.get(pos, 0)
+        if bonus > 0:
+            pos_warnings.append("Losing scarce position: " + pos + " (scarcity bonus +" + str(bonus) + ")")
+
     if as_json:
         give_list = []
-        for p in give_players:
+        for i, p in enumerate(give_players):
+            e = give_evals[i] if i < len(give_evals) else {}
             give_list.append({
                 "name": p.get("name", "Unknown"),
                 "player_id": str(p.get("player_id", "")),
                 "positions": p.get("eligible_positions", []),
-                "value": round(float(p.get("percent_owned", 0)) if p.get("percent_owned", 0) else 50, 1),
+                "z_score": e.get("z_final", 0),
+                "tier": e.get("tier", "Streamable"),
+                "per_category_zscores": e.get("per_category_zscores", {}),
                 "mlb_id": get_mlb_id(p.get("name", "")),
             })
         get_list = []
-        for p in get_players:
+        for i, p in enumerate(get_players):
+            e = get_evals[i] if i < len(get_evals) else {}
             get_list.append({
                 "name": p.get("name", "Unknown"),
                 "player_id": str(p.get("player_id", "")),
                 "positions": p.get("eligible_positions", []),
-                "value": round(float(p.get("percent_owned", 0)) if p.get("percent_owned", 0) else 50, 1),
+                "z_score": e.get("z_final", 0),
+                "tier": e.get("tier", "Streamable"),
+                "per_category_zscores": e.get("per_category_zscores", {}),
                 "mlb_id": get_mlb_id(p.get("name", "")),
             })
         enrich_with_intel(give_list + get_list)
         return {
             "give_players": give_list,
             "get_players": get_list,
-            "give_value": round(give_value, 1),
-            "get_value": round(get_value, 1),
-            "net_value": round(diff, 1),
+            "give_value": round(give_value, 2),
+            "get_value": round(get_value, 2),
+            "net_value": round(diff, 2),
             "grade": grade,
+            "warnings": warnings + pos_warnings,
             "position_impact": {
                 "losing": list(losing),
                 "gaining": list(gaining),
@@ -1166,29 +1400,36 @@ def cmd_trade_eval(args, as_json=False):
         }
 
     print("GIVING:")
-    for p in give_players:
+    for i, p in enumerate(give_players):
+        e = give_evals[i] if i < len(give_evals) else {}
         name = p.get("name", "Unknown")
-        pct = p.get("percent_owned", 0)
         positions = ",".join(p.get("eligible_positions", ["?"]))
-        value = float(pct) if pct else 50
-        print("  " + name.ljust(25) + " " + positions.ljust(12) + " value: " + str(round(value, 1)))
+        z = e.get("z_final", 0)
+        tier = e.get("tier", "?")
+        print("  " + name.ljust(25) + " " + positions.ljust(12) + " Z=" + str(round(z, 2)).ljust(8) + " [" + tier + "]")
 
     print("")
     print("GETTING:")
-    for p in get_players:
+    for i, p in enumerate(get_players):
+        e = get_evals[i] if i < len(get_evals) else {}
         name = p.get("name", "Unknown")
-        pct = p.get("percent_owned", 0)
         positions = ",".join(p.get("eligible_positions", ["?"]))
-        value = float(pct) if pct else 50
-        print("  " + name.ljust(25) + " " + positions.ljust(12) + " value: " + str(round(value, 1)))
+        z = e.get("z_final", 0)
+        tier = e.get("tier", "?")
+        print("  " + name.ljust(25) + " " + positions.ljust(12) + " Z=" + str(round(z, 2)).ljust(8) + " [" + tier + "]")
 
     print("")
-    print("Total Value Given:    " + str(round(give_value, 1)))
-    print("Total Value Received: " + str(round(get_value, 1)))
-    print("Net Value:            " + str(round(diff, 1)))
+    print("Total Z-Score Given:    " + str(round(give_value, 2)))
+    print("Total Z-Score Received: " + str(round(get_value, 2)))
+    print("Net Z-Score:            " + str(round(diff, 2)))
 
     print("")
     print("Trade Grade: " + grade)
+
+    if warnings or pos_warnings:
+        print("")
+        for w in warnings + pos_warnings:
+            print("  " + w)
 
     print("")
     print("Position Impact:")
@@ -2757,10 +2998,12 @@ def cmd_whats_new(args, as_json=False):
 
 
 def cmd_trade_finder(args, as_json=False):
-    """Scan league for complementary trade partners and suggest packages"""
+    """Scan league for complementary trade partners using z-score analysis"""
     sc, gm, lg, team = get_league_context()
 
     try:
+        from valuations import get_player_zscore, DEFAULT_BATTING_CATS, DEFAULT_PITCHING_CATS
+
         # 1. Get our category rankings to find weak/strong areas
         cat_data = cmd_category_check([], as_json=True)
         if cat_data.get("error"):
@@ -2772,15 +3015,53 @@ def cmd_trade_finder(args, as_json=False):
         weak_cats = cat_data.get("weakest", [])
         strong_cats = cat_data.get("strongest", [])
 
-        # 2. Get all teams and their rosters
+        batting_cats = list(DEFAULT_BATTING_CATS)
+        pitching_cats = list(DEFAULT_PITCHING_CATS)
+        weak_batting = [c for c in weak_cats if c in batting_cats]
+        weak_pitching = [c for c in weak_cats if c in pitching_cats]
+        strong_batting = [c for c in strong_cats if c in batting_cats]
+        strong_pitching = [c for c in strong_cats if c in pitching_cats]
+
+        # 2. Get all teams and their rosters with z-scores
         all_teams = lg.teams()
         my_roster = team.roster()
-        my_players = {}
-        for p in my_roster:
-            pid = str(p.get("player_id", ""))
-            my_players[pid] = p
 
-        # 3. For each other team, analyze complementary needs
+        # Classify and value our players
+        my_hitters = []
+        my_pitchers = []
+        for p in my_roster:
+            name = p.get("name", "Unknown")
+            positions = p.get("eligible_positions", [])
+            is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
+            z_info = get_player_zscore(name)
+            z_val = z_info.get("z_final", 0) if z_info else 0
+            tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
+            per_cat = z_info.get("per_category_zscores", {}) if z_info else {}
+            entry = {
+                "name": name,
+                "player_id": str(p.get("player_id", "")),
+                "positions": positions,
+                "z_score": round(z_val, 2),
+                "tier": tier,
+                "per_category_zscores": per_cat,
+            }
+            if is_pitcher:
+                my_pitchers.append(entry)
+            else:
+                my_hitters.append(entry)
+
+        # Identify tradeable players: only from strong categories, never Untouchable
+        # Only trade from Solid/Core where we have redundancy in strong cats
+        tradeable_pitchers = [p for p in my_pitchers
+                              if p["tier"] not in ("Untouchable",)]
+        tradeable_hitters = [p for p in my_hitters
+                             if p["tier"] not in ("Untouchable",)]
+
+        # Sort tradeables by z-score (offer lower-value players first)
+        tradeable_pitchers.sort(key=lambda x: x.get("z_score", 0))
+        tradeable_hitters.sort(key=lambda x: x.get("z_score", 0))
+
+        # 3. For each other team, analyze complementary needs with z-scores
         partners = []
         for team_key, team_data in all_teams.items():
             if TEAM_ID in str(team_key):
@@ -2792,7 +3073,6 @@ def cmd_trade_finder(args, as_json=False):
             except Exception:
                 continue
 
-            # Build simple value assessment based on positions and status
             their_hitters = []
             their_pitchers = []
             for p in other_roster:
@@ -2801,103 +3081,105 @@ def cmd_trade_finder(args, as_json=False):
                 pid = str(p.get("player_id", ""))
                 status = p.get("status", "")
                 is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
+                z_info = get_player_zscore(name)
+                z_val = z_info.get("z_final", 0) if z_info else 0
+                tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
                 entry = {
                     "name": name,
                     "player_id": pid,
                     "positions": positions,
                     "status": status,
+                    "z_score": round(z_val, 2),
+                    "tier": tier,
                 }
                 if is_pitcher:
                     their_pitchers.append(entry)
                 else:
                     their_hitters.append(entry)
 
-            # Determine complementary needs based on category analysis
-            # If we're weak in batting cats, look for teams strong in batting
-            # If we're strong in pitching cats, offer pitching
+            # Score complementary fit based on category analysis
             complementary_score = 0
             complementary_cats = []
 
-            # Simple heuristic: teams with many hitters when we need batting help
-            from valuations import DEFAULT_BATTING_CATS, DEFAULT_PITCHING_CATS
-            batting_cats = list(DEFAULT_BATTING_CATS)
-            pitching_cats = list(DEFAULT_PITCHING_CATS)
-
-            weak_batting = [c for c in weak_cats if c in batting_cats]
-            weak_pitching = [c for c in weak_cats if c in pitching_cats]
-            strong_batting = [c for c in strong_cats if c in batting_cats]
-            strong_pitching = [c for c in strong_cats if c in pitching_cats]
-
-            if weak_batting and len(their_hitters) > 8:
-                complementary_score += len(weak_batting)
-                complementary_cats.extend(weak_batting)
-            if weak_pitching and len(their_pitchers) > 5:
-                complementary_score += len(weak_pitching)
-                complementary_cats.extend(weak_pitching)
+            if weak_batting and their_hitters:
+                # Count their high-value hitters (Solid+)
+                good_hitters = [h for h in their_hitters if h.get("z_score", 0) >= 1.5]
+                if good_hitters:
+                    complementary_score += len(weak_batting) * len(good_hitters) / 3.0
+                    complementary_cats.extend(weak_batting)
+            if weak_pitching and their_pitchers:
+                good_pitchers = [p for p in their_pitchers if p.get("z_score", 0) >= 1.5]
+                if good_pitchers:
+                    complementary_score += len(weak_pitching) * len(good_pitchers) / 3.0
+                    complementary_cats.extend(weak_pitching)
 
             if complementary_score > 0:
+                # Sort their players by z-score for better trade suggestions
+                their_hitters.sort(key=lambda x: x.get("z_score", 0), reverse=True)
+                their_pitchers.sort(key=lambda x: x.get("z_score", 0), reverse=True)
                 partners.append({
                     "team_key": team_key,
                     "team_name": team_name,
-                    "score": complementary_score,
-                    "complementary_categories": complementary_cats,
+                    "score": round(complementary_score, 1),
+                    "complementary_categories": list(set(complementary_cats)),
                     "their_hitters": their_hitters[:5],
                     "their_pitchers": their_pitchers[:5],
                 })
 
-        # Sort by complementary score
         partners.sort(key=lambda p: p.get("score", 0), reverse=True)
         partners = partners[:5]
 
-        # Build suggested packages
+        # Build trade packages using z-score matching
         suggestions = []
-        my_hitters = []
-        my_pitchers = []
-        for p in my_roster:
-            positions = p.get("eligible_positions", [])
-            is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
-            entry = {
-                "name": p.get("name", "Unknown"),
-                "player_id": str(p.get("player_id", "")),
-                "positions": positions,
-            }
-            if is_pitcher:
-                my_pitchers.append(entry)
-            else:
-                my_hitters.append(entry)
-
         for partner in partners:
             packages = []
             # If we're strong in pitching, offer a pitcher for a hitter
             if strong_pitching and partner.get("their_hitters"):
-                for my_p in my_pitchers[:3]:
+                for my_p in tradeable_pitchers[:3]:
+                    if my_p.get("tier") == "Untouchable":
+                        continue
                     for their_p in partner.get("their_hitters", [])[:3]:
                         if their_p.get("status") in ["IL", "IL+"]:
                             continue
+                        # Z-score should be reasonably close for fair trade
+                        z_diff = their_p.get("z_score", 0) - my_p.get("z_score", 0)
+                        if abs(z_diff) > 4.0:
+                            continue  # Too lopsided
                         packages.append({
                             "give": [my_p],
                             "get": [their_p],
-                            "rationale": "Offer pitching strength for batting help",
+                            "z_diff": round(z_diff, 2),
+                            "rationale": "Trade pitching strength (Z=" + str(my_p.get("z_score", 0))
+                                         + ") for batting help (Z=" + str(their_p.get("z_score", 0)) + ")",
                         })
                         if len(packages) >= 2:
                             break
                     if len(packages) >= 2:
                         break
+
             # If we're strong in batting, offer a hitter for a pitcher
             if strong_batting and partner.get("their_pitchers"):
-                for my_p in my_hitters[:3]:
+                for my_p in tradeable_hitters[:3]:
+                    if my_p.get("tier") == "Untouchable":
+                        continue
                     for their_p in partner.get("their_pitchers", [])[:3]:
                         if their_p.get("status") in ["IL", "IL+"]:
+                            continue
+                        z_diff = their_p.get("z_score", 0) - my_p.get("z_score", 0)
+                        if abs(z_diff) > 4.0:
                             continue
                         packages.append({
                             "give": [my_p],
                             "get": [their_p],
-                            "rationale": "Offer batting strength for pitching help",
+                            "z_diff": round(z_diff, 2),
+                            "rationale": "Trade batting strength (Z=" + str(my_p.get("z_score", 0))
+                                         + ") for pitching help (Z=" + str(their_p.get("z_score", 0)) + ")",
                         })
                         if len(packages) >= 3:
                             break
                     if len(packages) >= 3:
                         break
+
             partner["packages"] = packages[:3]
             suggestions.append(partner)
 
@@ -2908,7 +3190,7 @@ def cmd_trade_finder(args, as_json=False):
                 "partners": suggestions,
             }
 
-        print("Trade Finder")
+        print("Trade Finder (Z-Score Based)")
         print("=" * 50)
         print("Your weak categories: " + ", ".join(weak_cats))
         print("Your strong categories: " + ", ".join(strong_cats))
@@ -2917,13 +3199,14 @@ def cmd_trade_finder(args, as_json=False):
             print("No complementary trade partners found")
             return
         for partner in suggestions:
-            print("Trade Partner: " + partner.get("team_name", "?"))
+            print("Trade Partner: " + partner.get("team_name", "?")
+                  + " (fit score: " + str(partner.get("score", 0)) + ")")
             print("  Complementary in: " + ", ".join(partner.get("complementary_categories", [])))
             for pkg in partner.get("packages", []):
-                give_names = ", ".join([p.get("name", "?") for p in pkg.get("give", [])])
-                get_names = ", ".join([p.get("name", "?") for p in pkg.get("get", [])])
+                give_names = ", ".join([p.get("name", "?") + " [" + p.get("tier", "?") + "]" for p in pkg.get("give", [])])
+                get_names = ", ".join([p.get("name", "?") + " [" + p.get("tier", "?") + "]" for p in pkg.get("get", [])])
                 print("  Package: Give " + give_names + " <-> Get " + get_names)
-                print("    Rationale: " + pkg.get("rationale", ""))
+                print("    " + pkg.get("rationale", "") + " (net Z: " + str(pkg.get("z_diff", 0)) + ")")
             print("")
 
     except Exception as e:

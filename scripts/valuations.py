@@ -21,9 +21,13 @@ FANGRAPHS_PROJ_URL = "https://www.fangraphs.com/api/projections"
 PROJ_MAX_AGE = 86400  # 24 hours
 
 
-def _proj_csv_path(stats_type):
-    """Get path for projection CSV (bat or pit)"""
-    filename = "projections_hitters.csv" if stats_type == "bat" else "projections_pitchers.csv"
+def _proj_csv_path(stats_type, proj_type=None):
+    """Get path for projection CSV (bat or pit), optionally per-system"""
+    if proj_type:
+        prefix = "projections_" + proj_type + "_"
+    else:
+        prefix = "projections_"
+    filename = prefix + ("hitters.csv" if stats_type == "bat" else "pitchers.csv")
     return os.path.join(DATA_DIR, filename)
 
 
@@ -107,9 +111,124 @@ def fetch_fangraphs_projections(stats_type, proj_type="steamer"):
         return None
 
 
-def ensure_projections(proj_type="steamer", force=False):
+def fetch_consensus_projections(stats_type):
+    """Fetch and blend projections from Steamer, ZiPS, and Depth Charts.
+    Weights: Depth Charts 40%, Steamer 30%, ZiPS 30%.
+    Returns a blended pandas DataFrame or None on failure.
+    """
+    systems = [
+        ("depthcharts", 0.40),
+        ("steamer", 0.30),
+        ("zips", 0.30),
+    ]
+
+    dfs = {}
+    for system, weight in systems:
+        # Check per-system cache first
+        sys_path = _proj_csv_path(stats_type, proj_type=system)
+        if _proj_csv_is_fresh(sys_path):
+            try:
+                df = pd.read_csv(sys_path)
+                df.columns = df.columns.str.strip()
+                dfs[system] = (df, weight)
+                continue
+            except Exception:
+                pass
+
+        print("Fetching " + system + " projections for " + stats_type + "...")
+        df = fetch_fangraphs_projections(stats_type, proj_type=system)
+        if df is not None and len(df) > 0:
+            # Cache per-system
+            os.makedirs(DATA_DIR, exist_ok=True)
+            df.to_csv(sys_path, index=False)
+            dfs[system] = (df, weight)
+        else:
+            print("Warning: " + system + " projections unavailable for " + stats_type)
+
+    if not dfs:
+        return None
+
+    # If only one system available, use it directly
+    if len(dfs) == 1:
+        system_name = list(dfs.keys())[0]
+        return dfs[system_name][0]
+
+    # Blend: merge on Name, weighted average of numeric columns
+    system_names = list(dfs.keys())
+
+    # Build name-indexed lookup for each system
+    system_lookups = {}
+    for system, (df, weight) in dfs.items():
+        lookup = {}
+        for _, row in df.iterrows():
+            name = str(row.get("Name", "")).strip().lower()
+            if name:
+                lookup[name] = row
+        system_lookups[system] = (lookup, weight)
+
+    # Re-normalize weights to sum to 1.0
+    total_weight = sum(w for _, w in system_lookups.values())
+
+    blended_rows = []
+    # Iterate over all players from all systems
+    all_names = set()
+    for system, (lookup, weight) in system_lookups.items():
+        all_names.update(lookup.keys())
+
+    for name_lower in all_names:
+        # Collect rows from each system
+        rows_and_weights = []
+        for system, (lookup, weight) in system_lookups.items():
+            row = lookup.get(name_lower)
+            if row is not None:
+                rows_and_weights.append((row, weight / total_weight))
+
+        if not rows_and_weights:
+            continue
+
+        # Use first available as template
+        template = rows_and_weights[0][0].copy()
+        blended = {}
+        blended["Name"] = template.get("Name", "")
+        blended["Team"] = template.get("Team", "")
+
+        # Numeric columns to blend
+        if stats_type == "bat":
+            numeric_cols = ["PA", "AB", "H", "HR", "R", "RBI", "SB", "CS",
+                            "BB", "SO", "AVG", "OBP", "SLG", "2B", "3B"]
+        else:
+            numeric_cols = ["IP", "W", "L", "ERA", "WHIP", "K", "BB",
+                            "SV", "HLD", "GS", "G", "ER", "QS"]
+
+        for col in numeric_cols:
+            weighted_sum = 0
+            w_sum = 0
+            for row, w in rows_and_weights:
+                val = row.get(col, None)
+                if val is not None:
+                    try:
+                        weighted_sum += float(val) * w
+                        w_sum += w
+                    except (ValueError, TypeError):
+                        pass
+            if w_sum > 0:
+                blended[col] = round(weighted_sum / w_sum, 3)
+            else:
+                blended[col] = 0
+
+        blended_rows.append(blended)
+
+    if not blended_rows:
+        return dfs[system_names[0]][0]
+
+    result = pd.DataFrame(blended_rows)
+    return result
+
+
+def ensure_projections(proj_type="consensus", force=False):
     """Ensure projection CSVs exist. Auto-fetch if missing or stale.
-    Returns tuple (hitters_source, pitchers_source) describing what happened.
+    proj_type: 'consensus' (default), 'steamer', 'zips', or 'depthcharts'
+    Returns dict describing what happened for each type.
     """
     os.makedirs(DATA_DIR, exist_ok=True)
     results = {}
@@ -122,8 +241,13 @@ def ensure_projections(proj_type="steamer", force=False):
             results[label] = "cached"
             continue
 
-        print("Fetching " + proj_type + " projections for " + label + "...")
-        df = fetch_fangraphs_projections(stats_type, proj_type=proj_type)
+        if proj_type == "consensus":
+            print("Fetching consensus projections for " + label + "...")
+            df = fetch_consensus_projections(stats_type)
+        else:
+            print("Fetching " + proj_type + " projections for " + label + "...")
+            df = fetch_fangraphs_projections(stats_type, proj_type=proj_type)
+
         if df is not None and len(df) > 0:
             df.to_csv(path, index=False)
             results[label] = "fetched (" + str(len(df)) + " players)"
@@ -460,6 +584,245 @@ def get_pos_bonus(pos_str):
         if pos in pos_str:
             best = max(best, bonus)
     return best
+
+
+# --- Player Tier System ---
+
+# Rank-based tier cutoffs (per type: hitters and pitchers separately)
+# Top 15 per type = Untouchable, top 50 = Core, top 100 = Solid,
+# above median = Fringe, below median = Streamable
+TIER_RANK_CUTOFFS = {
+    "Untouchable": 15,
+    "Core": 50,
+    "Solid": 100,
+}
+# Fringe = rank > 100 but z_final >= 0
+# Streamable = z_final < 0
+
+
+# Module-level cache for loaded valuations data
+_loaded_cache = {"hitters": None, "pitchers": None, "source": None, "time": 0,
+                 "tier_thresholds_B": None, "tier_thresholds_P": None,
+                 "rank_lookup_B": None, "rank_lookup_P": None}
+_LOAD_CACHE_TTL = 300  # 5 minutes
+
+
+def _compute_tier_thresholds(df):
+    """Compute z-score cutoffs for each tier from a sorted DataFrame.
+    Returns dict of {tier: min_z_final} based on rank cutoffs.
+    """
+    if df is None or "Z_Final" not in df.columns or len(df) == 0:
+        return {"Untouchable": 6.0, "Core": 3.0, "Solid": 1.5, "Fringe": 0.0}
+    sorted_z = df["Z_Final"].dropna().sort_values(ascending=False).reset_index(drop=True)
+    thresholds = {}
+    for tier, rank_cutoff in TIER_RANK_CUTOFFS.items():
+        idx = min(rank_cutoff - 1, len(sorted_z) - 1)
+        thresholds[tier] = float(sorted_z.iloc[idx])
+    thresholds["Fringe"] = 0.0
+    return thresholds
+
+
+def _get_tier_thresholds(player_type):
+    """Get tier thresholds for a player type ('B' or 'P'), computing if needed."""
+    key = "tier_thresholds_" + player_type
+    if _loaded_cache.get(key) is not None:
+        return _loaded_cache[key]
+    # Need to load data first
+    _get_loaded_data()
+    return _loaded_cache.get(key, {"Untouchable": 6.0, "Core": 3.0, "Solid": 1.5, "Fringe": 0.0})
+
+
+def _assign_tier(z_final, player_type="B"):
+    """Assign management tier based on Z_Final score and player type.
+    Uses rank-calibrated thresholds so top ~15 per type = Untouchable, etc.
+    """
+    if pd.isna(z_final):
+        return "Streamable"
+    z = float(z_final)
+    thresholds = _get_tier_thresholds(player_type)
+    if z >= thresholds.get("Untouchable", 6.0):
+        return "Untouchable"
+    if z >= thresholds.get("Core", 3.0):
+        return "Core"
+    if z >= thresholds.get("Solid", 1.5):
+        return "Solid"
+    if z >= thresholds.get("Fringe", 0.0):
+        return "Fringe"
+    return "Streamable"
+
+
+def _build_rank_lookup(df):
+    """Build a name->rank dict from a DataFrame sorted by Z_Final descending."""
+    if df is None or "Z_Final" not in df.columns:
+        return {}
+    sorted_df = df.sort_values("Z_Final", ascending=False).reset_index(drop=True)
+    lookup = {}
+    for i, (_, row) in enumerate(sorted_df.iterrows(), 1):
+        name_lower = str(row.get("Name", "")).strip().lower()
+        if name_lower and name_lower not in lookup:
+            lookup[name_lower] = i
+    return lookup
+
+
+def _get_loaded_data():
+    """Get cached hitters/pitchers DataFrames, reloading if stale"""
+    import time as _time
+    now = _time.time()
+    if (_loaded_cache["hitters"] is not None
+            and now - _loaded_cache["time"] < _LOAD_CACHE_TTL):
+        return _loaded_cache["hitters"], _loaded_cache["pitchers"], _loaded_cache["source"]
+    h, p, s = load_all()
+    _loaded_cache["hitters"] = h
+    _loaded_cache["pitchers"] = p
+    _loaded_cache["source"] = s
+    _loaded_cache["time"] = now
+    # Compute tier thresholds and rank lookups from actual data
+    _loaded_cache["tier_thresholds_B"] = _compute_tier_thresholds(h)
+    _loaded_cache["tier_thresholds_P"] = _compute_tier_thresholds(p)
+    _loaded_cache["rank_lookup_B"] = _build_rank_lookup(h)
+    _loaded_cache["rank_lookup_P"] = _build_rank_lookup(p)
+    return h, p, s
+
+
+def get_player_zscore(player_name):
+    """Look up a player's z-score breakdown and tier.
+    Returns dict with z_total, z_final, tier, per_category_zscores, rank, pos, type.
+    Returns None if player not found.
+    """
+    hitters, pitchers, source = _get_loaded_data()
+    results = get_player_by_name(player_name, hitters, pitchers)
+    if not results:
+        return None
+
+    # Use first match
+    p = results[0]
+    player_type = p.get("_type", "B")
+    z_final = _safe_float(p.get("Z_Final", 0))
+    z_total = _safe_float(p.get("Z_Total", 0))
+
+    # Per-category z-scores
+    per_cat = {}
+    for k, v in p.items():
+        if k.startswith("Z_") and k not in ("Z_Total", "Z_Final", "Z_PosAdj"):
+            cat_name = k.replace("Z_", "")
+            per_cat[cat_name] = round(_safe_float(v), 2)
+
+    # Look up rank from pre-computed cache (O(1) instead of O(n log n))
+    name_lower = str(p.get("Name", "")).strip().lower()
+    rank_key = "rank_lookup_" + player_type
+    rank_lookup = _loaded_cache.get(rank_key, {})
+    rank = rank_lookup.get(name_lower, 0) if rank_lookup else 0
+
+    return {
+        "name": str(p.get("Name", "")),
+        "team": str(p.get("Team", "")),
+        "pos": str(p.get("Pos", "")),
+        "type": player_type,
+        "z_total": round(z_total, 2),
+        "z_final": round(z_final, 2),
+        "z_pos_adj": round(_safe_float(p.get("Z_PosAdj", 0)), 2),
+        "tier": _assign_tier(z_final, player_type),
+        "per_category_zscores": per_cat,
+        "rank": rank,
+    }
+
+
+def get_player_tier(player_name):
+    """Convenience: return just the tier string for a player name.
+    Returns 'Streamable' if player not found.
+    """
+    info = get_player_zscore(player_name)
+    if info is None:
+        return "Streamable"
+    return info.get("tier", "Streamable")
+
+
+def get_zscore_for_players(player_names):
+    """Batch lookup z-scores for multiple players.
+    Returns dict mapping player_name -> zscore_info (or None).
+    """
+    result = {}
+    for name in player_names:
+        result[name] = get_player_zscore(name)
+    return result
+
+
+# --- Category Impact Modeling ---
+
+def project_category_impact(add_players, drop_players, league_standings=None):
+    """Project how adding/dropping players changes category contributions.
+
+    add_players: list of player name strings to add
+    drop_players: list of player name strings to drop
+    league_standings: optional dict of {category: {team_values: [...], my_value: X, my_rank: N}}
+
+    Returns dict with per-category z-score impact and net assessment.
+    """
+    add_zscores = []
+    drop_zscores = []
+
+    for name in add_players:
+        info = get_player_zscore(name)
+        if info:
+            add_zscores.append(info)
+
+    for name in drop_players:
+        info = get_player_zscore(name)
+        if info:
+            drop_zscores.append(info)
+
+    # Calculate per-category net impact
+    category_impact = {}
+
+    # Collect all category names from both adds and drops
+    all_cats = set()
+    for info in add_zscores + drop_zscores:
+        for cat in info.get("per_category_zscores", {}).keys():
+            all_cats.add(cat)
+
+    for cat in sorted(all_cats):
+        add_total = sum(
+            info.get("per_category_zscores", {}).get(cat, 0)
+            for info in add_zscores
+        )
+        drop_total = sum(
+            info.get("per_category_zscores", {}).get(cat, 0)
+            for info in drop_zscores
+        )
+        delta = round(add_total - drop_total, 2)
+        category_impact[cat] = {
+            "add_z": round(add_total, 2),
+            "drop_z": round(drop_total, 2),
+            "delta": delta,
+            "direction": "improve" if delta > 0 else ("decline" if delta < 0 else "neutral"),
+        }
+
+    # Overall z-score change
+    total_add = sum(info.get("z_final", 0) for info in add_zscores)
+    total_drop = sum(info.get("z_final", 0) for info in drop_zscores)
+    net_z = round(total_add - total_drop, 2)
+
+    # Summary
+    improving = [cat for cat, v in category_impact.items() if v.get("delta", 0) > 0.1]
+    declining = [cat for cat, v in category_impact.items() if v.get("delta", 0) < -0.1]
+
+    return {
+        "add_players": [{
+            "name": info.get("name", ""),
+            "z_final": info.get("z_final", 0),
+            "tier": info.get("tier", "Unknown"),
+        } for info in add_zscores],
+        "drop_players": [{
+            "name": info.get("name", ""),
+            "z_final": info.get("z_final", 0),
+            "tier": info.get("tier", "Unknown"),
+        } for info in drop_zscores],
+        "category_impact": category_impact,
+        "net_z_change": net_z,
+        "improving_categories": improving,
+        "declining_categories": declining,
+        "assessment": "positive" if net_z > 0.5 else ("negative" if net_z < -0.5 else "neutral"),
+    }
 
 
 # --- Live stats blending ---
