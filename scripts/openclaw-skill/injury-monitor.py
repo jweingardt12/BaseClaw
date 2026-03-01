@@ -15,8 +15,6 @@ import argparse
 import json
 import os
 import sys
-import urllib.request
-import urllib.error
 
 # ---------------------------------------------------------------------------
 # Path setup — allow running from project root or script directory
@@ -29,6 +27,7 @@ STATE_FILE = os.path.join(SCRIPT_DIR, ".injury-state.json")
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+from api_client import api_get
 from config import AutomationConfig
 from formatter import format_injury_alert, format_waiver_alert
 
@@ -38,49 +37,6 @@ from formatter import format_injury_alert, format_waiver_alert
 
 ACTION_NAME = "injury_response"
 DEFAULT_REPLACEMENT_COUNT = 3
-
-
-# ---------------------------------------------------------------------------
-# HTTP helpers
-# ---------------------------------------------------------------------------
-
-
-def api_get(base_url, path, params=None):
-    """Fetch JSON from the Python API server.
-
-    Args:
-        base_url: e.g. "http://localhost:8766"
-        path: e.g. "/api/injury-report"
-        params: optional dict of query params
-
-    Returns:
-        Parsed JSON dict, or dict with "error" key on failure.
-    """
-    try:
-        url = base_url.rstrip("/") + path
-        if params:
-            query_parts = []
-            for key, value in params.items():
-                query_parts.append(
-                    urllib.request.quote(str(key), safe="")
-                    + "="
-                    + urllib.request.quote(str(value), safe="")
-                )
-            url = url + "?" + "&".join(query_parts)
-
-        req = urllib.request.Request(url)
-        req.add_header("Accept", "application/json")
-
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body)
-
-    except urllib.error.HTTPError as e:
-        return {"error": "HTTP " + str(e.code) + " from " + path}
-    except urllib.error.URLError as e:
-        return {"error": "Connection error: " + str(e.reason)}
-    except Exception as e:
-        return {"error": "API request failed: " + str(e)}
 
 
 # ---------------------------------------------------------------------------

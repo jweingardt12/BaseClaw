@@ -7,7 +7,6 @@ import os
 import sqlite3
 import importlib
 import urllib.request
-import random
 from datetime import datetime, date, timedelta
 
 import yahoo_fantasy_api as yfa
@@ -138,6 +137,18 @@ def is_il(player):
 def is_active_slot(player):
     """Check if player is in an active (non-bench, non-IL) slot"""
     return not is_bench(player) and not is_il(player)
+
+
+def is_pitcher_position(positions):
+    """Check if eligible positions indicate a pitcher"""
+    return any(pos in ("SP", "RP", "P") for pos in positions)
+
+
+def _player_z_summary(name):
+    """Get z-score summary for a player: (z_val, tier, per_category_zscores)."""
+    from valuations import get_player_zscore
+    z_info = get_player_zscore(name) or {}
+    return z_info.get("z_final", 0), z_info.get("tier", "Streamable"), z_info.get("per_category_zscores", {})
 
 
 _cached_positions = None
@@ -930,9 +941,7 @@ def cmd_waiver_analyze(args, as_json=False):
             if is_il(p):
                 continue
             name = p.get("name", "Unknown")
-            z_info = get_player_zscore(name)
-            tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
-            z_val = z_info.get("z_final", 0) if z_info else 0
+            z_val, tier, _ = _player_z_summary(name)
             if tier in ("Fringe", "Streamable"):
                 # Check regression signal - don't recommend dropping buy-low candidates
                 reg_signal = None
@@ -3196,12 +3205,9 @@ def cmd_trade_finder(args, as_json=False):
             print("Owned by: " + target_team_name)
 
         # 2. Get z-score info for the target player
-        target_z_info = get_player_zscore(target_player.get("name", target_name))
-        target_z = target_z_info.get("z_final", 0) if target_z_info else 0
-        target_tier = target_z_info.get("tier", "Streamable") if target_z_info else "Streamable"
-        target_per_cat = target_z_info.get("per_category_zscores", {}) if target_z_info else {}
+        target_z, target_tier, target_per_cat = _player_z_summary(target_player.get("name", target_name))
         target_positions = target_player.get("eligible_positions", [])
-        target_is_pitcher = any(pos in ["SP", "RP", "P"] for pos in target_positions)
+        target_is_pitcher = is_pitcher_position(target_positions)
 
         # 3. Analyze what categories the target team is weakest in
         batting_cats = list(DEFAULT_BATTING_CATS)
@@ -3214,11 +3220,8 @@ def cmd_trade_finder(args, as_json=False):
         for p in my_roster:
             name = p.get("name", "Unknown")
             positions = p.get("eligible_positions", [])
-            is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
-            z_info = get_player_zscore(name)
-            z_val = z_info.get("z_final", 0) if z_info else 0
-            tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
-            per_cat = z_info.get("per_category_zscores", {}) if z_info else {}
+            is_pitcher = is_pitcher_position(positions)
+            z_val, tier, per_cat = _player_z_summary(name)
             my_players.append({
                 "name": name,
                 "player_id": str(p.get("player_id", "")),
@@ -3454,11 +3457,8 @@ def _trade_finder_league_scan(lg, team, as_json=False):
     for p in my_roster:
         name = p.get("name", "Unknown")
         positions = p.get("eligible_positions", [])
-        is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
-        z_info = get_player_zscore(name)
-        z_val = z_info.get("z_final", 0) if z_info else 0
-        tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
-        per_cat = z_info.get("per_category_zscores", {}) if z_info else {}
+        is_pitcher = is_pitcher_position(positions)
+        z_val, tier, per_cat = _player_z_summary(name)
         entry = {
             "name": name,
             "player_id": str(p.get("player_id", "")),
@@ -3499,10 +3499,8 @@ def _trade_finder_league_scan(lg, team, as_json=False):
             name = p.get("name", "Unknown")
             pid = str(p.get("player_id", ""))
             status = p.get("status", "")
-            is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
-            z_info = get_player_zscore(name)
-            z_val = z_info.get("z_final", 0) if z_info else 0
-            tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
+            is_pitcher = is_pitcher_position(positions)
+            z_val, tier, _ = _player_z_summary(name)
             entry = {
                 "name": name,
                 "player_id": pid,
@@ -3675,7 +3673,7 @@ def cmd_power_rankings(args, as_json=False):
             total_owned_pct = 0
             for p in roster:
                 positions = p.get("eligible_positions", [])
-                is_pitcher = any(pos in ["SP", "RP", "P"] for pos in positions)
+                is_pitcher = is_pitcher_position(positions)
                 pct = p.get("percent_owned", 0)
                 if isinstance(pct, (int, float)):
                     total_owned_pct += float(pct)
@@ -5110,9 +5108,7 @@ def cmd_il_stash_advisor(args, as_json=False):
                 primary_pos = ep
                 break
 
-        z_info = get_player_zscore(name)
-        z_val = z_info.get("z_final", 0) if z_info else 0
-        tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
+        z_val, tier, _ = _player_z_summary(name)
 
         mlb_inj = mlb_injuries.get(name.lower())
         injury_desc = ""
@@ -5344,10 +5340,10 @@ def cmd_optimal_moves(args, as_json=False):
     for p in roster:
         name = p.get("name", "Unknown")
         pid = str(p.get("player_id", ""))
-        z_info = get_player_zscore(name)
-        z_val = z_info.get("z_final", 0) if z_info else 0
-        tier = z_info.get("tier", "Streamable") if z_info else "Streamable"
-        per_cat = z_info.get("per_category_zscores", {}) if z_info else {}
+        z_info = get_player_zscore(name) or {}
+        z_val = z_info.get("z_final", 0)
+        tier = z_info.get("tier", "Streamable")
+        per_cat = z_info.get("per_category_zscores", {})
         eligible = p.get("eligible_positions", [])
         pos = get_player_position(p)
         is_on_il = is_il(p)
@@ -5361,7 +5357,7 @@ def cmd_optimal_moves(args, as_json=False):
             "eligible_positions": eligible,
             "position": pos,
             "is_il": is_on_il,
-            "pos_type": z_info.get("type", "B") if z_info else "B",
+            "pos_type": z_info.get("type", "B"),
         })
 
     roster_z_total = round(roster_z_total, 2)
@@ -6000,6 +5996,7 @@ def cmd_playoff_planner(args, as_json=False):
 
 def cmd_trash_talk(args, as_json=False):
     """Generate trash talk lines based on your current matchup context"""
+    import random
     intensity = "competitive"
     if args:
         if args[0] in ("friendly", "competitive", "savage"):

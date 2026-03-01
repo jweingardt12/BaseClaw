@@ -19,9 +19,7 @@ Coding conventions: string concatenation (no f-strings),
 .get() for all dict access, try/except with print() for errors.
 """
 
-import json
 import sys
-import urllib.request
 
 # ---------------------------------------------------------------------------
 # Resolve imports from sibling module
@@ -30,6 +28,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from api_client import api_get
 from config import AutomationConfig
 from formatter import (
     format_waiver_alert,
@@ -59,50 +58,6 @@ CLEAR_UPGRADE_THRESHOLD = 0.5
 
 
 # ---------------------------------------------------------------------------
-# HTTP helper
-# ---------------------------------------------------------------------------
-
-
-def api_get(base_url, path, params=None):
-    """Make a GET request to the Python API and return parsed JSON.
-
-    Args:
-        base_url: API base URL (e.g. http://localhost:8766)
-        path: endpoint path (e.g. /api/waiver-analyze)
-        params: dict of query parameters
-
-    Returns:
-        Parsed JSON dict, or dict with "error" key on failure.
-    """
-    url = base_url.rstrip("/") + path
-    if params:
-        query_parts = []
-        for key, value in params.items():
-            query_parts.append(
-                str(key) + "=" + urllib.request.quote(str(value))
-            )
-        url = url + "?" + "&".join(query_parts)
-
-    try:
-        req = urllib.request.Request(url)
-        req.add_header("Accept", "application/json")
-        resp = urllib.request.urlopen(req, timeout=60)
-        body = resp.read().decode("utf-8")
-        return json.loads(body)
-    except urllib.error.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return {"error": "HTTP " + str(e.code) + ": " + error_body}
-    except urllib.error.URLError as e:
-        return {"error": "URL error: " + str(e.reason)}
-    except Exception as e:
-        return {"error": "Request failed: " + str(e)}
-
-
-# ---------------------------------------------------------------------------
 # Data gathering
 # ---------------------------------------------------------------------------
 
@@ -117,11 +72,13 @@ def fetch_waiver_data(base_url):
         base_url,
         "/api/waiver-analyze",
         {"pos_type": "B", "count": str(WAIVER_COUNT)},
+        timeout=60,
     )
     pitcher_data = api_get(
         base_url,
         "/api/waiver-analyze",
         {"pos_type": "P", "count": str(WAIVER_COUNT)},
+        timeout=60,
     )
     return batter_data, pitcher_data
 
@@ -136,6 +93,7 @@ def fetch_optimal_moves(base_url):
         base_url,
         "/api/optimal-moves",
         {"count": str(OPTIMAL_MOVES_COUNT)},
+        timeout=60,
     )
 
 

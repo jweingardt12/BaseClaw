@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mlb_id_cache import get_mlb_id
 import sqlite3
 from shared import MLB_API, mlb_fetch as _mlb_fetch, USER_AGENT, DATA_DIR
+from shared import normalize_player_name as _normalize_name
 
 # Current year for all API calls
 YEAR = date.today().year
@@ -50,25 +51,22 @@ class CacheManager:
         self._stores = {}
 
     def get(self, key, ttl=3600):
-        import time as _time
         entry = self._stores.get(key)
         if entry is None:
             return None
-        if (_time.time() - entry.get("time", 0)) >= ttl:
+        if (time.time() - entry.get("time", 0)) >= ttl:
             entry["misses"] = entry.get("misses", 0) + 1
             return None
         entry["hits"] = entry.get("hits", 0) + 1
         return entry.get("data")
 
     def set(self, key, data, ttl=3600):
-        import time as _time
-        self._stores[key] = {"data": data, "time": _time.time(), "ttl": ttl, "hits": 0, "misses": 0}
+        self._stores[key] = {"data": data, "time": time.time(), "ttl": ttl, "hits": 0, "misses": 0}
 
     def stats(self):
-        import time as _time
         result = {}
         for k, v in self._stores.items():
-            age = int(_time.time() - v.get("time", 0))
+            age = int(time.time() - v.get("time", 0))
             result[k] = {"hits": v.get("hits", 0), "misses": v.get("misses", 0), "age_seconds": age, "ttl": v.get("ttl", 0), "fresh": age < v.get("ttl", 0)}
         return result
 
@@ -1524,19 +1522,6 @@ def get_player_war(player_name):
 # 6. Name Matching Utilities
 # ============================================================
 
-def _normalize_name(name):
-    """Normalize player name for matching across sources"""
-    if not name:
-        return ""
-    name = name.strip().lower()
-    # Handle "Last, First" format from Savant
-    if "," in name:
-        parts = name.split(",", 1)
-        name = parts[1].strip() + " " + parts[0].strip()
-    # Remove Jr., Sr., III, etc.
-    for suffix in [" jr.", " sr.", " iii", " ii", " iv"]:
-        name = name.replace(suffix, "")
-    return name.strip()
 
 
 def _find_in_savant(player_name, savant_data):
@@ -1738,11 +1723,16 @@ def _build_batted_ball_profile(name):
 
     try:
         from pybaseball import pitching_stats
-        year = YEAR
-        df = pitching_stats(year, qual=25)
-        if (df is None or len(df) == 0) and date.today().month < 5:
-            year = YEAR - 1
+        df_cache_key = ("batted_ball_df", YEAR)
+        df = _cache_get(df_cache_key, TTL_FANGRAPHS)
+        if df is None:
+            year = YEAR
             df = pitching_stats(year, qual=25)
+            if (df is None or len(df) == 0) and date.today().month < 5:
+                year = YEAR - 1
+                df = pitching_stats(year, qual=25)
+            if df is not None and len(df) > 0:
+                _cache_set(df_cache_key, df)
         if df is None or len(df) == 0:
             result = {"note": "No FanGraphs pitching data available"}
             _cache_manager.set(cache_key, result, ttl=TTL_FANGRAPHS)

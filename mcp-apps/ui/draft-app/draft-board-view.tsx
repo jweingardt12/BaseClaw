@@ -2,25 +2,9 @@ import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { KpiTile } from "../shared/kpi-tile";
+import type { DraftPick, DraftStatusResponse } from "../../src/api/types";
 
-interface DraftPick {
-  round: number;
-  pick: number;
-  team_key: string;
-  team_name?: string;
-  player_name: string;
-  player_key?: string;
-  position?: string;
-}
-
-interface DraftBoardData {
-  total_picks: number;
-  current_round: number;
-  hitters: number;
-  pitchers: number;
-  draft_results?: DraftPick[];
-  num_teams?: number;
-  your_team_key?: string;
+interface DraftBoardData extends DraftStatusResponse {
   ai_recommendation?: string | null;
 }
 

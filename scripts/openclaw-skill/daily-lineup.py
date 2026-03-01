@@ -9,69 +9,16 @@ Usage:
     python3 scripts/openclaw-skill/daily-lineup.py --dry-run
 """
 
-import json
 import sys
-import urllib.request
-import urllib.error
 
 # Local imports (same package)
 sys.path.insert(0, __import__("os").path.dirname(__file__))
+from api_client import api_get, api_post
 from config import AutomationConfig
 from formatter import format_lineup_summary
 
 
 ACTION_NAME = "daily_lineup"
-
-
-def _api_get(base_url, path, params=None):
-    """Make a GET request, return parsed JSON dict."""
-    url = base_url.rstrip("/") + path
-    if params:
-        query = "&".join(
-            str(k) + "=" + str(v) for k, v in params.items()
-        )
-        url = url + "?" + query
-    try:
-        req = urllib.request.Request(url)
-        resp = urllib.request.urlopen(req, timeout=30)
-        body = resp.read().decode("utf-8")
-        return json.loads(body)
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return {"error": "HTTP " + str(e.code) + ": " + body}
-    except urllib.error.URLError as e:
-        return {"error": "Connection failed: " + str(e.reason)}
-    except Exception as e:
-        return {"error": "Request failed: " + str(e)}
-
-
-def _api_post(base_url, path, payload):
-    """Make a POST request with JSON body, return parsed JSON dict."""
-    url = base_url.rstrip("/") + path
-    try:
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url, data=data, method="POST",
-            headers={"Content-Type": "application/json"}
-        )
-        resp = urllib.request.urlopen(req, timeout=30)
-        body = resp.read().decode("utf-8")
-        return json.loads(body)
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return {"error": "HTTP " + str(e.code) + ": " + body}
-    except urllib.error.URLError as e:
-        return {"error": "Connection failed: " + str(e.reason)}
-    except Exception as e:
-        return {"error": "Request failed: " + str(e)}
 
 
 def _build_moves(swaps):
@@ -106,7 +53,7 @@ def run(dry_run=False):
     api_url = config.get_api_url()
 
     # Step 1: Get lineup optimization data
-    optimize_data = _api_get(api_url, "/api/lineup-optimize")
+    optimize_data = api_get(api_url, "/api/lineup-optimize")
 
     if optimize_data.get("error"):
         msg = format_lineup_summary(optimize_data)
@@ -121,7 +68,7 @@ def run(dry_run=False):
         # Build moves from swaps and apply
         moves = _build_moves(swaps)
         if moves:
-            set_result = _api_post(api_url, "/api/set-lineup", {"moves": moves})
+            set_result = api_post(api_url, "/api/set-lineup", {"moves": moves})
             if set_result.get("error"):
                 # Show the error but still display optimization data
                 print("Failed to apply lineup: " + str(set_result.get("error")))
