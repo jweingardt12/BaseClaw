@@ -82,6 +82,7 @@ async function main() {
 
     app.get("/login", (req, res) => {
       const state = escapeHtml((req.query.state as string) || "");
+      console.log("[AUTH] GET /login state=" + (state ? state.slice(0, 8) + "..." : "(empty)"));
       res.type("html").send(
         "<!DOCTYPE html><html><head><title>Fantasy Baseball MCP</title>"
         + "<style>body{font-family:system-ui;max-width:400px;margin:60px auto;"
@@ -102,6 +103,7 @@ async function main() {
     app.post("/login/callback", express.urlencoded({ extended: false }), (req, res) => {
       const state = (req.body.state as string) || "";
       const password = (req.body.password as string) || "";
+      console.log("[AUTH] POST /login/callback state=" + (state ? state.slice(0, 8) + "..." : "(empty)") + " hasPassword=" + (password.length > 0));
       try {
         const redirectUri = provider.handleLogin(state, password);
         res.redirect(302, redirectUri);

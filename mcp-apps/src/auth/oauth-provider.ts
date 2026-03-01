@@ -73,6 +73,7 @@ export class YahooFantasyOAuthProvider implements OAuthServerProvider {
       scopes: params.scopes || [],
       resource: params.resource,
     });
+    console.log("[AUTH] authorize: stored state=" + state.slice(0, 8) + "... pendingAuths size=" + this.pendingAuths.size);
     res.redirect(this.serverUrl + "/login?state=" + state);
   }
 
@@ -146,6 +147,7 @@ export class YahooFantasyOAuthProvider implements OAuthServerProvider {
   }
 
   handleLogin(state: string, password: string): string {
+    console.log("[AUTH] handleLogin: state=" + state.slice(0, 8) + "... pendingAuths size=" + this.pendingAuths.size + " keys=" + [...this.pendingAuths.keys()].map(k => k.slice(0, 8)).join(","));
     const pending = this.pendingAuths.get(state);
     if (!pending) {
       throw new Error("Invalid state");
