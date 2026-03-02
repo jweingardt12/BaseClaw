@@ -1,5 +1,6 @@
 import { Badge } from "../components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import { cn } from "../lib/utils";
 import { EmptyState } from "../shared/empty-state";
 import { formatFixed } from "../shared/number-format";
 import { PlayerName } from "../shared/player-name";
@@ -21,6 +22,8 @@ interface RosterStatsData {
 
 var BATTER_STATS = ["R", "H", "HR", "RBI", "SB", "AVG", "OBP"];
 var PITCHER_STATS = ["IP", "W", "K", "ERA", "WHIP", "QS", "SV", "HLD"];
+// Stats to hide on mobile to reduce column density
+var HIDE_ON_MOBILE: Record<string, boolean> = { H: true, SB: true, W: true, SV: true, HLD: true };
 var PITCHER_POSITIONS = ["P", "SP", "RP"];
 
 function isPitcher(position: string): boolean {
@@ -56,7 +59,7 @@ function StatsTable({ players, statColumns, app, navigate }: { players: RosterSt
           <TableHead>Name</TableHead>
           <TableHead>Pos</TableHead>
           {statColumns.map(function (stat) {
-            return <TableHead key={stat} className="text-right">{stat}</TableHead>;
+            return <TableHead key={stat} className={cn("text-right", HIDE_ON_MOBILE[stat] && "hidden sm:table-cell")}>{stat}</TableHead>;
           })}
         </TableRow>
       </TableHeader>
@@ -72,7 +75,7 @@ function StatsTable({ players, statColumns, app, navigate }: { players: RosterSt
               </TableCell>
               {statColumns.map(function (stat) {
                 return (
-                  <TableCell key={stat} className="text-right font-mono text-xs">
+                  <TableCell key={stat} className={cn("text-right font-mono text-xs", HIDE_ON_MOBILE[stat] && "hidden sm:table-cell")}>
                     {formatStat((p.stats || {})[stat])}
                   </TableCell>
                 );

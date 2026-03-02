@@ -239,7 +239,7 @@ export function SimulateView({ data, app, navigate }: { data: SimulateData; app:
           <TableHeader>
             <TableRow>
               <TableHead>Category</TableHead>
-              <TableHead className="text-center">Current</TableHead>
+              <TableHead className="text-center hidden sm:table-cell">Current</TableHead>
               <TableHead className="text-center">Simulated</TableHead>
               <TableHead className="text-center">Change</TableHead>
             </TableRow>
@@ -254,7 +254,7 @@ export function SimulateView({ data, app, navigate }: { data: SimulateData; app:
               return (
                 <TableRow key={cr.name + "-" + idx} className={rowClass}>
                   <TableCell className="font-medium">{cr.name}</TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center hidden sm:table-cell">
                     <span className="font-mono">{cr.rank}</span>
                     <span className="text-muted-foreground text-xs">{"/" + cr.total}</span>
                   </TableCell>

@@ -108,7 +108,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
             <TableHeader>
               <TableRow>
                 <TableHead>Player</TableHead>
-                <TableHead>Positions</TableHead>
+                <TableHead className="hidden sm:table-cell">Positions</TableHead>
                 <TableHead className="text-right">% Owned</TableHead>
                 <TableHead className="w-24">Status</TableHead>
                 <TableHead className="w-20"></TableHead>
@@ -128,7 +128,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                         {p.intel && <IntelBadge intel={p.intel} size="sm" />}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <div className="flex gap-1 flex-wrap">
                         {posDisplay.split(",").map((pos) => (
                           <Badge key={pos.trim()} variant="outline" className="text-xs">{pos.trim()}</Badge>

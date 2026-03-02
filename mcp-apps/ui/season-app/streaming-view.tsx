@@ -64,9 +64,9 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
           <TableHeader>
             <TableRow>
               <TableHead>Pitcher</TableHead>
-              <TableHead>Team</TableHead>
+              <TableHead className="hidden sm:table-cell">Team</TableHead>
               <TableHead className="text-center">Games</TableHead>
-              <TableHead className="text-right">Own%</TableHead>
+              <TableHead className="hidden sm:table-cell text-right">Own%</TableHead>
               <TableHead className="text-right">Rec</TableHead>
               <TableHead className="w-16">2-Start</TableHead>
               <TableHead className="w-16"></TableHead>
@@ -81,14 +81,14 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
                     {p.intel && <IntelBadge intel={p.intel} size="sm" />}
                   </span>
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="hidden sm:table-cell text-sm">
                   <span className="flex items-center gap-1">
                     <img src={teamLogoFromAbbrev(p.team)} alt={p.team} width={16} height={16} className="inline shrink-0" />
                     {p.team}
                   </span>
                 </TableCell>
                 <TableCell className="text-center font-mono">{p.games}</TableCell>
-                <TableCell className="text-right font-mono text-xs">
+                <TableCell className="hidden sm:table-cell text-right font-mono text-xs">
                   <span className="inline-flex items-center gap-1 justify-end">
                     {p.percent_owned}%
                     <TrendIndicator trend={p.trend} />

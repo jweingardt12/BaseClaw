@@ -85,10 +85,10 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
           <TableHeader>
             <TableRow>
               <TableHead>Player</TableHead>
-              <TableHead className="text-right">wOBA</TableHead>
-              <TableHead className="text-right">xwOBA</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">wOBA</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">xwOBA</TableHead>
               <TableHead className="text-right">Diff</TableHead>
-              <TableHead className="text-right">PA</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">PA</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -97,12 +97,12 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
               return (
                 <TableRow key={c.name + "-" + i} className={i < 3 ? (isBreakouts ? "bg-green-500/5" : "bg-red-500/5") : ""}>
                   <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{formatFixed(c.woba, 3, "0.000")}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{formatFixed(c.xwoba, 3, "0.000")}</TableCell>
+                  <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{formatFixed(c.woba, 3, "0.000")}</TableCell>
+                  <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{formatFixed(c.xwoba, 3, "0.000")}</TableCell>
                   <TableCell className={"text-right font-mono text-xs font-semibold " + diffColor}>
                     {(isBreakouts ? "+" : "") + formatFixed(c.diff, 3, "0.000")}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs">{c.pa}</TableCell>
+                  <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{c.pa}</TableCell>
                 </TableRow>
               );
             })}

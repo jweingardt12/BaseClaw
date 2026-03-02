@@ -193,12 +193,12 @@ export function LineupOptimizeView({ data, app, navigate }: { data: LineupData; 
           </CardHeader>
           <CardContent>
             {(data.swaps || []).map((s, i) => (
-              <div key={i} className="flex items-center gap-2 py-1">
+              <div key={i} className="flex items-center gap-2 py-1 flex-wrap">
                 <Badge variant="destructive" className="text-xs">Bench</Badge>
-                <span className="text-sm"><PlayerName name={s.bench_player} context="roster" /></span>
-                <ArrowRightLeft size={14} className="text-muted-foreground" />
+                <span className="text-sm min-w-0"><PlayerName name={s.bench_player} context="roster" /></span>
+                <ArrowRightLeft size={14} className="text-muted-foreground shrink-0" />
                 <Badge variant="default" className="text-xs">Start</Badge>
-                <span className="text-sm"><PlayerName name={s.start_player} context="roster" /></span>
+                <span className="text-sm min-w-0"><PlayerName name={s.start_player} context="roster" /></span>
                 <Badge variant="outline" className="text-xs">{s.position}</Badge>
               </div>
             ))}
@@ -213,21 +213,21 @@ export function LineupOptimizeView({ data, app, navigate }: { data: LineupData; 
             <CardTitle className="text-base">Before / After</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-start">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-start min-w-0">
               {/* Before column */}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">Before</p>
                 <div className="space-y-1.5">
                   {(data.swaps || []).map((s, i) => (
-                    <div key={"before-" + i} className="flex items-center gap-1.5">
-                      <Badge variant="outline" className="text-xs min-w-[36px] justify-center">{s.position}</Badge>
-                      <span className="text-sm">{s.start_player}</span>
+                    <div key={"before-" + i} className="flex items-center gap-1.5 min-w-0">
+                      <Badge variant="outline" className="text-xs min-w-[36px] justify-center shrink-0">{s.position}</Badge>
+                      <span className="text-sm truncate">{s.start_player}</span>
                     </div>
                   ))}
                   {(data.swaps || []).map((s, i) => (
-                    <div key={"before-bn-" + i} className="flex items-center gap-1.5">
-                      <Badge variant="secondary" className="text-xs min-w-[36px] justify-center">BN</Badge>
-                      <span className="text-sm text-muted-foreground">{s.bench_player}</span>
+                    <div key={"before-bn-" + i} className="flex items-center gap-1.5 min-w-0">
+                      <Badge variant="secondary" className="text-xs min-w-[36px] justify-center shrink-0">BN</Badge>
+                      <span className="text-sm text-muted-foreground truncate">{s.bench_player}</span>
                     </div>
                   ))}
                 </div>
@@ -241,15 +241,15 @@ export function LineupOptimizeView({ data, app, navigate }: { data: LineupData; 
                 <p className="text-xs font-medium text-muted-foreground mb-2">After</p>
                 <div className="space-y-1.5">
                   {(data.swaps || []).map((s, i) => (
-                    <div key={"after-" + i} className="flex items-center gap-1.5">
-                      <Badge variant="default" className="text-xs min-w-[36px] justify-center">{s.position}</Badge>
-                      <span className="text-sm font-medium">{s.bench_player}</span>
+                    <div key={"after-" + i} className="flex items-center gap-1.5 min-w-0">
+                      <Badge variant="default" className="text-xs min-w-[36px] justify-center shrink-0">{s.position}</Badge>
+                      <span className="text-sm font-medium truncate">{s.bench_player}</span>
                     </div>
                   ))}
                   {(data.swaps || []).map((s, i) => (
-                    <div key={"after-bn-" + i} className="flex items-center gap-1.5">
-                      <Badge variant="secondary" className="text-xs min-w-[36px] justify-center">BN</Badge>
-                      <span className="text-sm text-muted-foreground">{s.start_player}</span>
+                    <div key={"after-bn-" + i} className="flex items-center gap-1.5 min-w-0">
+                      <Badge variant="secondary" className="text-xs min-w-[36px] justify-center shrink-0">BN</Badge>
+                      <span className="text-sm text-muted-foreground truncate">{s.start_player}</span>
                     </div>
                   ))}
                 </div>

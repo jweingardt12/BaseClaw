@@ -55,9 +55,9 @@ export function PlayerName({ name, playerId, mlbId, app, navigate, context, show
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <span className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80">
+        <span className="inline-flex items-center gap-1.5 min-w-0 cursor-pointer hover:opacity-80">
           {headshot}
-          <span className="border-b border-dashed border-muted-foreground/50">{name}</span>
+          <span className="truncate border-b border-dashed border-muted-foreground/50">{name}</span>
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent>

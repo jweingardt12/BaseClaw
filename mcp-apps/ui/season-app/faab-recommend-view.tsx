@@ -147,8 +147,8 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
           <TableHeader>
             <TableRow>
               <TableHead>Category</TableHead>
-              <TableHead className="text-right">Add Z</TableHead>
-              <TableHead className="text-right">Drop Z</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Add Z</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Drop Z</TableHead>
               <TableHead className="text-right">Delta</TableHead>
               <TableHead className="text-center">Dir</TableHead>
             </TableRow>
@@ -159,8 +159,8 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
               return (
                 <TableRow key={cat}>
                   <TableCell className="font-medium">{cat}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{formatFixed(row.add_z, 2, "0.00")}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{formatFixed(row.drop_z, 2, "0.00")}</TableCell>
+                  <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{formatFixed(row.add_z, 2, "0.00")}</TableCell>
+                  <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{formatFixed(row.drop_z, 2, "0.00")}</TableCell>
                   <TableCell className={"text-right font-mono text-xs font-semibold " + directionColor(row.direction)}>
                     {row.delta >= 0 ? "+" : ""}{formatFixed(row.delta, 2, "0.00")}
                   </TableCell>

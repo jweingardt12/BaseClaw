@@ -207,9 +207,9 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
           <TableHeader>
             <TableRow>
               <TableHead>Player</TableHead>
-              <TableHead>Positions</TableHead>
+              <TableHead className="hidden sm:table-cell">Positions</TableHead>
               <TableHead className="text-right">Own%</TableHead>
-              <TableHead className="text-right">Rec</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Rec</TableHead>
               <TableHead className="hidden sm:table-cell w-20">Status</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
@@ -228,7 +228,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                       {p.intel && <IntelBadge intel={p.intel} size="sm" />}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <div className="flex gap-1 flex-wrap">
                       {p.positions.split(",").map((pos) => (
                         <Badge key={pos.trim()} variant="outline" className="text-xs">{pos.trim()}</Badge>
@@ -241,7 +241,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                       <TrendIndicator trend={p.trend} />
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right hidden sm:table-cell">
                     <ScoreBar score={p.score} maxScore={maxScore} />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
