@@ -2,12 +2,10 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } fr
 import { fetchViewData, createLiveApp } from "./live-data";
 import { createMockApp } from "./mock-app";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { VIEW_GROUPS } from "./view-registry";
+import { VIEW_GROUPS, type ViewDef } from "./view-registry";
 
-import "../globals.css";
+import "./preview.css";
 
 // Error boundary to catch view crashes
 class ViewErrorBoundary extends React.Component<
@@ -77,27 +75,20 @@ function DataSourceToggle({ dataSource, setDataSource, className }: {
   className?: string;
 }) {
   return (
-    <div className={cn("inline-flex items-center rounded-md border border-border/60 bg-muted/40 p-0.5 gap-0.5", className)}>
+    <div className={"pv-toggle-wrap" + (className ? " " + className : "")}>
       <button
         onClick={() => setDataSource("mock")}
-        className={cn(
-          "h-8 rounded-sm px-3 text-sm font-bold transition-all cursor-pointer border-none",
-          dataSource === "mock"
-            ? "bg-background shadow-sm text-primary"
-            : "bg-transparent text-muted-foreground hover:text-foreground"
-        )}
+        className="pv-toggle-btn"
+        data-active={dataSource === "mock"}
       >
         Mock
       </button>
       <button
         onClick={() => setDataSource("live")}
-        className={cn(
-          "h-8 rounded-sm px-3 text-sm font-bold transition-all cursor-pointer border-none",
-          dataSource === "live"
-            ? "bg-background shadow-sm text-primary"
-            : "bg-transparent text-muted-foreground hover:text-foreground"
-        )}
+        className="pv-toggle-btn"
+        data-active={dataSource === "live"}
       >
+        {dataSource === "live" && <span className="pv-live-dot" />}
         Live
       </button>
     </div>
@@ -108,8 +99,8 @@ function DarkModeToggle({ darkMode, setDarkMode }: { darkMode: boolean; setDarkM
   return (
     <button
       onClick={() => setDarkMode(!darkMode)}
-      title={darkMode ? "Day Game" : "Night Game"}
-      className="h-8 w-8 flex items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all cursor-pointer shrink-0"
+      title={darkMode ? "Light mode" : "Dark mode"}
+      className="pv-dark-toggle"
     >
       {darkMode ? <SunIcon /> : <MoonIcon />}
     </button>
@@ -241,22 +232,22 @@ function PreviewApp() {
   };
 
   return (
-    <div className="preview-shell flex h-[100dvh] -m-3 overflow-hidden bg-background text-foreground" style={{ fontSize: "1rem" }}>
+    <div className="preview-shell flex h-[100dvh] -m-3 overflow-hidden text-foreground" style={{ fontSize: "1rem", background: "var(--pv-bg-deep)" }}>
       {/* Mobile top bar */}
       <div
-        className="sm:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2"
+        className="pv-mobile-bar sm:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-2 px-3 py-2"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
-            className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition-colors cursor-pointer border-none bg-transparent shrink-0"
+            className="pv-dark-toggle shrink-0"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             <span className="text-base leading-none">{sidebarOpen ? "\u2715" : "\u2630"}</span>
           </button>
           <div className="min-w-0">
-            <p className="app-kicker leading-none">{activeGroup ? activeGroup.name : "Preview"}</p>
-            <p className="text-sm font-semibold truncate">{view ? view.label : "Select a view"}</p>
+            <p className="pv-header-kicker">{activeGroup ? activeGroup.name : "Preview"}</p>
+            <p className="pv-brand-name">{view ? view.label : "Select a view"}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -268,7 +259,7 @@ function PreviewApp() {
       {/* Mobile sidebar overlay backdrop */}
       {sidebarOpen && (
         <div
-          className="sm:hidden fixed inset-0 z-40 bg-background/70"
+          className="pv-overlay-backdrop sm:hidden fixed inset-0 z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -276,7 +267,7 @@ function PreviewApp() {
       {/* Sidebar */}
       <nav
         className={
-          "w-72 max-w-[86vw] flex-shrink-0 border-r border-border bg-card flex flex-col z-50 "
+          "pv-sidebar w-72 max-w-[86vw] flex-shrink-0 flex flex-col z-50 "
           + "sm:relative sm:block sm:h-full "
           + (sidebarOpen
             ? "fixed top-0 left-0 bottom-0"
@@ -284,24 +275,28 @@ function PreviewApp() {
         }
         style={sidebarOpen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
       >
-        {/* Sidebar header */}
-        <div className="flex-shrink-0 border-b border-border/60 px-3 py-3">
-          <div className="flex items-center justify-between mb-3">
+        {/* Sidebar branding */}
+        <div className="pv-brand flex-shrink-0">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <button
-                className="sm:hidden h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer border-none bg-transparent shrink-0"
+                className="pv-dark-toggle sm:hidden shrink-0"
                 onClick={() => setSidebarOpen(false)}
               >
                 <span className="text-base leading-none">{"\u2715"}</span>
               </button>
-              <h1 className="text-sm font-semibold truncate text-primary">Fantasy Preview</h1>
+              <div>
+                <div className="pv-brand-name">BaseClaw</div>
+                <div className="pv-brand-sub">Fantasy Baseball</div>
+              </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <Badge variant="outline" className="text-xs">{allViews.length}</Badge>
               <DarkModeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
             </div>
           </div>
-          <DataSourceToggle dataSource={dataSource} setDataSource={setDataSource} className="w-full" />
+          <div className="mt-2.5">
+            <DataSourceToggle dataSource={dataSource} setDataSource={setDataSource} className="w-full" />
+          </div>
         </div>
 
         {/* Scrollable groups */}
@@ -317,38 +312,28 @@ function PreviewApp() {
               <div key={group.name} className="mb-1">
                 <button
                   onClick={() => toggleGroup(group.name)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2.5 rounded-md text-left border-none cursor-pointer transition-colors",
-                    "text-xs font-semibold",
-                    isActiveGroup
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                  )}
+                  className="pv-group-header"
+                  data-active={isActiveGroup ? "true" : "false"}
                 >
                   <span>{group.name}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-primary/15 text-primary rounded-md px-2 py-px font-bold tabular-nums">
+                    <span className="pv-group-count">
                       {group.views.length}
                     </span>
-                    <span className={cn("text-xs text-primary/60 transition-transform duration-150", isCollapsed ? "" : "rotate-90")}>
+                    <span className="pv-chevron" data-open={!isCollapsed ? "true" : "false"}>
                       {"\u25B6"}
                     </span>
                   </div>
                 </button>
                 {!isCollapsed && (
-                  <div className="mt-0.5 ml-1">
+                  <div className="pv-view-list mt-0.5 ml-1">
                     {group.views.map((v) => (
                       <button
                         key={v.id}
                         ref={activeView === v.id ? activeItemRef : undefined}
                         onClick={() => handleSelectView(v.id)}
-                        className={cn(
-                          "block w-full text-left pl-4 pr-3 py-2.5 rounded-r-md text-sm transition-colors mb-px border-none cursor-pointer border-l-2",
-                          activeView === v.id
-                            ? "bg-primary/15 text-primary font-bold border-l-primary"
-                            : "text-foreground/70 hover:bg-accent/60 hover:text-foreground bg-transparent border-l-transparent"
-                        )}
-                        style={{ borderLeftStyle: "solid" }}
+                        className="pv-view-item"
+                        data-active={activeView === v.id ? "true" : "false"}
                       >
                         {v.label}
                       </button>
@@ -363,22 +348,18 @@ function PreviewApp() {
 
       {/* Main content */}
       <main
-        className="flex-1 min-w-0 overflow-y-auto overscroll-contain bg-[color:var(--color-surface-2)] h-full pt-[env(safe-area-inset-top)]"
+        className="pv-content-area flex-1 min-w-0 overflow-y-auto overscroll-contain h-full pt-[env(safe-area-inset-top)]"
         style={{ WebkitOverflowScrolling: "touch" } as any}
       >
-        <div className="p-3 sm:p-4 pt-14 sm:pt-4">
-          <div className="w-full">
-            <Card size="sm" className="mb-4">
-              <CardContent className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="app-kicker text-primary">{activeGroup ? activeGroup.name : "Preview"}</p>
-                  <h2 className="truncate text-base font-bold">{view ? view.label : "Select a view"}</h2>
-                </div>
-                <div className="hidden sm:flex items-center gap-2">
-                  <DataSourceToggle dataSource={dataSource} setDataSource={setDataSource} />
-                </div>
-              </CardContent>
-            </Card>
+        <div className="p-4 sm:p-6 lg:p-8 pt-14 sm:pt-6 lg:pt-8">
+          <div style={{ maxWidth: "920px", margin: "0 auto" }}>
+            {/* Content header */}
+            <div className="pv-header">
+              <div className="min-w-0">
+                <p className="pv-header-kicker">{activeGroup ? activeGroup.name : "Preview"}</p>
+                <h2 className="pv-header-title">{view ? view.label : "Select a view"}</h2>
+              </div>
+            </div>
 
             {dataSource === "live" && liveLoading ? (
               <LoadingSpinner />
@@ -415,6 +396,7 @@ function PreviewApp() {
     </div>
   );
 }
+
 
 function ViewRenderer({ view, data, app, navigate }: { view: ViewDef; data: any; app: any; navigate: (d: any) => void }) {
   const Component = view.component;
