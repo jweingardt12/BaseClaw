@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import { fetchViewData, createLiveApp } from "./live-data";
+import { createMockApp } from "./mock-app";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,8 +8,6 @@ import { cn } from "@/lib/utils";
 import { VIEW_GROUPS } from "./view-registry";
 
 import "../globals.css";
-
-function noop() {}
 
 // Error boundary to catch view crashes
 class ViewErrorBoundary extends React.Component<
@@ -120,12 +119,19 @@ function DarkModeToggle({ darkMode, setDarkMode }: { darkMode: boolean; setDarkM
 function PreviewApp() {
   const [activeView, setActiveView] = useState("matchup-detail");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [dataSource, setDataSource] = useState<"mock" | "live">("mock");
+  const [dataSource, setDataSourceRaw] = useState<"mock" | "live">("mock");
+  const setDataSource = useCallback((v: "mock" | "live") => {
+    setDataSourceRaw(v);
+    setOverlayData(null);
+  }, []);
   const [liveData, setLiveData] = useState<any>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [liveApp] = useState(() => createLiveApp());
   const [mockData, setMockData] = useState<Record<string, any> | null>(null);
+  const [overlayData, setOverlayData] = useState<any>(null);
+  const mockDataRef = useRef<Record<string, any> | null>(null);
+  const [mockApp] = useState(() => createMockApp(function () { return mockDataRef.current; }));
   const [darkMode, setDarkMode] = useState(() => {
     try { var v = localStorage.getItem("preview-dark"); return v === null ? true : v === "1"; } catch { return true; }
   });
@@ -161,7 +167,7 @@ function PreviewApp() {
   // Lazy-load mock data
   useEffect(() => {
     if (dataSource === "mock" && !mockData) {
-      import("./mock-data").then(m => setMockData(m.MOCK_DATA));
+      import("./mock-data").then(m => { setMockData(m.MOCK_DATA); mockDataRef.current = m.MOCK_DATA; });
     }
   }, [dataSource, mockData]);
 
@@ -198,8 +204,15 @@ function PreviewApp() {
     };
   }, [activeView]);
 
-  const currentData = dataSource === "live" ? liveData : (mockData ? mockData[activeView] : null);
-  const handleNavigate = useCallback((newData: any) => setLiveData(newData), []);
+  const baseData = dataSource === "live" ? liveData : (mockData ? mockData[activeView] : null);
+  const currentData = overlayData || baseData;
+  const handleNavigate = useCallback((newData: any) => {
+    if (dataSource === "live") {
+      setLiveData(newData);
+    } else {
+      setOverlayData(newData);
+    }
+  }, [dataSource]);
 
   const toggleGroup = (groupName: string) => {
     setCollapsedGroups(prev => {
@@ -215,6 +228,7 @@ function PreviewApp() {
 
   const handleSelectView = (viewId: string) => {
     setActiveView(viewId);
+    setOverlayData(null);
     setSidebarOpen(false);
     const group = VIEW_GROUPS.find(g => g.views.some(v => v.id === viewId));
     if (group && collapsedGroups.has(group.name)) {
@@ -380,7 +394,7 @@ function PreviewApp() {
             ) : view && currentData ? (
               <ViewErrorBoundary key={activeView} viewId={activeView}>
                 <Suspense fallback={<LoadingSpinner />}>
-                  <ViewRenderer view={view} data={currentData} app={dataSource === "live" ? liveApp : null} navigate={dataSource === "live" ? handleNavigate : noop} />
+                  <ViewRenderer view={view} data={currentData} app={dataSource === "live" ? liveApp : mockApp} navigate={handleNavigate} />
                 </Suspense>
               </ViewErrorBoundary>
             ) : (

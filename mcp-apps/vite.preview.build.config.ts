@@ -13,7 +13,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "ui"),
     },
   },
-  base: "/preview/",
+  base: process.env.VITE_BASE || "/preview/",
   build: {
     outDir: "dist/preview",
     emptyOutDir: true,
