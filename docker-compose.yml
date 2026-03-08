@@ -26,3 +26,13 @@ services:
     tty: true
     stdin_open: true
     restart: unless-stopped
+
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "${DASHBOARD_PORT:-4952}:80"
+    depends_on:
+      - api
+    profiles:
+      - dashboard
+    restart: unless-stopped
