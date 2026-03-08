@@ -12,6 +12,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line } from "recharts";
 import { Loader2, AlertTriangle, CheckCircle, Info, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { TeamAvatar } from "@/components/team-avatar";
 import * as api from "@/lib/api";
 
 export function HomePage() {
@@ -237,7 +238,12 @@ export function HomePage() {
           <CardHeader>
             <CardTitle>Current Matchup</CardTitle>
             <CardDescription>
-              {matchup.data ? `vs ${matchup.data.opponent}` : "This week's head-to-head"}
+              {matchup.data ? (
+                <span className="flex items-center gap-2">
+                  <TeamAvatar teamName={matchup.data.opponent} size="sm" />
+                  vs {matchup.data.opponent}
+                </span>
+              ) : "This week's head-to-head"}
             </CardDescription>
           </CardHeader>
           <CardContent>

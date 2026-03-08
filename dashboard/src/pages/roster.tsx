@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, LineChart, Line, XAxis, YAxis } from "recharts";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PlayerAvatar } from "@/components/player-avatar";
 import * as api from "@/lib/api";
 import type { RosterPlayer } from "@/lib/api";
 
@@ -76,9 +77,12 @@ export function RosterPage() {
                           <Badge variant="outline" className="text-xs">{player.slot}</Badge>
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{player.name}</p>
-                            <p className="text-xs text-muted-foreground">{player.position}</p>
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={player.name} mlbId={player.mlb_id} size="sm" />
+                            <div>
+                              <p className="font-medium">{player.name}</p>
+                              <p className="text-xs text-muted-foreground">{player.position}</p>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">{player.team}</TableCell>
@@ -127,6 +131,7 @@ export function RosterPage() {
                     <CardContent className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">{player.slot}</Badge>
+                        <PlayerAvatar name={player.name} mlbId={player.mlb_id} size="sm" />
                         <div>
                           <p className="font-medium text-sm">{player.name}</p>
                           <p className="text-xs text-muted-foreground">{player.team} · {player.position}</p>
@@ -158,12 +163,15 @@ export function RosterPage() {
           </SheetHeader>
           {selectedPlayer && (
             <div className="space-y-6 pt-4">
-              <div className="flex gap-2">
-                <Badge>{selectedPlayer.position}</Badge>
-                <Badge variant="outline">{selectedPlayer.team}</Badge>
-                <Badge variant={selectedPlayer.status === "active" ? "default" : "destructive"}>
-                  {selectedPlayer.status}
-                </Badge>
+              <div className="flex items-center gap-3">
+                <PlayerAvatar name={selectedPlayer.name} mlbId={selectedPlayer.mlb_id} size="lg" />
+                <div className="flex flex-wrap gap-2">
+                  <Badge>{selectedPlayer.position}</Badge>
+                  <Badge variant="outline">{selectedPlayer.team}</Badge>
+                  <Badge variant={selectedPlayer.status === "active" ? "default" : "destructive"}>
+                    {selectedPlayer.status}
+                  </Badge>
+                </div>
               </div>
 
               {/* Statcast Radar */}

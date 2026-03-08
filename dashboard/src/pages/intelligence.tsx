@@ -9,6 +9,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, LineChart, Line, XAxis, YAxis, BarChart, Bar, Legend } from "recharts";
 import { Search, TrendingUp, TrendingDown } from "lucide-react";
+import { PlayerAvatar } from "@/components/player-avatar";
 import * as api from "@/lib/api";
 
 export function IntelligencePage() {
@@ -70,8 +71,13 @@ export function IntelligencePage() {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{report.data.player.name}</CardTitle>
-                  <CardDescription>{report.data.player.team} · {report.data.player.position}</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <PlayerAvatar name={report.data.player.name} mlbId={report.data.player.mlb_id} size="lg" />
+                    <div>
+                      <CardTitle>{report.data.player.name}</CardTitle>
+                      <CardDescription>{report.data.player.team} · {report.data.player.position}</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm mb-4">{report.data.analysis}</p>
@@ -145,7 +151,10 @@ export function IntelligencePage() {
                   <Card key={b.player.name}>
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="font-medium text-sm">{b.player.name}</p>
+                        <div className="flex items-center gap-2">
+                          <PlayerAvatar name={b.player.name} mlbId={b.player.mlb_id} size="sm" />
+                          <p className="font-medium text-sm">{b.player.name}</p>
+                        </div>
                         <Badge variant="default">{Math.round(b.confidence * 100)}%</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{b.player.team} · {b.player.position}</p>
@@ -168,7 +177,10 @@ export function IntelligencePage() {
                   <Card key={b.player.name}>
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="font-medium text-sm">{b.player.name}</p>
+                        <div className="flex items-center gap-2">
+                          <PlayerAvatar name={b.player.name} mlbId={b.player.mlb_id} size="sm" />
+                          <p className="font-medium text-sm">{b.player.name}</p>
+                        </div>
                         <Badge variant="destructive">{Math.round(b.confidence * 100)}%</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{b.player.team} · {b.player.position}</p>

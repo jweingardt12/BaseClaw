@@ -16,6 +16,7 @@ export interface Player {
   position: string;
   status: "active" | "bench" | "IL" | "NA";
   stats: Record<string, number>;
+  mlb_id?: number;
   statcast?: Record<string, number>;
   trends?: { date: string; value: number }[];
   splits?: { split: string; stats: Record<string, number> }[];
@@ -44,6 +45,8 @@ export interface Standing {
   powerRank: number;
   playoffPct: number;
   trend: { week: number; wins: number; losses: number }[];
+  team_logo?: string;
+  manager_image?: string;
 }
 
 export interface MorningBriefing {

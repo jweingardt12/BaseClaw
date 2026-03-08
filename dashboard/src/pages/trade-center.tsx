@@ -10,6 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Check, X, Search, Loader2 } from "lucide-react";
+import { TeamAvatar } from "@/components/team-avatar";
 import * as api from "@/lib/api";
 
 export function TradeCenterPage() {
@@ -67,7 +68,10 @@ export function TradeCenterPage() {
               <Card key={trade.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Trade with {trade.partner}</CardTitle>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <TeamAvatar teamName={trade.partner} size="sm" />
+                      Trade with {trade.partner}
+                    </CardTitle>
                     <Badge variant={
                       trade.grade.startsWith("A") ? "default" :
                       trade.grade.startsWith("B") ? "secondary" :

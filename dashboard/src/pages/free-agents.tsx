@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { UserPlus, Search } from "lucide-react";
+import { PlayerAvatar } from "@/components/player-avatar";
 import * as api from "@/lib/api";
 import type { FreeAgent } from "@/lib/api";
 
@@ -108,6 +109,7 @@ export function FreeAgentsPage() {
                   <Card key={player.name}>
                     <CardContent className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-3">
+                        <PlayerAvatar name={player.name} mlbId={player.mlb_id} size="sm" />
                         <div>
                           <p className="font-medium text-sm">{player.name}</p>
                           <p className="text-xs text-muted-foreground">

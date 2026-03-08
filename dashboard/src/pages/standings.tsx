@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, AreaChart, Area, CartesianGrid } from "recharts";
+import { TeamAvatar } from "@/components/team-avatar";
 import * as api from "@/lib/api";
 
 export function StandingsPage() {
@@ -46,7 +47,12 @@ export function StandingsPage() {
                   {standings.data?.map((team) => (
                     <TableRow key={team.team}>
                       <TableCell className="font-medium">{team.rank}</TableCell>
-                      <TableCell className="font-medium">{team.team}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <TeamAvatar teamName={team.team} teamLogoUrl={team.team_logo} managerImageUrl={team.manager_image} size="sm" />
+                          {team.team}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">{team.wins}</TableCell>
                       <TableCell className="text-center">{team.losses}</TableCell>
                       <TableCell className="text-center hidden sm:table-cell">{team.ties}</TableCell>
@@ -80,7 +86,12 @@ export function StandingsPage() {
                 <TableBody>
                   {standings.data?.map((team) => (
                     <TableRow key={team.team}>
-                      <TableCell className="font-medium text-sm">{team.team}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        <div className="flex items-center gap-2">
+                          <TeamAvatar teamName={team.team} teamLogoUrl={team.team_logo} managerImageUrl={team.manager_image} size="sm" />
+                          {team.team}
+                        </div>
+                      </TableCell>
                       {allCategories.map((cat) => {
                         const { rank } = team.categories[cat];
                         const total = standings.data!.length;
