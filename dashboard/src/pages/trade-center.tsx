@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { ChartContainer } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, Legend } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Check, X, Search, Loader2 } from "lucide-react";
 import * as api from "@/lib/api";
 
@@ -207,19 +207,27 @@ export function TradeCenterPage() {
             <Card>
               <CardHeader><CardTitle className="text-sm">Impact Analysis</CardTitle></CardHeader>
               <CardContent>
-                <ChartContainer config={{ before: { color: "var(--chart-negative)" }, after: { color: "var(--chart-positive)" } }} className="h-48 w-full">
-                  <BarChart data={[
+                <ChartContainer
+                  config={{
+                    before: { label: "Before", color: "hsl(var(--chart-2))" },
+                    after: { label: "After", color: "hsl(var(--chart-1))" },
+                  }}
+                  className="h-48 w-full"
+                >
+                  <BarChart accessibilityLayer data={[
                     { cat: "HR", before: 85, after: 92 },
                     { cat: "RBI", before: 78, after: 88 },
                     { cat: "AVG", before: 90, after: 82 },
                     { cat: "SB", before: 65, after: 70 },
                     { cat: "W", before: 72, after: 75 },
                   ]}>
-                    <XAxis dataKey="cat" />
-                    <YAxis />
-                    <Legend />
+                    <XAxis dataKey="cat" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={30} />
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <Bar dataKey="before" fill="var(--color-before)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="after" fill="var(--color-after)" radius={[4, 4, 0, 0]} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
                   </BarChart>
                 </ChartContainer>
               </CardContent>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 import { AppShell } from "@/components/app-shell";
 import { HomePage } from "@/pages/home";
 import { RosterPage } from "@/pages/roster";
@@ -21,25 +22,27 @@ const queryClient = new QueryClient({
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route index element={<HomePage />} />
-              <Route path="roster" element={<RosterPage />} />
-              <Route path="free-agents" element={<FreeAgentsPage />} />
-              <Route path="standings" element={<StandingsPage />} />
-              <Route path="trade-center" element={<TradeCenterPage />} />
-              <Route path="intelligence" element={<IntelligencePage />} />
-              <Route path="week-planner" element={<WeekPlannerPage />} />
-              <Route path="league-history" element={<LeagueHistoryPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="system" storageKey="baseclaw-ui-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider delayDuration={200}>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route index element={<HomePage />} />
+                <Route path="roster" element={<RosterPage />} />
+                <Route path="free-agents" element={<FreeAgentsPage />} />
+                <Route path="standings" element={<StandingsPage />} />
+                <Route path="trade-center" element={<TradeCenterPage />} />
+                <Route path="intelligence" element={<IntelligencePage />} />
+                <Route path="week-planner" element={<WeekPlannerPage />} />
+                <Route path="league-history" element={<LeagueHistoryPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+            </Routes>
+            <Toaster richColors closeButton position="top-right" />
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

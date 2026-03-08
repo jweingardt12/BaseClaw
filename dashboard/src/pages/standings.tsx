@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { ChartContainer } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, AreaChart, Area } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, AreaChart, Area, CartesianGrid } from "recharts";
 import * as api from "@/lib/api";
 
 export function StandingsPage() {
@@ -110,14 +110,16 @@ export function StandingsPage() {
             <Card>
               <CardHeader><CardTitle>Power Rankings</CardTitle></CardHeader>
               <CardContent>
-                <ChartContainer config={{ powerRank: { color: "var(--chart-1)" } }} className="h-64 w-full">
-                  <BarChart
+                <ChartContainer config={{ powerRank: { label: "Power Rank", color: "hsl(var(--chart-1))" } }} className="h-64 w-full">
+                  <BarChart accessibilityLayer
                     data={standings.data?.map((t) => ({ team: t.team, powerRank: t.powerRank })).sort((a, b) => b.powerRank - a.powerRank)}
                     layout="vertical"
                   >
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="team" width={100} className="text-xs" />
+                    <XAxis type="number" tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="team" width={110} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                     <Bar dataKey="powerRank" fill="var(--color-powerRank)" radius={[0, 4, 4, 0]} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
                   </BarChart>
                 </ChartContainer>
               </CardContent>
@@ -128,12 +130,21 @@ export function StandingsPage() {
               <CardHeader><CardTitle>Win Trend (Your Team)</CardTitle></CardHeader>
               <CardContent>
                 {standings.data?.[0]?.trend && (
-                  <ChartContainer config={{ wins: { color: "var(--chart-positive)" }, losses: { color: "var(--chart-negative)" } }} className="h-64 w-full">
-                    <AreaChart data={standings.data[0].trend}>
-                      <XAxis dataKey="week" className="text-xs" />
-                      <YAxis />
-                      <Area type="monotone" dataKey="wins" fill="var(--color-wins)" fillOpacity={0.3} stroke="var(--color-wins)" />
-                      <Area type="monotone" dataKey="losses" fill="var(--color-losses)" fillOpacity={0.3} stroke="var(--color-losses)" />
+                  <ChartContainer
+                    config={{
+                      wins: { label: "Wins", color: "var(--chart-positive)" },
+                      losses: { label: "Losses", color: "var(--chart-negative)" },
+                    }}
+                    className="h-64 w-full"
+                  >
+                    <AreaChart accessibilityLayer data={standings.data[0].trend}>
+                      <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={30} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <Area type="monotone" dataKey="wins" fill="var(--color-wins)" fillOpacity={0.2} stroke="var(--color-wins)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="losses" fill="var(--color-losses)" fillOpacity={0.2} stroke="var(--color-losses)" strokeWidth={2} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
                     </AreaChart>
                   </ChartContainer>
                 )}

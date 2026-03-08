@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChartContainer } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, LineChart, Line, XAxis, YAxis } from "recharts";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import * as api from "@/lib/api";
 import type { RosterPlayer } from "@/lib/api";
 
@@ -92,17 +93,24 @@ export function RosterPage() {
                             {player.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <Button size="sm" variant="ghost" disabled={!isWriteEnabled} onClick={(e) => { e.stopPropagation(); api.dropPlayer(player.name); }}>
+                            <TooltipTrigger asChild>
+                              <span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={!isWriteEnabled}
+                                  onClick={() => api.dropPlayer(player.name)}
+                                >
                                   Drop
                                 </Button>
-                              }
-                            />
+                              </span>
+                            </TooltipTrigger>
                             {!isWriteEnabled && (
-                              <TooltipContent>Write operations disabled</TooltipContent>
+                              <TooltipContent>
+                                Write operations disabled. Enable in Settings.
+                              </TooltipContent>
                             )}
                           </Tooltip>
                         </TableCell>
@@ -163,11 +171,15 @@ export function RosterPage() {
                 <Card>
                   <CardHeader><CardTitle className="text-sm">Statcast Profile</CardTitle></CardHeader>
                   <CardContent>
-                    <ChartContainer config={{ value: { color: "var(--chart-1)" } }} className="h-56 w-full">
-                      <RadarChart data={Object.entries(selectedPlayer.statcast).map(([key, value]) => ({ metric: key, value }))}>
+                    <ChartContainer config={{ value: { color: "hsl(var(--chart-1))" } }} className="h-56 w-full">
+                      <RadarChart
+                        accessibilityLayer
+                        data={Object.entries(selectedPlayer.statcast).map(([key, value]) => ({ metric: key, value }))}
+                      >
                         <PolarGrid />
-                        <PolarAngleAxis dataKey="metric" className="text-xs" />
-                        <Radar dataKey="value" fill="var(--color-value)" fillOpacity={0.3} stroke="var(--color-value)" />
+                        <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11 }} />
+                        <Radar dataKey="value" fill="var(--color-value)" fillOpacity={0.3} stroke="var(--color-value)" strokeWidth={2} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
                       </RadarChart>
                     </ChartContainer>
                   </CardContent>
@@ -179,11 +191,12 @@ export function RosterPage() {
                 <Card>
                   <CardHeader><CardTitle className="text-sm">Performance Trend</CardTitle></CardHeader>
                   <CardContent>
-                    <ChartContainer config={{ value: { color: "var(--chart-2)" } }} className="h-40 w-full">
-                      <LineChart data={selectedPlayer.trends}>
-                        <XAxis dataKey="date" className="text-xs" />
-                        <YAxis />
+                    <ChartContainer config={{ value: { color: "hsl(var(--chart-2))" } }} className="h-40 w-full">
+                      <LineChart accessibilityLayer data={selectedPlayer.trends}>
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
                         <Line type="monotone" dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
                       </LineChart>
                     </ChartContainer>
                   </CardContent>
