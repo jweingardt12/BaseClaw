@@ -6,7 +6,7 @@
 
 Your fantasy baseball team, managed by AI.
 
-BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league — your roster, the waiver wire, Statcast data, trade analytics, and 114 tools to act on it all. Ask questions in plain English or let an autonomous agent run your team on autopilot.
+BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league — your roster, the waiver wire, Statcast data, trade analytics, and 126 tools to act on it all. Ask questions in plain English or let an autonomous agent run your team on autopilot.
 
 ## Table of Contents
 
@@ -65,7 +65,7 @@ Claude decides which tools to call based on your question. Complex questions cha
 
 4. **Browser automation** — Write operations (add, drop, trade, lineup changes) use Playwright to automate the Yahoo Fantasy website directly, since Yahoo's API no longer grants write scope to new developer apps. Read operations still use the fast OAuth API.
 
-5. **Inline UI apps** — Tool results aren't just text. Nine Preact + Tailwind + Recharts HTML apps with 62 views render interactive tables, charts, radar plots, heatmaps, and dashboards directly inside Claude's response using MCP Apps (`@modelcontextprotocol/ext-apps`).
+5. **Inline UI apps** — Tool results aren't just text. Nine React + Catalyst + Recharts HTML apps with 75 views render interactive tables, charts, radar plots, heatmaps, and dashboards directly inside Claude's response using MCP Apps (`@modelcontextprotocol/ext-apps`).
 
 6. **Workflow tools for agents** — Eleven aggregated tools (`yahoo_morning_briefing`, `yahoo_game_day_manager`, `yahoo_trade_pipeline`, etc.) each combine 5-7+ individual API calls server-side and return concise, decision-ready output in a single tool call. Designed for autonomous agents that need to minimize token usage and tool call count — a full daily routine takes just 2-3 tool calls instead of 15+.
 
@@ -284,15 +284,16 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 
 ## MCP Tools
 
-114 tools across 10 tool files, each with rich inline HTML UI apps rendered directly in Claude.
+126 tools across 10 tool files, each with rich inline HTML UI apps rendered directly in Claude.
 
 <details>
-<summary><strong>Roster Management</strong> (16 tools)</summary>
+<summary><strong>Roster Management</strong> (17 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
 | `yahoo_roster` | Show current fantasy roster with positions and eligibility |
 | `yahoo_free_agents` | List top free agents (batters or pitchers) |
+| `yahoo_player_list` | Browse the full player list with position filters, stats, and enrichment |
 | `yahoo_search` | Search for a player by name among free agents |
 | `yahoo_who_owns` | Check who owns a specific player by player ID |
 | `yahoo_percent_owned` | Ownership percentage for specific players across Yahoo |
@@ -311,7 +312,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 </details>
 
 <details>
-<summary><strong>League & Standings</strong> (12 tools)</summary>
+<summary><strong>League & Standings</strong> (13 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -326,6 +327,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 | `yahoo_transaction_trends` | Most added and most dropped players across Yahoo |
 | `yahoo_league_pulse` | League activity — moves and trades per team |
 | `yahoo_power_rankings` | Teams ranked by estimated roster strength |
+| `yahoo_positional_ranks` | Positional rankings for all teams with grades and trade partner recommendations |
 | `yahoo_season_pace` | Projected season pace, playoff probability, and magic numbers |
 
 </details>
@@ -525,8 +527,8 @@ The `./yf` helper script provides direct CLI access to all functionality:
 │  │  (Flask :8766)    │──│  (Express :4951)    │  │
 │  │                   │  │                     │  │
 │  │  yahoo_fantasy_api│  │  MCP SDK + ext-apps │  │
-│  │  pybaseball       │  │  114 tool defs      │  │
-│  │  MLB-StatsAPI     │  │  9 apps / 62 views  │  │
+│  │  pybaseball       │  │  126 tool defs      │  │
+│  │  MLB-StatsAPI     │  │  9 apps / 75 views  │  │
 │  │  Playwright       │  │  11 workflow tools  │  │
 │  │  CacheManager     │  │  10 tool files      │  │
 │  └──────────────────┘  └─────────────────────┘  │
@@ -543,7 +545,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 - **Write operations**: Playwright browser automation against Yahoo Fantasy website
 - **Valuations**: Consensus projections (Steamer + ZiPS + Depth Charts) auto-fetched from FanGraphs, park-factor adjusted, blended with live stats in-season (weighted by games played), z-scored against league categories, with rest-of-season tracking and projection disagreement detection
 - **Intelligence**: Statcast data with SIERA (expected ERA), platoon splits, arsenal change detection, batted ball profiles, and historical comparison — all cached with configurable TTL
-- **MCP Apps**: Inline HTML UIs (Preact + Tailwind + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
+- **MCP Apps**: Inline HTML UIs (React + Catalyst + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
 - **Workflow tools**: 11 aggregated endpoints for autonomous agents — each combines 5-7+ API calls server-side to minimize token usage
 
 **Built with:** [yahoo_fantasy_api](https://github.com/uberfastman/yahoo_fantasy_api) | [pybaseball](https://github.com/jldbc/pybaseball) | [MLB-StatsAPI](https://github.com/toddrob99/MLB-StatsAPI) | [MCP Apps (ext-apps)](https://github.com/anthropics/model-context-protocol/tree/main/packages/ext-apps) | [Playwright](https://playwright.dev/) | [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk)
@@ -623,9 +625,9 @@ baseclaw/
     ├── server.ts                   # MCP server setup + tool registration
     ├── main.ts                     # Entry point (stdio + HTTP)
     ├── assets/logo-128.png         # Server icon (pixel-art baseball)
-    ├── src/tools/                  # 10 tool files, 108 MCP tools
+    ├── src/tools/                  # 10 tool files, 126 MCP tools
     ├── src/api/                    # Python API client + type definitions
-    └── ui/                         # 9 inline HTML apps, 62 views (Preact + Tailwind + Recharts)
+    └── ui/                         # 9 inline HTML apps, 75 views (React + Catalyst + Recharts)
 ```
 
 </details>
