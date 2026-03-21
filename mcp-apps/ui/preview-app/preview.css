@@ -8,3 +8,44 @@
 .mcp-preview-canvas {
   font-size: 1rem;
 }
+
+/* ═══════════════════════════════════════════════════
+   Preview pill buttons — ensure visibility on dark backgrounds
+   ═══════════════════════════════════════════════════ */
+.preview-filter-pills {
+  gap: 6px;
+}
+
+.preview-pill-btn {
+  border-radius: 9999px !important;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════
+   Mobile layout fixes (<768px)
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  /* Hide the subtitle on mobile to save space */
+  .hide-on-mobile {
+    display: none;
+  }
+
+  /* Filter pills: horizontal scroll on mobile instead of wrapping */
+  .preview-filter-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .preview-filter-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Mobile drawer content */
+  .mobile-nav-content {
+    -webkit-overflow-scrolling: touch;
+  }
+}

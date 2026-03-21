@@ -15,9 +15,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMobile,
+  SidebarMobileMenuButton,
+  SidebarMobileHeader,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@plexui/ui/components/Sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/card";
 import { fetchViewData, createLiveApp } from "./live-data";
@@ -274,92 +278,115 @@ function PreviewApp() {
     }
   }, []);
 
+  const sidebarHeaderContent = (
+    <>
+      <div className="space-y-1 px-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">BaseClaw</p>
+        <h1 className="text-base font-semibold leading-tight">MCP App Showcase</h1>
+        <p className="text-xs text-muted-foreground hide-on-mobile">Find tools faster and preview them instantly.</p>
+      </div>
+
+      <Input
+        type="search"
+        placeholder="Search tools..."
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+      />
+
+      <div className="preview-filter-pills flex flex-wrap gap-1.5 px-1">
+        {groupNames.map((name) => (
+          <Button
+            key={name}
+            size="xs"
+            color={groupFilter === name ? "primary" : "secondary"} variant={groupFilter === name ? "solid" : "outline"}
+            onClick={() => setGroupFilter(name)}
+            className="preview-pill-btn"
+          >
+            {name}
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-1 px-1">
+        <Button size="xs" color={sortMode === "featured" ? "primary" : "secondary"} variant={sortMode === "featured" ? "solid" : "outline"} onClick={() => setSortMode("featured")}>Featured</Button>
+        <Button size="xs" color={sortMode === "alpha" ? "primary" : "secondary"} variant={sortMode === "alpha" ? "solid" : "outline"} onClick={() => setSortMode("alpha")}>A-Z</Button>
+        <Button size="xs" color={sortMode === "recent" ? "primary" : "secondary"} variant={sortMode === "recent" ? "solid" : "outline"} onClick={() => setSortMode("recent")}>Recent</Button>
+      </div>
+
+      {featuredViews.length > 0 && (
+        <div className="preview-filter-pills flex flex-wrap gap-1.5 px-1">
+          {featuredViews.map((entry) => (
+            <Button
+              key={entry.id}
+              size="xs"
+              color={activeView === entry.id ? "primary" : "secondary"} variant={activeView === entry.id ? "solid" : "ghost"}
+              onClick={() => handleSelectView(entry.id)}
+              className="preview-pill-btn"
+            >
+              {entry.label}
+            </Button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  const sidebarMenuContent = groupedFilteredViews.map(([group, views]) => (
+    <SidebarGroup key={group}>
+      <SidebarGroupLabel>{group}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {views.map((view) => (
+            <SidebarMenuItem key={view.id}>
+              <SidebarMenuButton
+                isActive={activeView === view.id}
+                onClick={() => handleSelectView(view.id)}
+                className="h-auto items-start py-2"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{view.label}</div>
+                  <div className="line-clamp-2 text-xs text-muted-foreground">{view.description || "No description."}</div>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  ));
+
   return (
     <div className="min-h-[100dvh] -m-3 bg-background text-foreground">
-      <SidebarProvider defaultOpen collapsible="icon">
+      <SidebarProvider defaultOpen collapsible="offcanvas">
+        {/* Desktop sidebar — hidden on mobile via Plex UI's built-in offcanvas behavior */}
         <Sidebar className="border-r">
           <SidebarHeader className="gap-3">
-            <div className="space-y-1 px-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">BaseClaw</p>
-              <h1 className="text-base font-semibold leading-tight">MCP App Showcase</h1>
-              <p className="text-xs text-muted-foreground">Find tools faster and preview them instantly.</p>
-            </div>
-
-            <Input
-              type="search"
-              placeholder="Search tools..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-
-            <div className="flex flex-wrap gap-1 px-1">
-              {groupNames.map((name) => (
-                <Button
-                  key={name}
-                  size="xs"
-                  color={groupFilter === name ? "primary" : "secondary"} variant={groupFilter === name ? "solid" : "outline"}
-                  onClick={() => setGroupFilter(name)}
-                >
-                  {name}
-                </Button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-1 px-1">
-              <Button size="xs" color={sortMode === "featured" ? "primary" : "secondary"} variant={sortMode === "featured" ? "solid" : "outline"} onClick={() => setSortMode("featured")}>Featured</Button>
-              <Button size="xs" color={sortMode === "alpha" ? "primary" : "secondary"} variant={sortMode === "alpha" ? "solid" : "outline"} onClick={() => setSortMode("alpha")}>A-Z</Button>
-              <Button size="xs" color={sortMode === "recent" ? "primary" : "secondary"} variant={sortMode === "recent" ? "solid" : "outline"} onClick={() => setSortMode("recent")}>Recent</Button>
-            </div>
-
-            {featuredViews.length > 0 && (
-              <div className="flex flex-wrap gap-1 px-1">
-                {featuredViews.map((entry) => (
-                  <Button
-                    key={entry.id}
-                    size="xs"
-                    color={activeView === entry.id ? "primary" : "secondary"} variant={activeView === entry.id ? "solid" : "ghost"}
-                    onClick={() => handleSelectView(entry.id)}
-                  >
-                    {entry.label}
-                  </Button>
-                ))}
-              </div>
-            )}
+            {sidebarHeaderContent}
           </SidebarHeader>
 
           <SidebarContent>
-            {groupedFilteredViews.map(([group, views]) => (
-              <SidebarGroup key={group}>
-                <SidebarGroupLabel>{group}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {views.map((view) => (
-                      <SidebarMenuItem key={view.id}>
-                        <SidebarMenuButton
-                          isActive={activeView === view.id}
-                          onClick={() => handleSelectView(view.id)}
-                          className="h-auto items-start py-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{view.label}</div>
-                            <div className="line-clamp-2 text-xs text-muted-foreground">{view.description || "No description."}</div>
-                          </div>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
+            {sidebarMenuContent}
           </SidebarContent>
           <SidebarRail />
         </Sidebar>
+
+        {/* Mobile drawer — rendered by SidebarMobile, visible only on <768px */}
+        <MobileNav
+          sidebarHeaderContent={sidebarHeaderContent}
+          sidebarMenuContent={sidebarMenuContent}
+        />
 
         <SidebarInset>
           <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex items-center justify-between gap-2 px-4 py-3 lg:px-6">
               <div className="flex items-center gap-2 min-w-0">
-                <SidebarTrigger />
+                {/* Desktop: collapse trigger. Mobile: hamburger. */}
+                <div className="hidden md:block">
+                  <SidebarTrigger />
+                </div>
+                <div className="md:hidden">
+                  <SidebarMobileMenuButton />
+                </div>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold lg:text-base">{activeViewDef?.label || "Choose a tool"}</h2>
                   <p className="truncate text-xs text-muted-foreground">{activeGroup || "MCP App"}</p>
@@ -440,6 +467,48 @@ function PreviewApp() {
         </SidebarInset>
       </SidebarProvider>
     </div>
+  );
+}
+
+/**
+ * Mobile navigation drawer — wraps sidebar content in Plex UI's SidebarMobile.
+ * On mobile (<768px), this renders as a full-screen overlay drawer triggered by
+ * the SidebarMobileMenuButton hamburger icon. On desktop (≥768px), it's hidden
+ * by Plex UI's built-in CSS.
+ */
+function MobileNav({
+  sidebarHeaderContent,
+  sidebarMenuContent,
+}: {
+  sidebarHeaderContent: React.ReactNode;
+  sidebarMenuContent: React.ReactNode;
+}) {
+  const { setOpenMobile } = useSidebar();
+
+  return (
+    <SidebarMobile>
+      <SidebarMobileHeader>
+        <div className="flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">BaseClaw</p>
+          <h2 className="text-base font-semibold">MCP App Showcase</h2>
+        </div>
+        <SidebarMobileMenuButton />
+      </SidebarMobileHeader>
+      <div
+        className="flex-1 overflow-y-auto px-3 pb-4 mobile-nav-content"
+        onClick={(e) => {
+          // Close drawer when a menu item is tapped
+          if ((e.target as HTMLElement).closest("button")) {
+            setTimeout(() => setOpenMobile(false), 150);
+          }
+        }}
+      >
+        <div className="space-y-3 mb-4">
+          {sidebarHeaderContent}
+        </div>
+        {sidebarMenuContent}
+      </div>
+    </SidebarMobile>
   );
 }
 
