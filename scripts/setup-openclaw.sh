@@ -155,11 +155,24 @@ if [ "$HAS_OPENCLAW" = true ] && [ -f "$CRON_FILE" ]; then
     read -rp "Timezone for cron jobs? [$SYS_TZ] " USER_TZ
     USER_TZ="${USER_TZ:-$SYS_TZ}"
 
+    # Delivery target for cron output
+    echo ""
+    echo "  Where should BaseClaw send reports?"
+    echo "  (e.g., telegram, discord, slack)"
+    read -rp "Delivery channel? [telegram] " DELIVERY_CHANNEL
+    DELIVERY_CHANNEL="${DELIVERY_CHANNEL:-telegram}"
+
+    read -rp "Chat/channel ID to deliver to: " DELIVERY_TO
+    if [ -z "$DELIVERY_TO" ]; then
+      warn "No delivery target — cron output will go to your default OpenClaw channel"
+    fi
+
     # Register each job via openclaw CLI (reads JSON, calls openclaw cron add)
-    CRON_COUNT=$(python3 - "$CRON_FILE" "$USER_TZ" <<'PYEOF'
+    CRON_COUNT=$(python3 - "$CRON_FILE" "$USER_TZ" "$DELIVERY_CHANNEL" "$DELIVERY_TO" <<'PYEOF'
 import json, sys, subprocess
 
 cron_file, tz = sys.argv[1], sys.argv[2]
+delivery_channel, delivery_to = sys.argv[3], sys.argv[4]
 
 try:
     with open(cron_file) as f:
@@ -199,6 +212,8 @@ for job in jobs:
         "--message", job.get("payload", {}).get("message", ""),
         "--announce",
     ]
+    if delivery_channel and delivery_to:
+        cmd.extend(["--channel", delivery_channel, "--to", delivery_to])
     timeout_s = job.get("payload", {}).get("timeoutSeconds")
     if timeout_s:
         cmd.extend(["--timeout-seconds", str(timeout_s)])
