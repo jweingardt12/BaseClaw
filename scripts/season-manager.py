@@ -3845,19 +3845,32 @@ def _trade_finder_league_scan(lg, team, as_json=False):
     # --- Phase 2: Analyze each opponent ---
     all_teams = lg.teams()
     partners = []
+    _roster_cache = {}  # Cache rosters to avoid duplicate fetches
+    _cat_profile_cache = {}  # Cache category profiles
+    MAX_GOOD_PARTNERS = 3  # Early return threshold
 
     for other_key, other_data in all_teams.items():
         if TEAM_ID in str(other_key):
             continue
         other_name = other_data.get("name", "Unknown")
-        try:
-            other_team = lg.to_team(other_key)
-            other_roster = other_team.roster()
-        except Exception:
-            continue
 
-        # Get their category profile
-        _, their_weak, their_strong = _team_cat_strengths_from_zscores(lg, other_key)
+        # Use cached roster if available
+        if other_key in _roster_cache:
+            other_roster = _roster_cache[other_key]
+        else:
+            try:
+                other_team = lg.to_team(other_key)
+                other_roster = other_team.roster()
+                _roster_cache[other_key] = other_roster
+            except Exception:
+                continue
+
+        # Get their category profile (cached)
+        if other_key in _cat_profile_cache:
+            _, their_weak, their_strong = _cat_profile_cache[other_key]
+        else:
+            _, their_weak, their_strong = _team_cat_strengths_from_zscores(lg, other_key)
+            _cat_profile_cache[other_key] = (_, their_weak, their_strong)
 
         # Build their roster with z-scores and qualitative context
         their_names = [p.get("name", "") for p in other_roster]
@@ -3928,6 +3941,11 @@ def _trade_finder_league_scan(lg, team, as_json=False):
             "i_need_they_have": i_need_they_have,
             "they_need_i_have": they_need_i_have,
         })
+
+        # Early return: stop scanning once we have enough strong partners
+        good_partners = [p for p in partners if p.get("score", 0) >= 3.0]
+        if len(good_partners) >= MAX_GOOD_PARTNERS:
+            break
 
     partners.sort(key=lambda p: p.get("score", 0), reverse=True)
     partners = partners[:5]

@@ -756,10 +756,17 @@ def api_whats_new():
 
 @app.route("/api/trade-finder")
 def api_trade_finder():
+    import concurrent.futures
     try:
         target = request.args.get("target", "")
+        timeout = int(request.args.get("timeout", "120"))
         args = [target] if target else []
-        result = season_manager.cmd_trade_finder(args, as_json=True)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(season_manager.cmd_trade_finder, args, as_json=True)
+            try:
+                result = future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                return jsonify({"error": "Trade finder timed out after " + str(timeout) + "s. Try with a specific target player name."}), 504
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
