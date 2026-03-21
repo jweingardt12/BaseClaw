@@ -6,7 +6,7 @@
 
 Your fantasy baseball team, managed by AI.
 
-BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league — your roster, the waiver wire, Statcast data, trade analytics, and 126 tools to act on it all. Core dashboards and action tools render interactive UI directly in Claude; everything else returns clean text. Ask questions in plain English or let an autonomous agent run your team on autopilot.
+BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league. Your roster, the waiver wire, Statcast data, trade analytics — 126 tools cover it. The important ones render interactive UI right inside Claude. The rest return text. Ask questions in plain English, or connect an agent and let it run your team on autopilot.
 
 ## Table of Contents
 
@@ -36,8 +36,8 @@ Claude calls:
   4. yahoo_value (Y)       → Player Y z-score breakdown
   5. yahoo_category_simulate → projected category rank changes
 
-Claude synthesizes all 5 results and gives you a recommendation
-with specific category-level reasoning.
+Claude reads all 5 results and tells you whether the move
+actually helps, with category-level reasoning.
 ```
 
 More things you can ask:
@@ -50,24 +50,24 @@ Or go fully autonomous. Connect to an agent orchestrator like [OpenClaw](https:/
 - Daily: auto-sets optimal lineups, checks injuries, handles IL moves
 - Weekly: scouts your matchup opponent, finds waiver wire targets, identifies trade opportunities
 - On schedule: cron jobs trigger the agent at times you choose — no manual interaction needed
-- Smart decisions: the agent follows configurable rules — auto-executes safe moves (lineup optimization), reports risky ones (trades) for your approval
+- Smart decisions: safe moves (lineup optimization) happen automatically, risky ones (trades) get flagged for your approval
 
-Claude decides which tools to call based on your question. Complex questions chain 3-8 tool calls. Simple lookups are a single call.
+Complex questions chain 3-8 tool calls automatically. Simple lookups are one call.
 
 <details>
 <summary><strong>Under the Hood</strong></summary>
 
 1. **Yahoo Fantasy API** — Your roster, standings, matchups, free agents, transactions, and league settings come from Yahoo's OAuth API in real time. Every tool call fetches current data, not cached snapshots.
 
-2. **Analytics engine** — Z-score valuations tuned to your league's stat categories, powered by consensus projections (Steamer + ZiPS + Depth Charts blended) auto-fetched from FanGraphs, with park factor adjustments, rest-of-season valuation tracking, and in-season blending of projections + live stats weighted by games played. Category gap analysis, punt strategy advisor, playoff path planner, trade package builder, FAAB bid recommendations, and a trade finder that scans every team for complementary deals.
+2. **Analytics engine** — Z-score valuations tuned to your league's stat categories. Projections are consensus blends (Steamer + ZiPS + Depth Charts) auto-fetched from FanGraphs, park-factor adjusted, and blended with live stats as the season progresses. The engine also runs category gap analysis, punt strategy, playoff path planning, trade package building, FAAB bid recommendations, and a trade finder that scans every team for complementary deals.
 
-3. **Player intelligence** — Every player surface is enriched with Statcast data (xwOBA, xERA, exit velocity, barrel rate, percentile rankings, pitch arsenal, batted ball profile), platoon splits (vs LHP/RHP), historical Statcast comparisons, arsenal change detection, recent trend splits (7/14/30 day), plate discipline metrics (FanGraphs), Reddit sentiment from r/fantasybaseball, and MLB transaction alerts. Expensive API calls are cached with configurable TTL. Before the season starts, Savant data automatically falls back to the prior year so intel surfaces stay populated during spring training.
+3. **Player intelligence** — Every player surface pulls Statcast data (xwOBA, xERA, exit velocity, barrel rate, percentile rankings, pitch arsenal), platoon splits, historical comparisons, arsenal change detection, 7/14/30-day trend splits, FanGraphs plate discipline, Reddit sentiment from r/fantasybaseball, and MLB transaction alerts. API calls are cached with configurable TTL. Before the season starts, Savant data falls back to the prior year so intel surfaces stay populated during spring training.
 
 4. **Browser automation** — Write operations (add, drop, trade, lineup changes) use Playwright to automate the Yahoo Fantasy website directly, since Yahoo's API no longer grants write scope to new developer apps. Read operations still use the fast OAuth API.
 
-5. **Inline UI apps** — Core dashboards and action tools render interactive React UIs directly inside Claude's response. Four Catalyst + Recharts HTML apps with 75 views power tables, charts, radar plots, heatmaps, and dashboards via MCP Apps (`@modelcontextprotocol/ext-apps`). Read-only lookups return clean text to keep the chat uncluttered — 24 tools get visual UI, the rest are text-only.
+5. **Inline UI apps** — 24 tools render React UIs directly inside Claude's response. Four single-file HTML apps built with Plex UI and Recharts cover 75+ views — tables, charts, radar plots, heatmaps, dashboards. The rest return clean text to keep the chat uncluttered.
 
-6. **Workflow tools for agents** — Eleven aggregated tools (`yahoo_morning_briefing`, `yahoo_game_day_manager`, `yahoo_trade_pipeline`, etc.) each combine 5-7+ individual API calls server-side and return concise, decision-ready output in a single tool call. Designed for autonomous agents that need to minimize token usage and tool call count — a full daily routine takes just 2-3 tool calls instead of 15+.
+6. **Workflow tools** — Eleven aggregated tools (`yahoo_morning_briefing`, `yahoo_game_day_manager`, `yahoo_trade_pipeline`, etc.) each bundle 5-7+ API calls server-side so the agent gets everything it needs in one shot. A full daily routine takes 2-3 tool calls instead of 15+.
 
 </details>
 
@@ -154,7 +154,7 @@ Set `ENABLE_PREVIEW=true` in `.env`, rebuild with `docker compose up -d --build`
 
 ## Agent Orchestrators (OpenClaw)
 
-Your team manages itself. Connect BaseClaw to an agent orchestrator and it becomes an autonomous fantasy GM — setting lineups every morning, monitoring injuries, scouting opponents, finding waiver pickups, and identifying trades, all on autopilot.
+Connect BaseClaw to an agent orchestrator and it runs your team. Lineups get set every morning, injuries get monitored, opponents get scouted, waiver pickups get found. You check in when you want to.
 
 Any MCP-compatible orchestrator works (OpenClaw, LangChain, CrewAI, etc.). The examples below use [OpenClaw](https://openclaw.com).
 
@@ -205,7 +205,7 @@ All times Eastern, configurable in `openclaw-cron-examples.json`:
 
 ### Workflow Tools
 
-Eleven aggregated tools designed for autonomous agents. Each combines 5-7+ individual API calls server-side and returns decision-ready output in a single call. Available to all clients (Claude Code, Claude.ai, orchestrators). See the full list in [MCP Tools > Workflows](#mcp-tools).
+Eleven aggregated tools that bundle 5-7+ API calls server-side. Available to all clients (Claude Code, Claude.ai, orchestrators). See the full list in [MCP Tools > Workflows](#mcp-tools).
 
 <details>
 <summary><strong>Setup with OpenClaw</strong></summary>
@@ -466,7 +466,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 <details>
 <summary><strong>Workflows</strong> (11 tools)</summary>
 
-Aggregated tools designed for autonomous agents. Each combines 5-7+ individual API calls server-side and returns concise, decision-ready output in a single tool call.
+Aggregated tools that bundle 5-7+ API calls server-side so the agent gets a complete picture in one shot.
 
 | Tool | Description |
 |------|-------------|
@@ -543,10 +543,10 @@ The `./yf` helper script provides direct CLI access to all functionality:
 
 - **Read operations**: Yahoo Fantasy OAuth API (fast, reliable)
 - **Write operations**: Playwright browser automation against Yahoo Fantasy website
-- **Valuations**: Consensus projections (Steamer + ZiPS + Depth Charts) auto-fetched from FanGraphs, park-factor adjusted, blended with live stats in-season (weighted by games played), z-scored against league categories, with rest-of-season tracking and projection disagreement detection
-- **Intelligence**: Statcast data with SIERA (expected ERA), platoon splits, arsenal change detection, batted ball profiles, and historical comparison — all cached with configurable TTL
-- **MCP Apps**: Inline HTML UIs (React + Catalyst + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
-- **Workflow tools**: 11 aggregated endpoints for autonomous agents — each combines 5-7+ API calls server-side to minimize token usage
+- **Valuations**: Consensus projections (Steamer + ZiPS + Depth Charts) from FanGraphs, park-factor adjusted, blended with live stats as the season goes on, z-scored against your league's categories
+- **Intelligence**: Statcast data, SIERA, platoon splits, arsenal changes, batted ball profiles, historical comparisons. Cached with configurable TTL
+- **MCP Apps**: Inline HTML UIs (React + Plex UI + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
+- **Workflow tools**: 11 aggregated endpoints that bundle 5-7+ API calls server-side to keep tool call counts low
 
 **Built with:** [yahoo_fantasy_api](https://github.com/uberfastman/yahoo_fantasy_api) | [pybaseball](https://github.com/jldbc/pybaseball) | [MLB-StatsAPI](https://github.com/toddrob99/MLB-StatsAPI) | [MCP Apps (ext-apps)](https://github.com/anthropics/model-context-protocol/tree/main/packages/ext-apps) | [Playwright](https://playwright.dev/) | [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk)
 
@@ -627,7 +627,7 @@ baseclaw/
     ├── assets/logo-128.png         # Server icon (pixel-art baseball)
     ├── src/tools/                  # 10 tool files, 126 MCP tools
     ├── src/api/                    # Python API client + type definitions
-    └── ui/                         # 4 inline HTML apps, 75 views (React + Catalyst + Recharts)
+    └── ui/                         # 4 inline HTML apps, 75+ views (React + Plex UI + Recharts)
 ```
 
 </details>
