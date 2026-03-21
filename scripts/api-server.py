@@ -26,6 +26,34 @@ import yahoo_browser
 app = Flask(__name__)
 
 
+# --- JSON sanitization helper ---
+
+def _sanitize_for_json(obj):
+    """Recursively strip control characters (0x00-0x1F except \\n \\r \\t)
+    from all string values in a dict/list structure.
+    This prevents invalid JSON from reaching the client."""
+    import re
+    # Match control chars except \n (0x0A), \r (0x0D), \t (0x09)
+    _CTRL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
+    if isinstance(obj, str):
+        return _CTRL_RE.sub('', obj)
+    elif isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_for_json(item) for item in obj]
+    return obj
+
+
+def safe_jsonify(data, status_code=200):
+    """jsonify wrapper that sanitizes all string values to remove control chars."""
+    clean = _sanitize_for_json(data)
+    resp = jsonify(clean)
+    if status_code != 200:
+        resp.status_code = status_code
+    return resp
+
+
 # --- Session heartbeat (keeps Yahoo cookies alive) ---
 
 HEARTBEAT_INTERVAL = int(os.environ.get("BROWSER_HEARTBEAT_HOURS", "6")) * 3600
@@ -75,7 +103,7 @@ _proj_thread.start()
 
 @app.route("/api/health")
 def health():
-    return jsonify({"status": "ok"})
+    return safe_jsonify({"status": "ok"})
 
 
 @app.route("/api/endpoints")
@@ -89,7 +117,7 @@ def api_endpoints():
                 "path": rule.rule,
                 "methods": methods,
             })
-    return jsonify({"endpoints": endpoints})
+    return safe_jsonify({"endpoints": endpoints})
 
 
 @app.route("/api/browser-login-status")
@@ -97,9 +125,9 @@ def api_browser_login_status():
     try:
         result = yahoo_browser.is_session_valid()
         result["heartbeat"] = yahoo_browser.get_heartbeat_state()
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"valid": False, "reason": str(e)}), 500
+        return safe_jsonify({"valid": False, "reason": str(e)}, 500)
 
 
 @app.route("/api/change-team-name", methods=["POST"])
@@ -108,11 +136,11 @@ def api_change_team_name():
         data = request.get_json(force=True) if request.is_json else request.form
         new_name = data.get("new_name", "")
         if not new_name:
-            return jsonify({"error": "Missing new_name"}), 400
+            return safe_jsonify({"error": "Missing new_name"}, 400)
         result = yahoo_browser.change_team_name(new_name)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/change-team-logo", methods=["POST"])
@@ -121,11 +149,11 @@ def api_change_team_logo():
         data = request.get_json(force=True) if request.is_json else request.form
         image_path = data.get("image_path", "")
         if not image_path:
-            return jsonify({"error": "Missing image_path"}), 400
+            return safe_jsonify({"error": "Missing image_path"}, 400)
         result = yahoo_browser.change_team_logo(image_path)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Yahoo Fantasy (yahoo-fantasy.py) ---
@@ -136,9 +164,9 @@ def api_change_team_logo():
 def api_roster():
     try:
         result = yahoo_fantasy.cmd_roster([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/free-agents")
@@ -147,27 +175,27 @@ def api_free_agents():
         pos_type = request.args.get("pos_type", "B")
         count = request.args.get("count", "20")
         result = yahoo_fantasy.cmd_free_agents([pos_type, count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/standings")
 def api_standings():
     try:
         result = yahoo_fantasy.cmd_standings([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/info")
 def api_info():
     try:
         result = yahoo_fantasy.cmd_info([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/league-context")
@@ -194,9 +222,9 @@ def api_league_context():
                     result["faab_balance"] = fb
             except Exception as e:
                 print("Warning: could not fetch FAAB balance for league-context: " + str(e))
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/search")
@@ -205,11 +233,11 @@ def api_search():
         # TS tool sends "name" param
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing name parameter"}), 400
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
         result = yahoo_fantasy.cmd_search([name], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/add", methods=["POST"])
@@ -221,11 +249,11 @@ def api_add():
         if not player_id:
             player_id = request.args.get("player_id", "")
         if not player_id:
-            return jsonify({"error": "Missing player_id"}), 400
+            return safe_jsonify({"error": "Missing player_id"}, 400)
         result = yahoo_fantasy.cmd_add([player_id], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/drop", methods=["POST"])
@@ -236,11 +264,11 @@ def api_drop():
         if not player_id:
             player_id = request.args.get("player_id", "")
         if not player_id:
-            return jsonify({"error": "Missing player_id"}), 400
+            return safe_jsonify({"error": "Missing player_id"}, 400)
         result = yahoo_fantasy.cmd_drop([player_id], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/swap", methods=["POST"])
@@ -254,11 +282,11 @@ def api_swap():
         if not drop_id:
             drop_id = request.args.get("drop_id", "")
         if not add_id or not drop_id:
-            return jsonify({"error": "Missing add_id and/or drop_id"}), 400
+            return safe_jsonify({"error": "Missing add_id and/or drop_id"}, 400)
         result = yahoo_fantasy.cmd_swap([add_id, drop_id], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/matchups")
@@ -269,9 +297,9 @@ def api_matchups():
         if week:
             args.append(week)
         result = yahoo_fantasy.cmd_matchups(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/scoreboard")
@@ -282,9 +310,9 @@ def api_scoreboard():
         if week:
             args.append(week)
         result = yahoo_fantasy.cmd_scoreboard(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/transactions")
@@ -298,36 +326,36 @@ def api_transactions():
         if count:
             args.append(count)
         result = yahoo_fantasy.cmd_transactions(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/stat-categories")
 def api_stat_categories():
     try:
         result = yahoo_fantasy.cmd_stat_categories([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/transaction-trends")
 def api_transaction_trends():
     try:
         result = yahoo_fantasy.cmd_transaction_trends([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/matchup-detail")
 def api_matchup_detail():
     try:
         result = yahoo_fantasy.cmd_matchup_detail([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Draft Assistant (draft-assistant.py) ---
@@ -339,9 +367,9 @@ def api_draft_status():
     try:
         da = draft_assistant.DraftAssistant()
         result = da.status(as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/draft-recommend")
@@ -349,18 +377,18 @@ def api_draft_recommend():
     try:
         da = draft_assistant.DraftAssistant()
         result = da.recommend(as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/draft-cheatsheet")
 def api_draft_cheatsheet():
     try:
         result = draft_assistant.cmd_cheatsheet([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/best-available")
@@ -369,9 +397,9 @@ def api_best_available():
         pos_type = request.args.get("pos_type", "B")
         count = request.args.get("count", "25")
         result = draft_assistant.cmd_best_available([pos_type, count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Valuations (valuations.py) ---
@@ -384,9 +412,9 @@ def api_rankings():
         pos_type = request.args.get("pos_type", "B")
         count = request.args.get("count", "25")
         result = valuations.cmd_rankings([pos_type, count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/compare")
@@ -396,11 +424,11 @@ def api_compare():
         player1 = request.args.get("player1", "")
         player2 = request.args.get("player2", "")
         if not player1 or not player2:
-            return jsonify({"error": "Missing player1 and/or player2 parameters"}), 400
+            return safe_jsonify({"error": "Missing player1 and/or player2 parameters"}, 400)
         result = valuations.cmd_compare([player1, player2], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/value")
@@ -411,11 +439,11 @@ def api_value():
         if not name:
             name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing player_name parameter"}), 400
+            return safe_jsonify({"error": "Missing player_name parameter"}, 400)
         result = valuations.cmd_value([name], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/projections-update", methods=["POST"])
@@ -424,9 +452,9 @@ def api_projections_update():
         data = request.get_json(silent=True) or {}
         proj_type = data.get("proj_type", "steamer")
         result = valuations.ensure_projections(proj_type=proj_type, force=True)
-        return jsonify({"status": "ok", "result": result})
+        return safe_jsonify({"status": "ok", "result": result})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/projection-disagreements", methods=["GET"])
@@ -436,9 +464,9 @@ def api_projection_disagreements():
         count = int(request.args.get("count", "20"))
         stats_type = "bat" if pos_type == "B" else "pit"
         result = valuations.compute_projection_disagreements(stats_type=stats_type, count=count)
-        return jsonify({"pos_type": pos_type, "disagreements": result})
+        return safe_jsonify({"pos_type": pos_type, "disagreements": result})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/zscore-shifts", methods=["GET"])
@@ -446,9 +474,9 @@ def api_zscore_shifts():
     try:
         count = int(request.args.get("count", "25"))
         result = valuations.compute_zscore_shifts(count=count)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/park-factors", methods=["GET"])
@@ -457,9 +485,9 @@ def api_park_factors():
         factors = []
         for team, factor in sorted(valuations.PARK_FACTORS.items()):
             factors.append({"team": team, "factor": factor})
-        return jsonify({"park_factors": factors})
+        return safe_jsonify({"park_factors": factors})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Season Manager (season-manager.py) ---
@@ -474,27 +502,27 @@ def api_lineup_optimize():
         if apply_flag.lower() == "true":
             args.append("--apply")
         result = season_manager.cmd_lineup_optimize(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/category-check")
 def api_category_check():
     try:
         result = season_manager.cmd_category_check([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/injury-report")
 def api_injury_report():
     try:
         result = season_manager.cmd_injury_report([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/waiver-analyze")
@@ -503,9 +531,9 @@ def api_waiver_analyze():
         pos_type = request.args.get("pos_type", "B")
         count = request.args.get("count", "15")
         result = season_manager.cmd_waiver_analyze([pos_type, count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/streaming")
@@ -516,9 +544,9 @@ def api_streaming():
         if week:
             args.append(week)
         result = season_manager.cmd_streaming(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/trade-eval", methods=["POST"])
@@ -529,11 +557,11 @@ def api_trade_eval():
         give_ids = data.get("give_ids", "")
         get_ids = data.get("get_ids", "")
         if not give_ids or not get_ids:
-            return jsonify({"error": "Missing give_ids and/or get_ids"}), 400
+            return safe_jsonify({"error": "Missing give_ids and/or get_ids"}, 400)
         result = season_manager.cmd_trade_eval([give_ids, get_ids], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/category-simulate")
@@ -542,50 +570,50 @@ def api_category_simulate():
         add_name = request.args.get("add_name", "")
         drop_name = request.args.get("drop_name", "")
         if not add_name:
-            return jsonify({"error": "Missing add_name parameter"}), 400
+            return safe_jsonify({"error": "Missing add_name parameter"}, 400)
         args = [add_name]
         if drop_name:
             args.append(drop_name)
         result = season_manager.cmd_category_simulate(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/scout-opponent")
 def api_scout_opponent():
     try:
         result = season_manager.cmd_scout_opponent([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/matchup-strategy")
 def api_matchup_strategy():
     try:
         result = season_manager.cmd_matchup_strategy([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/daily-update")
 def api_daily_update():
     try:
         result = season_manager.cmd_daily_update([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/pending-trades")
 def api_pending_trades():
     try:
         result = season_manager.cmd_pending_trades([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/propose-trade", methods=["POST"])
@@ -597,7 +625,7 @@ def api_propose_trade():
         their_player_ids = data.get("their_player_ids", "")
         note = data.get("note", "")
         if not their_team_key or not your_player_ids or not their_player_ids:
-            return jsonify(
+            return safe_jsonify(
                 {
                     "error": "Missing their_team_key, your_player_ids, or their_player_ids"
                 }
@@ -606,9 +634,9 @@ def api_propose_trade():
         if note:
             args.append(note)
         result = season_manager.cmd_propose_trade(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/accept-trade", methods=["POST"])
@@ -618,14 +646,14 @@ def api_accept_trade():
         transaction_key = data.get("transaction_key", "")
         note = data.get("note", "")
         if not transaction_key:
-            return jsonify({"error": "Missing transaction_key"}), 400
+            return safe_jsonify({"error": "Missing transaction_key"}, 400)
         args = [transaction_key]
         if note:
             args.append(note)
         result = season_manager.cmd_accept_trade(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/reject-trade", methods=["POST"])
@@ -635,14 +663,14 @@ def api_reject_trade():
         transaction_key = data.get("transaction_key", "")
         note = data.get("note", "")
         if not transaction_key:
-            return jsonify({"error": "Missing transaction_key"}), 400
+            return safe_jsonify({"error": "Missing transaction_key"}, 400)
         args = [transaction_key]
         if note:
             args.append(note)
         result = season_manager.cmd_reject_trade(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/set-lineup", methods=["POST"])
@@ -651,7 +679,7 @@ def api_set_lineup():
         data = request.get_json(silent=True) or {}
         moves = data.get("moves", [])
         if not moves:
-            return jsonify({"error": "Missing moves array"}), 400
+            return safe_jsonify({"error": "Missing moves array"}, 400)
         # Convert moves to "player_id:position" arg format
         args = []
         for m in moves:
@@ -660,11 +688,11 @@ def api_set_lineup():
             if pid and pos:
                 args.append(str(pid) + ":" + str(pos))
         if not args:
-            return jsonify({"error": "No valid moves provided"}), 400
+            return safe_jsonify({"error": "No valid moves provided"}, 400)
         result = season_manager.cmd_set_lineup(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Waiver Claims (yahoo-fantasy.py) ---
@@ -676,15 +704,15 @@ def api_waiver_claim():
         data = request.get_json(silent=True) or {}
         player_id = data.get("player_id", "")
         if not player_id:
-            return jsonify({"error": "Missing player_id"}), 400
+            return safe_jsonify({"error": "Missing player_id"}, 400)
         args = [player_id]
         faab = data.get("faab")
         if faab is not None:
             args.append(str(faab))
         result = yahoo_fantasy.cmd_waiver_claim(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/waiver-claim-swap", methods=["POST"])
@@ -694,15 +722,15 @@ def api_waiver_claim_swap():
         add_id = data.get("add_id", "")
         drop_id = data.get("drop_id", "")
         if not add_id or not drop_id:
-            return jsonify({"error": "Missing add_id and/or drop_id"}), 400
+            return safe_jsonify({"error": "Missing add_id and/or drop_id"}, 400)
         args = [add_id, drop_id]
         faab = data.get("faab")
         if faab is not None:
             args.append(str(faab))
         result = yahoo_fantasy.cmd_waiver_claim_swap(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Who Owns / League Pulse (yahoo-fantasy.py) ---
@@ -713,11 +741,11 @@ def api_who_owns():
     try:
         player_id = request.args.get("player_id", "")
         if not player_id:
-            return jsonify({"error": "Missing player_id parameter"}), 400
+            return safe_jsonify({"error": "Missing player_id parameter"}, 400)
         result = yahoo_fantasy.cmd_who_owns([player_id], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/percent-owned")
@@ -725,21 +753,21 @@ def api_percent_owned():
     try:
         ids = request.args.get("ids", "")
         if not ids:
-            return jsonify({"error": "Missing ids parameter (comma-separated player IDs)"}), 400
+            return safe_jsonify({"error": "Missing ids parameter (comma-separated player IDs)"}, 400)
         args = [pid.strip() for pid in ids.split(",") if pid.strip()]
         result = yahoo_fantasy.cmd_percent_owned(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/league-pulse")
 def api_league_pulse():
     try:
         result = yahoo_fantasy.cmd_league_pulse([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Phase 3: What's New & Trade Finder ---
@@ -749,9 +777,9 @@ def api_league_pulse():
 def api_whats_new():
     try:
         result = season_manager.cmd_whats_new([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/trade-finder")
@@ -766,10 +794,10 @@ def api_trade_finder():
             try:
                 result = future.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
-                return jsonify({"error": "Trade finder timed out after " + str(timeout) + "s. Try with a specific target player name."}), 504
-        return jsonify(result)
+                return safe_jsonify({"error": "Trade finder timed out after " + str(timeout) + "s. Try with a specific target player name."}, 504)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Phase 4: Power Rankings, Week Planner, Season Pace ---
@@ -779,9 +807,9 @@ def api_trade_finder():
 def api_power_rankings():
     try:
         result = season_manager.cmd_power_rankings([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/week-planner")
@@ -792,18 +820,18 @@ def api_week_planner():
         if week:
             args.append(week)
         result = season_manager.cmd_week_planner(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/season-pace")
 def api_season_pace():
     try:
         result = season_manager.cmd_season_pace([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Phase 5: Closer Monitor ---
@@ -813,9 +841,9 @@ def api_season_pace():
 def api_closer_monitor():
     try:
         result = season_manager.cmd_closer_monitor([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Phase 5: Pitcher Matchup ---
@@ -827,9 +855,9 @@ def api_pitcher_matchup():
         week = request.args.get("week", "")
         args = [week] if week else []
         result = season_manager.cmd_pitcher_matchup(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- New Yahoo API Tools ---
@@ -840,7 +868,7 @@ def api_player_stats():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing name parameter"}), 400
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
         period = request.args.get("period", "season")
         week = request.args.get("week", "")
         date_str = request.args.get("date", "")
@@ -850,9 +878,9 @@ def api_player_stats():
         elif period == "date" and date_str:
             args.append(date_str)
         result = yahoo_fantasy.cmd_player_stats(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/roster-stats")
@@ -869,9 +897,9 @@ def api_roster_stats():
         if team_key:
             args.append("--team=" + team_key)
         result = season_manager.cmd_roster_stats(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/faab-recommend")
@@ -879,11 +907,11 @@ def api_faab_recommend():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "name parameter required"}), 400
+            return safe_jsonify({"error": "name parameter required"}, 400)
         result = season_manager.cmd_faab_recommend([name], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/ownership-trends")
@@ -891,47 +919,47 @@ def api_ownership_trends():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "name parameter required"}), 400
+            return safe_jsonify({"error": "name parameter required"}, 400)
         result = season_manager.cmd_ownership_trends([name], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/category-trends")
 def api_category_trends():
     try:
         result = season_manager.cmd_category_trends([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/punt-advisor")
 def api_punt_advisor():
     try:
         result = season_manager.cmd_punt_advisor([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/il-stash-advisor")
 def api_il_stash_advisor():
     try:
         result = season_manager.cmd_il_stash_advisor([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/playoff-planner")
 def api_playoff_planner():
     try:
         result = season_manager.cmd_playoff_planner([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/optimal-moves")
@@ -939,18 +967,18 @@ def api_optimal_moves():
     try:
         count = request.args.get("count", "5")
         result = season_manager.cmd_optimal_moves([count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/weekly-narrative")
 def api_weekly_narrative():
     try:
         result = season_manager.cmd_weekly_narrative([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/roster-history")
@@ -961,23 +989,23 @@ def api_roster_history():
         team_key = request.args.get("team_key", "")
         lookup = week or date_str
         if not lookup:
-            return jsonify({"error": "Missing week or date parameter"}), 400
+            return safe_jsonify({"error": "Missing week or date parameter"}, 400)
         args = [lookup]
         if team_key:
             args.append(team_key)
         result = yahoo_fantasy.cmd_roster_history(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/waivers")
 def api_waivers():
     try:
         result = yahoo_fantasy.cmd_waivers([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/taken-players")
@@ -986,9 +1014,9 @@ def api_taken_players():
         position = request.args.get("position", "")
         args = [position] if position else []
         result = yahoo_fantasy.cmd_taken_players(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/player-list")
@@ -998,18 +1026,18 @@ def api_player_list():
         count = request.args.get("count", "50")
         status = request.args.get("status", "FA")
         result = yahoo_fantasy.cmd_player_list([pos_type, count, status], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/positional-ranks")
 def api_positional_ranks():
     try:
         result = yahoo_fantasy.cmd_positional_ranks([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- MLB Data (mlb-data.py) ---
@@ -1020,9 +1048,9 @@ def api_positional_ranks():
 def api_mlb_teams():
     try:
         result = mlb_data.cmd_teams([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/roster")
@@ -1030,11 +1058,11 @@ def api_mlb_roster():
     try:
         team = request.args.get("team", "")
         if not team:
-            return jsonify({"error": "Missing team parameter"}), 400
+            return safe_jsonify({"error": "Missing team parameter"}, 400)
         result = mlb_data.cmd_roster([team], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/player")
@@ -1042,11 +1070,11 @@ def api_mlb_player():
     try:
         player_id = request.args.get("player_id", "")
         if not player_id:
-            return jsonify({"error": "Missing player_id parameter"}), 400
+            return safe_jsonify({"error": "Missing player_id parameter"}, 400)
         result = mlb_data.cmd_player([player_id], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/stats")
@@ -1054,33 +1082,33 @@ def api_mlb_stats():
     try:
         player_id = request.args.get("player_id", "")
         if not player_id:
-            return jsonify({"error": "Missing player_id parameter"}), 400
+            return safe_jsonify({"error": "Missing player_id parameter"}, 400)
         args = [player_id]
         season = request.args.get("season", "")
         if season:
             args.append(season)
         result = mlb_data.cmd_stats(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/injuries")
 def api_mlb_injuries():
     try:
         result = mlb_data.cmd_injuries([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/standings")
 def api_mlb_standings():
     try:
         result = mlb_data.cmd_standings([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/draft")
@@ -1089,9 +1117,9 @@ def api_mlb_draft():
         year = request.args.get("year", "")
         args = [year] if year else []
         result = mlb_data.cmd_draft(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/schedule")
@@ -1102,9 +1130,9 @@ def api_mlb_schedule():
         if date_arg:
             args.append(date_arg)
         result = mlb_data.cmd_schedule(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/mlb/weather")
@@ -1113,9 +1141,9 @@ def api_mlb_weather():
         game_date = request.args.get("date", "")
         args = [game_date] if game_date else []
         result = mlb_data.cmd_weather(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- History (history.py) ---
@@ -1126,18 +1154,18 @@ def api_mlb_weather():
 def api_league_history():
     try:
         result = history.cmd_league_history([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/record-book")
 def api_record_book():
     try:
         result = history.cmd_record_book([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/past-standings")
@@ -1145,11 +1173,11 @@ def api_past_standings():
     try:
         year = request.args.get("year", "")
         if not year:
-            return jsonify({"error": "Missing year parameter"}), 400
+            return safe_jsonify({"error": "Missing year parameter"}, 400)
         result = history.cmd_past_standings([year], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/past-draft")
@@ -1157,15 +1185,15 @@ def api_past_draft():
     try:
         year = request.args.get("year", "")
         if not year:
-            return jsonify({"error": "Missing year parameter"}), 400
+            return safe_jsonify({"error": "Missing year parameter"}, 400)
         args = [year]
         count = request.args.get("count", "")
         if count:
             args.append(count)
         result = history.cmd_past_draft(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/past-teams")
@@ -1173,11 +1201,11 @@ def api_past_teams():
     try:
         year = request.args.get("year", "")
         if not year:
-            return jsonify({"error": "Missing year parameter"}), 400
+            return safe_jsonify({"error": "Missing year parameter"}, 400)
         result = history.cmd_past_teams([year], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/past-trades")
@@ -1185,15 +1213,15 @@ def api_past_trades():
     try:
         year = request.args.get("year", "")
         if not year:
-            return jsonify({"error": "Missing year parameter"}), 400
+            return safe_jsonify({"error": "Missing year parameter"}, 400)
         args = [year]
         count = request.args.get("count", "")
         if count:
             args.append(count)
         result = history.cmd_past_trades(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/past-matchup")
@@ -1202,11 +1230,11 @@ def api_past_matchup():
         year = request.args.get("year", "")
         week = request.args.get("week", "")
         if not year or not week:
-            return jsonify({"error": "Missing year and/or week parameters"}), 400
+            return safe_jsonify({"error": "Missing year and/or week parameters"}, 400)
         result = history.cmd_past_matchup([year, week], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Intel (intel.py) ---
@@ -1217,11 +1245,11 @@ def api_intel_player():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing name parameter"}), 400
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
         result = intel.cmd_player_report([name], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/breakouts")
@@ -1230,9 +1258,9 @@ def api_intel_breakouts():
         pos_type = request.args.get("pos_type", "B")
         count = request.args.get("count", "15")
         result = intel.cmd_breakouts([pos_type, count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/busts")
@@ -1241,36 +1269,36 @@ def api_intel_busts():
         pos_type = request.args.get("pos_type", "B")
         count = request.args.get("count", "15")
         result = intel.cmd_busts([pos_type, count], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/reddit")
 def api_intel_reddit():
     try:
         result = intel.cmd_reddit_buzz([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/trending")
 def api_intel_trending():
     try:
         result = intel.cmd_trending([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/prospects")
 def api_intel_prospects():
     try:
         result = intel.cmd_prospect_watch([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/transactions")
@@ -1278,9 +1306,9 @@ def api_intel_transactions():
     try:
         days = request.args.get("days", "7")
         result = intel.cmd_transactions([days], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/batch")
@@ -1288,14 +1316,14 @@ def api_intel_batch():
     try:
         names = request.args.get("names", "")
         if not names:
-            return jsonify({"error": "Missing names parameter (comma-separated)"}), 400
+            return safe_jsonify({"error": "Missing names parameter (comma-separated)"}, 400)
         name_list = [n.strip() for n in names.split(",") if n.strip()]
         include_str = request.args.get("include", "statcast")
         include = [s.strip() for s in include_str.split(",") if s.strip()]
         result = intel.batch_intel(name_list, include=include)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/intel/statcast-history")
@@ -1303,12 +1331,12 @@ def api_intel_statcast_history():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing name parameter"}), 400
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
         days = request.args.get("days", "30")
         result = intel.cmd_statcast_compare([name, days], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Workflow endpoints (aggregate multiple calls for token efficiency) ---
@@ -1389,7 +1417,9 @@ def _synthesize_morning_actions(injury, lineup, whats_new, waiver_b, waiver_p):
 
 @app.route("/api/workflow/morning-briefing")
 def workflow_morning_briefing():
-    try:
+    import concurrent.futures
+    timeout = int(request.args.get("timeout", "180"))
+    def _run_briefing():
         injury = _safe_call(season_manager.cmd_injury_report)
         lineup = _safe_call(season_manager.cmd_lineup_optimize)
         matchup = _safe_call(yahoo_fantasy.cmd_matchup_detail)
@@ -1410,7 +1440,7 @@ def workflow_morning_briefing():
         except Exception:
             pass
 
-        return jsonify({
+        return {
             "action_items": action_items,
             "injury": injury,
             "lineup": lineup,
@@ -1420,9 +1450,18 @@ def workflow_morning_briefing():
             "waiver_batters": waiver_b,
             "waiver_pitchers": waiver_p,
             "edit_date": edit_date,
-        })
+        }
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run_briefing)
+            try:
+                result = future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                return safe_jsonify({"error": "Morning briefing timed out after " + str(timeout) + "s. Try individual endpoints instead."}, 504)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/workflow/league-landscape")
@@ -1436,7 +1475,7 @@ def workflow_league_landscape():
         trade_finder = _safe_call(season_manager.cmd_trade_finder)
         scoreboard = _safe_call(yahoo_fantasy.cmd_scoreboard)
 
-        return jsonify({
+        return safe_jsonify({
             "standings": standings,
             "pace": pace,
             "power_rankings": power,
@@ -1446,7 +1485,7 @@ def workflow_league_landscape():
             "scoreboard": scoreboard,
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 def _synthesize_roster_issues(injury, lineup, roster, busts):
@@ -1510,7 +1549,7 @@ def workflow_roster_health():
 
         issues = _synthesize_roster_issues(injury, lineup, roster, busts)
 
-        return jsonify({
+        return safe_jsonify({
             "issues": issues,
             "injury": injury,
             "lineup": lineup,
@@ -1518,7 +1557,7 @@ def workflow_roster_health():
             "busts": busts,
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 def _synthesize_waiver_pairs(waiver_b, waiver_p):
@@ -1557,7 +1596,7 @@ def workflow_waiver_recommendations():
 
         pairs = _synthesize_waiver_pairs(waiver_b, waiver_p)
 
-        return jsonify({
+        return safe_jsonify({
             "pairs": pairs,
             "category_check": cat_check,
             "waiver_batters": waiver_b,
@@ -1565,7 +1604,7 @@ def workflow_waiver_recommendations():
             "roster": roster,
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 def _compute_positional_impact(roster_players, get_players, give_players):
@@ -1722,7 +1761,7 @@ def workflow_trade_analysis():
         give_names = data.get("give_names", [])
         get_names = data.get("get_names", [])
         if not give_names or not get_names:
-            return jsonify({"error": "Missing give_names and/or get_names arrays"}), 400
+            return safe_jsonify({"error": "Missing give_names and/or get_names arrays"}, 400)
 
         # Resolve player names to IDs via value lookup
         give_players = []
@@ -1832,7 +1871,7 @@ def workflow_trade_analysis():
             except Exception:
                 intel_data[name] = {"_error": "unavailable"}
 
-        return jsonify({
+        return safe_jsonify({
             "give_players": give_players,
             "get_players": get_players,
             "give_ids": give_ids,
@@ -1843,16 +1882,16 @@ def workflow_trade_analysis():
             "category_impact": category_impact,
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/workflow/game-day-manager")
 def workflow_game_day_manager():
     try:
         data = season_manager.cmd_game_day_manager([], as_json=True)
-        return jsonify(data)
+        return safe_jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/workflow/waiver-deadline-prep")
@@ -1860,36 +1899,36 @@ def workflow_waiver_deadline_prep():
     try:
         count = request.args.get("count", "5")
         data = season_manager.cmd_waiver_deadline_prep([count], as_json=True)
-        return jsonify(data)
+        return safe_jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/workflow/trade-pipeline")
 def workflow_trade_pipeline():
     try:
         data = season_manager.cmd_trade_pipeline([], as_json=True)
-        return jsonify(data)
+        return safe_jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/workflow/weekly-digest")
 def workflow_weekly_digest():
     try:
         data = season_manager.cmd_weekly_digest([], as_json=True)
-        return jsonify(data)
+        return safe_jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/workflow/season-checkpoint")
 def workflow_season_checkpoint():
     try:
         data = season_manager.cmd_season_checkpoint([], as_json=True)
-        return jsonify(data)
+        return safe_jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- News (RotoWire RSS) ---
@@ -1900,9 +1939,9 @@ def api_news():
     try:
         limit = request.args.get("limit", "20")
         result = news.cmd_news([limit], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/news/player")
@@ -1910,11 +1949,11 @@ def api_news_player():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing name parameter"}), 400
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
         result = news.cmd_news_player([name], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/news/feed")
@@ -1925,18 +1964,18 @@ def api_news_feed():
         limit = int(request.args.get("limit", "30"))
         entries = news.fetch_aggregated_news(sources=sources, player=player, limit=limit)
         source_set = sorted(set(e.get("source", "") for e in entries if e.get("source")))
-        return jsonify({"entries": entries, "sources": source_set, "count": len(entries)})
+        return safe_jsonify({"entries": entries, "sources": source_set, "count": len(entries)})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/news/sources")
 def api_news_sources():
     try:
         result = news.cmd_news_sources([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 # --- Strategy / Advanced Analysis ---
@@ -1947,9 +1986,9 @@ def api_probable_pitchers():
     try:
         days = request.args.get("days", "7")
         result = season_manager.fetch_probable_pitchers(int(days))
-        return jsonify({"pitchers": result})
+        return safe_jsonify({"pitchers": result})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/schedule-analysis")
@@ -1958,11 +1997,11 @@ def api_schedule_analysis():
         team_name = request.args.get("team", "")
         days = request.args.get("days", "14")
         if not team_name:
-            return jsonify({"error": "Missing team parameter"}), 400
+            return safe_jsonify({"error": "Missing team parameter"}, 400)
         result = season_manager.analyze_schedule_density(team_name, int(days))
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/category-impact", methods=["POST"])
@@ -1972,18 +2011,18 @@ def api_category_impact():
         add_players = data.get("add_players", [])
         drop_players = data.get("drop_players", [])
         result = valuations.project_category_impact(add_players, drop_players)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/regression-candidates")
 def api_regression_candidates():
     try:
         result = intel.detect_regression_candidates()
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/player-tier")
@@ -1991,22 +2030,22 @@ def api_player_tier():
     try:
         name = request.args.get("name", "")
         if not name:
-            return jsonify({"error": "Missing name parameter"}), 400
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
         result = valuations.get_player_zscore(name)
         if result is None:
-            return jsonify({"error": "Player not found: " + name}), 404
-        return jsonify(result)
+            return safe_jsonify({"error": "Player not found: " + name}, 404)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/cache-stats", methods=["GET"])
 def api_cache_stats():
     try:
         from intel import _cache_manager
-        return jsonify(_cache_manager.stats())
+        return safe_jsonify(_cache_manager.stats())
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/cache-clear", methods=["POST"])
@@ -2016,9 +2055,9 @@ def api_cache_clear():
         data = request.get_json(silent=True) or {}
         key = data.get("key")
         _cache_manager.clear(key)
-        return jsonify({"cleared": key or "all"})
+        return safe_jsonify({"cleared": key or "all"})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/trash-talk")
@@ -2026,9 +2065,9 @@ def api_trash_talk():
     try:
         intensity = request.args.get("intensity", "competitive")
         result = season_manager.cmd_trash_talk([intensity], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/rival-history")
@@ -2037,18 +2076,18 @@ def api_rival_history():
         opponent = request.args.get("opponent", "")
         args = [opponent] if opponent else []
         result = season_manager.cmd_rival_history(args, as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 @app.route("/api/achievements")
 def api_achievements():
     try:
         result = season_manager.cmd_achievements([], as_json=True)
-        return jsonify(result)
+        return safe_jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": str(e)}, 500)
 
 
 if __name__ == "__main__":

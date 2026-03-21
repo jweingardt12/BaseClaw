@@ -841,6 +841,28 @@ def cmd_injury_report(args, as_json=False):
         print("Roster is empty")
         return
 
+    # Enrich roster with team/headshot from Yahoo raw API
+    if as_json:
+        try:
+            yf_mod = importlib.import_module("yahoo-fantasy")
+            stat_lookup = yf_mod._get_stat_lookup(lg)
+            handler = lg.yhandler
+            uri = ("/team/" + team.team_key
+                   + "/roster/players;out=percent_started,percent_owned,draft_analysis"
+                   + "/stats;type=season;season=" + str(date.today().year))
+            raw = handler.get(uri)
+            enriched = yf_mod._parse_enriched_data(raw, stat_lookup)
+            for p in roster:
+                pid = str(p.get("player_id", ""))
+                if pid in enriched:
+                    ed = enriched[pid]
+                    if ed.get("team"):
+                        p["editorial_team_abbr"] = ed["team"]
+                    if ed.get("headshot"):
+                        p["headshot"] = {"url": ed["headshot"]}
+        except Exception as e:
+            print("Warning: injury-report enrichment failed: " + str(e))
+
     # Get MLB injuries
     mlb_injuries = {}
     try:

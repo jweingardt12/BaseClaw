@@ -1291,6 +1291,116 @@ def _safe_float(val):
     return float(val)
 
 
+# --- Position lookup from Yahoo ---
+
+# Cache for Yahoo position data (populated once per process)
+_yahoo_pos_cache = {}
+
+
+def _fill_positions_from_yahoo(players, pos_type="B"):
+    """Fill empty 'pos' fields by looking up player positions from Yahoo API.
+    Uses league roster/free-agent data and caches results.
+    """
+    global _yahoo_pos_cache
+
+    # Build list of names that need positions
+    names_needed = {}
+    for p in players:
+        if not p.get("pos"):
+            names_needed[p.get("name", "").lower()] = p
+
+    if not names_needed:
+        return
+
+    # Check cache first
+    for name_lower, player in list(names_needed.items()):
+        if name_lower in _yahoo_pos_cache:
+            player["pos"] = _yahoo_pos_cache[name_lower]
+            del names_needed[name_lower]
+
+    if not names_needed:
+        return
+
+    # Try to get positions from Yahoo league data
+    try:
+        from shared import get_league, get_league_context, TEAM_ID
+        sc, gm, lg = get_league()
+
+        def _elig_to_pos(elig):
+            """Convert eligible_positions list to a position string, keeping Util as fallback."""
+            filtered = [p for p in elig if p not in ("BN", "IL", "IL+", "DL", "DL+", "NA")]
+            # Prefer non-Util positions
+            non_util = [p for p in filtered if p != "Util"]
+            return ",".join(non_util) if non_util else (",".join(filtered) if filtered else "")
+
+        def _match_name(yahoo_name, needed_names):
+            """Match a Yahoo player name (may have suffix like '(Batter)') to needed names.
+            Returns the matching key from needed_names or None."""
+            yn_lower = yahoo_name.lower().strip()
+            # Exact match first
+            if yn_lower in needed_names:
+                return yn_lower
+            # Strip parenthetical suffix: "Shohei Ohtani (Batter)" -> "shohei ohtani"
+            base = yn_lower.split("(")[0].strip()
+            if base and base in needed_names:
+                return base
+            return None
+
+        # First: check all rostered players across the league
+        try:
+            all_teams = lg.teams()
+            for team_key in all_teams:
+                if not names_needed:
+                    break
+                try:
+                    t = lg.to_team(team_key)
+                    roster = t.roster()
+                    for rp in roster:
+                        match_key = _match_name(rp.get("name", ""), names_needed)
+                        if match_key:
+                            elig = rp.get("eligible_positions", [])
+                            pos_str = _elig_to_pos(elig)
+                            if pos_str:
+                                # Merge positions if player appears twice (e.g. Ohtani batter + pitcher)
+                                existing = names_needed[match_key].get("pos", "")
+                                if existing:
+                                    combined = set(existing.split(",")) | set(pos_str.split(","))
+                                    pos_str = ",".join(sorted(combined))
+                                names_needed[match_key]["pos"] = pos_str
+                                _yahoo_pos_cache[match_key] = pos_str
+                except Exception:
+                    continue
+            # Remove resolved entries
+            names_needed = {k: v for k, v in names_needed.items() if not v.get("pos")}
+        except Exception:
+            pass
+
+        # Second: check free agents for remaining names
+        if names_needed:
+            try:
+                fa = lg.free_agents(pos_type)[:100]
+                for fp in fa:
+                    match_key = _match_name(fp.get("name", ""), names_needed)
+                    if match_key:
+                        elig = fp.get("eligible_positions", [])
+                        pos_str = _elig_to_pos(elig)
+                        if pos_str:
+                            names_needed[match_key]["pos"] = pos_str
+                            _yahoo_pos_cache[match_key] = pos_str
+                            del names_needed[match_key]
+            except Exception:
+                pass
+
+        # Fallback for pitchers: if pos_type is P and still empty, default to SP/RP
+        if pos_type == "P":
+            for name_lower, player in names_needed.items():
+                player["pos"] = "P"
+                _yahoo_pos_cache[name_lower] = "P"
+
+    except Exception as e:
+        print("Warning: Yahoo position lookup failed: " + str(e))
+
+
 # --- CLI Commands ---
 
 def cmd_rankings(args, as_json=False):
@@ -1333,6 +1443,15 @@ def cmd_rankings(args, as_json=False):
             if pf is not None and not pd.isna(pf):
                 entry["park_factor"] = round(float(pf), 2)
             players.append(entry)
+
+        # Fill empty positions from Yahoo player data when available
+        needs_pos = [p for p in players if not p.get("pos")]
+        if needs_pos:
+            try:
+                _fill_positions_from_yahoo(needs_pos, pos_type)
+            except Exception as e:
+                print("Warning: could not fill positions from Yahoo: " + str(e))
+
         enrich_with_intel(players)
         return {"source": source, "pos_type": pos_type, "players": players}
 

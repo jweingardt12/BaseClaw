@@ -343,6 +343,40 @@ def cmd_free_agents(args, as_json=False):
                     "mlb_id": get_mlb_id(p.get("name", "")),
                 }
             )
+
+        # Batch enrich with headshot, team, percent_owned from Yahoo raw API
+        try:
+            stat_lookup = _get_stat_lookup(lg)
+            handler = lg.yhandler
+            league_key = lg.league_id
+            game_id = str(gm.game_id())
+            player_keys = [game_id + ".p." + str(p.get("player_id", "")) for p in players if p.get("player_id")]
+            batch_size = 25
+            enriched_data = {}
+            for i in range(0, len(player_keys), batch_size):
+                batch = player_keys[i:i + batch_size]
+                keys_str = ",".join(batch)
+                uri = ("/league/" + league_key
+                       + "/players;player_keys=" + keys_str
+                       + ";out=percent_started,percent_owned,draft_analysis"
+                       + "/stats;type=season;season=" + str(datetime.date.today().year))
+                raw = handler.get(uri)
+                batch_enriched = _parse_league_players_enriched(raw, stat_lookup)
+                enriched_data.update(batch_enriched)
+
+            for p in players:
+                pid = str(p.get("player_id", ""))
+                if pid in enriched_data:
+                    ed = enriched_data[pid]
+                    if not p.get("team") and ed.get("team"):
+                        p["team"] = ed["team"]
+                    if not p.get("headshot") and ed.get("headshot"):
+                        p["headshot"] = ed["headshot"]
+                    if ed.get("percent_owned") is not None:
+                        p["percent_owned"] = ed["percent_owned"]
+        except Exception as e:
+            print("Warning: free-agents enrichment failed: " + str(e))
+
         enrich_with_intel(players)
         enrich_with_trends(players)
         return {"pos_type": pos_type, "count": count, "players": players}
