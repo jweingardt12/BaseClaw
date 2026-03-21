@@ -1384,6 +1384,7 @@ def cmd_trade_eval(args, as_json=False):
         name = p.get("name", "Unknown")
         info = get_player_zscore(name)
         if info:
+            info["z_source"] = "projections"
             return info
         # Fallback: estimate from percent_owned (legacy)
         pct = float(p.get("percent_owned", 0)) if p.get("percent_owned") else 0
@@ -1398,6 +1399,7 @@ def cmd_trade_eval(args, as_json=False):
             "rank": 0,
             "pos": ",".join(p.get("eligible_positions", [])),
             "type": "B",
+            "z_source": "estimated (ownership%)",
         }
 
     give_evals = [_eval_player(p) for p in give_players]
@@ -1456,6 +1458,7 @@ def cmd_trade_eval(args, as_json=False):
                 "player_id": str(p.get("player_id", "")),
                 "positions": p.get("eligible_positions", []),
                 "z_score": e.get("z_final", 0),
+                "z_source": e.get("z_source", "projections"),
                 "tier": e.get("tier", "Streamable"),
                 "per_category_zscores": e.get("per_category_zscores", {}),
                 "mlb_id": get_mlb_id(p.get("name", "")),
@@ -1468,6 +1471,7 @@ def cmd_trade_eval(args, as_json=False):
                 "player_id": str(p.get("player_id", "")),
                 "positions": p.get("eligible_positions", []),
                 "z_score": e.get("z_final", 0),
+                "z_source": e.get("z_source", "projections"),
                 "tier": e.get("tier", "Streamable"),
                 "per_category_zscores": e.get("per_category_zscores", {}),
                 "mlb_id": get_mlb_id(p.get("name", "")),

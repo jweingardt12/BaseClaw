@@ -307,10 +307,16 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         // Trade eval if available
         const te = data.trade_eval;
         if (te && !("_error" in te)) {
+          // Check for estimated z-scores
+          const estimatedPlayers = [...(te.give_players || []), ...(te.get_players || [])]
+            .filter((p) => (p as unknown as Record<string, unknown>).z_source === "estimated (ownership%)");
           lines.push("");
           lines.push("EVALUATION:");
           lines.push("  Give value: " + str(te.give_value) + " | Get value: " + str(te.get_value) + " | Net: " + str(te.net_value));
           lines.push("  Grade: " + str(te.grade));
+          if (estimatedPlayers.length > 0) {
+            lines.push("  NOTE: " + estimatedPlayers.map((p) => p.name).join(", ") + " z-score(s) estimated from ownership% (not in projections)");
+          }
         }
 
         // Positional impact (Fix #6)
