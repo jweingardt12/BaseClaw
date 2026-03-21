@@ -790,6 +790,7 @@ def _fetch_fangraphs_regression_batting():
                         "babip": row.get("BABIP", None),
                         "woba": row.get("wOBA", None),
                         "wrc_plus": row.get("wRC+", None),
+                        "hr_fb_rate": row.get("HR/FB", None),
                         "pa": row.get("PA", None),
                         "data_season": year,
                     }
@@ -827,6 +828,7 @@ def _fetch_fangraphs_regression_pitching():
                         "babip": row.get("BABIP", None),
                         "lob_pct": row.get("LOB%", None),
                         "siera": row.get("SIERA", None),
+                        "hr_fb_rate": row.get("HR/FB", None),
                         "ip": row.get("IP", None),
                         "data_season": year,
                     }
@@ -835,6 +837,234 @@ def _fetch_fangraphs_regression_pitching():
     except Exception as e:
         print("Warning: FanGraphs regression pitching fetch failed: " + str(e))
         return {}
+
+
+def compute_hitter_regression_score(player_stats):
+    """Compute composite regression score for a hitter (-100 to +100).
+    Positive = underperforming expected stats (buy-low).
+    Negative = overperforming expected stats (sell-high).
+    """
+    score = 0
+    signals = []
+
+    # Signal 1: xwOBA vs wOBA (weight: 35%)
+    xwoba = player_stats.get("xwoba", 0)
+    woba = player_stats.get("woba", 0)
+    if xwoba and woba:
+        xwoba_gap = float(xwoba) - float(woba)
+        if abs(xwoba_gap) >= 0.020:
+            signal_score = min(max(xwoba_gap * 1000, -35), 35)
+            score += signal_score
+            signals.append({
+                "name": "xwOBA_gap",
+                "value": round(xwoba_gap, 3),
+                "direction": "buy-low" if xwoba_gap > 0 else "sell-high",
+                "strength": "strong" if abs(xwoba_gap) >= 0.030 else "moderate",
+                "contribution": round(signal_score, 1),
+            })
+
+    # Signal 2: BABIP vs .300 baseline (weight: 25%)
+    babip = player_stats.get("babip")
+    if babip is not None:
+        try:
+            babip_val = float(babip)
+            babip_gap = 0.300 - babip_val
+            if abs(babip_gap) >= 0.025:
+                signal_score = min(max(babip_gap * 500, -25), 25)
+                score += signal_score
+                signals.append({
+                    "name": "BABIP_regression",
+                    "value": round(babip_gap, 3),
+                    "direction": "buy-low" if babip_gap > 0 else "sell-high",
+                    "strength": "strong" if abs(babip_gap) >= 0.040 else "moderate",
+                    "contribution": round(signal_score, 1),
+                })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 3: HR/FB% vs barrel rate prediction (weight: 20%)
+    barrel_rate = player_stats.get("barrel_pct") or player_stats.get("barrel_rate")
+    hr_fb_rate = player_stats.get("hr_fb_rate")
+    if barrel_rate is not None and hr_fb_rate is not None:
+        try:
+            br = float(barrel_rate)
+            hrfb = float(hr_fb_rate)
+            if br > 0 and hrfb > 0:
+                expected_hr_fb = br * 0.85 + 0.02
+                hr_fb_gap = expected_hr_fb - hrfb
+                if abs(hr_fb_gap) >= 0.03:
+                    signal_score = min(max(hr_fb_gap * 400, -20), 20)
+                    score += signal_score
+                    signals.append({
+                        "name": "HR/FB_vs_barrels",
+                        "value": round(hr_fb_gap, 3),
+                        "direction": "buy-low" if hr_fb_gap > 0 else "sell-high",
+                        "strength": "strong" if abs(hr_fb_gap) >= 0.06 else "moderate",
+                        "contribution": round(signal_score, 1),
+                    })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 4: Sprint speed for SB regression (weight: 10%)
+    sprint_speed = player_stats.get("sprint_speed")
+    stolen_bases = player_stats.get("sb", 0)
+    if sprint_speed is not None:
+        try:
+            ss = float(sprint_speed)
+            sb = int(float(stolen_bases)) if stolen_bases else 0
+            if ss >= 28.5 and sb < 5:
+                score += 8
+                signals.append({
+                    "name": "speed_underutilized",
+                    "value": ss,
+                    "direction": "buy-low",
+                    "strength": "moderate",
+                    "contribution": 8,
+                })
+            elif ss < 27.0 and sb > 10:
+                score -= 8
+                signals.append({
+                    "name": "speed_unsustainable_sb",
+                    "value": ss,
+                    "direction": "sell-high",
+                    "strength": "moderate",
+                    "contribution": -8,
+                })
+        except (ValueError, TypeError):
+            pass
+
+    return {
+        "regression_score": round(score, 1),
+        "direction": "buy-low" if score > 15 else "sell-high" if score < -15 else "neutral",
+        "confidence": "high" if abs(score) > 40 else "medium" if abs(score) > 20 else "low",
+        "signals": signals,
+    }
+
+
+def compute_pitcher_regression_score(player_stats):
+    """Compute composite regression score for a pitcher (-100 to +100).
+    Positive = underperforming expected (buy-low).
+    Negative = overperforming expected (sell-high).
+    """
+    score = 0
+    signals = []
+
+    era = player_stats.get("era")
+    siera = player_stats.get("siera")
+    xera = player_stats.get("xera") or siera  # SIERA used as xERA proxy
+
+    # Signal 1: ERA vs SIERA (weight: 35%)
+    if era is not None and siera is not None:
+        try:
+            era_val = float(era)
+            siera_val = float(siera)
+            if era_val > 0 and siera_val > 0:
+                era_gap = era_val - siera_val
+                if abs(era_gap) >= 0.50:
+                    signal_score = min(max(era_gap * 20, -35), 35)
+                    score += signal_score
+                    signals.append({
+                        "name": "ERA_vs_SIERA",
+                        "value": round(era_gap, 2),
+                        "direction": "buy-low" if era_gap > 0 else "sell-high",
+                        "strength": "strong" if abs(era_gap) >= 1.0 else "moderate",
+                        "contribution": round(signal_score, 1),
+                    })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 2: ERA vs xERA (weight: 25%)
+    if era is not None and xera is not None and xera != siera:
+        try:
+            era_val = float(era)
+            xera_val = float(xera)
+            if era_val > 0 and xera_val > 0:
+                xera_gap = era_val - xera_val
+                if abs(xera_gap) >= 0.40:
+                    signal_score = min(max(xera_gap * 15, -25), 25)
+                    score += signal_score
+                    signals.append({
+                        "name": "ERA_vs_xERA",
+                        "value": round(xera_gap, 2),
+                        "direction": "buy-low" if xera_gap > 0 else "sell-high",
+                        "strength": "strong" if abs(xera_gap) >= 0.80 else "moderate",
+                        "contribution": round(signal_score, 1),
+                    })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 3: BABIP against (weight: 15%)
+    babip = player_stats.get("babip")
+    if babip is not None:
+        try:
+            babip_val = float(babip)
+            if abs(babip_val - 0.300) >= 0.025:
+                babip_signal = (0.300 - babip_val) * 300
+                signal_score = min(max(-babip_signal, -15), 15)
+                score += signal_score
+                if abs(babip_val - 0.300) >= 0.030:
+                    signals.append({
+                        "name": "BABIP_against",
+                        "value": round(babip_val, 3),
+                        "direction": "buy-low" if babip_val > 0.330 else "sell-high",
+                        "strength": "strong" if abs(babip_val - 0.300) >= 0.050 else "moderate",
+                        "contribution": round(signal_score, 1),
+                    })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 4: LOB% extremes (weight: 15%)
+    lob_pct = player_stats.get("lob_pct")
+    if lob_pct is not None:
+        try:
+            lob_val = float(lob_pct)
+            # Normalize: FanGraphs stores as percentage (72.0) not decimal
+            if lob_val > 1:
+                lob_decimal = lob_val / 100.0
+            else:
+                lob_decimal = lob_val
+            lob_deviation = lob_decimal - 0.72
+            if abs(lob_deviation) >= 0.05:
+                signal_score = min(max(lob_deviation * -150, -15), 15)
+                score += signal_score
+                signals.append({
+                    "name": "LOB%_extreme",
+                    "value": round(lob_val, 1),
+                    "direction": "buy-low" if lob_decimal < 0.67 else "sell-high",
+                    "strength": "strong" if abs(lob_deviation) >= 0.08 else "moderate",
+                    "contribution": round(signal_score, 1),
+                })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 5: HR/FB% vs league average (weight: 10%)
+    hr_fb = player_stats.get("hr_fb_rate")
+    if hr_fb is not None:
+        try:
+            hr_fb_val = float(hr_fb)
+            hr_fb_deviation = hr_fb_val - 0.12
+            if abs(hr_fb_deviation) >= 0.03:
+                signal_score = min(max(hr_fb_deviation * -150, -10), 10)
+                score += signal_score
+        except (ValueError, TypeError):
+            pass
+
+    return {
+        "regression_score": round(score, 1),
+        "direction": "buy-low" if score > 15 else "sell-high" if score < -15 else "neutral",
+        "confidence": "high" if abs(score) > 40 else "medium" if abs(score) > 20 else "low",
+        "signals": signals,
+    }
+
+
+def _regression_fields(reg_result):
+    """Extract regression scoring fields from a regression result dict."""
+    return {
+        "regression_score": reg_result.get("regression_score"),
+        "direction": reg_result.get("direction"),
+        "confidence": reg_result.get("confidence"),
+        "signals": reg_result.get("signals"),
+    }
 
 
 def detect_regression_candidates():
@@ -858,6 +1088,18 @@ def detect_regression_candidates():
         savant_bat = _fetch_savant_expected("batter")
         fg_bat = _fetch_fangraphs_regression_batting()
 
+        # Fetch barrel and sprint speed data for composite scoring
+        statcast_bat = {}
+        sprint_bat = {}
+        try:
+            statcast_bat = _fetch_savant_statcast("batter") or {}
+        except Exception:
+            pass
+        try:
+            sprint_bat = _fetch_savant_sprint_speed("batter") or {}
+        except Exception:
+            pass
+
         for key, row in (savant_bat or {}).items():
             if _is_savant_meta_key(key):
                 continue
@@ -869,9 +1111,10 @@ def detect_regression_candidates():
                     continue
                 name = row.get("player_name", key)
 
-                # Look up FanGraphs BABIP for this player
+                # Look up FanGraphs BABIP and HR/FB for this player
                 fg_row = _find_in_fangraphs(name, fg_bat)
                 babip = None
+                hr_fb_rate = None
                 if fg_row:
                     babip_raw = fg_row.get("babip")
                     if babip_raw is not None:
@@ -879,6 +1122,46 @@ def detect_regression_candidates():
                             babip = float(babip_raw)
                         except (ValueError, TypeError):
                             babip = None
+                    hr_fb_raw = fg_row.get("hr_fb_rate")
+                    if hr_fb_raw is not None:
+                        try:
+                            hr_fb_rate = float(hr_fb_raw)
+                        except (ValueError, TypeError):
+                            hr_fb_rate = None
+
+                # Look up barrel rate from statcast data
+                barrel_pct = None
+                statcast_row = _find_in_savant(name, statcast_bat)
+                if statcast_row:
+                    barrel_raw = statcast_row.get("brl_percent", statcast_row.get("barrel_batted_rate"))
+                    if barrel_raw is not None:
+                        try:
+                            barrel_pct = float(barrel_raw)
+                        except (ValueError, TypeError):
+                            barrel_pct = None
+
+                # Look up sprint speed
+                sprint_speed = None
+                sprint_row = _find_in_savant(name, sprint_bat)
+                if sprint_row:
+                    sprint_raw = sprint_row.get("hp_to_1b", sprint_row.get("sprint_speed"))
+                    if sprint_raw is not None:
+                        try:
+                            sprint_speed = float(sprint_raw)
+                        except (ValueError, TypeError):
+                            sprint_speed = None
+
+                # Build player_stats dict for composite scoring
+                hitter_stats = {
+                    "xwoba": xwoba,
+                    "woba": woba,
+                    "babip": babip,
+                    "barrel_pct": barrel_pct,
+                    "hr_fb_rate": hr_fb_rate,
+                    "sprint_speed": sprint_speed,
+                    "sb": row.get("sb", 0),
+                }
+                reg_result = compute_hitter_regression_score(hitter_stats)
 
                 woba_diff = xwoba - woba
 
@@ -900,7 +1183,7 @@ def detect_regression_candidates():
                         details_parts.append(
                             "BABIP " + str(round(babip, 3)) + " (below avg)"
                         )
-                    result["buy_low_hitters"].append({
+                    entry = {
                         "name": name,
                         "signal": signal,
                         "details": "; ".join(details_parts),
@@ -909,10 +1192,12 @@ def detect_regression_candidates():
                         "diff": round(woba_diff, 3),
                         "babip": round(babip, 3) if babip is not None else None,
                         "pa": pa,
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["buy_low_hitters"].append(entry)
                 elif babip is not None and babip < 0.260 and woba_diff >= 0.010:
                     # Low BABIP alone with modest xwOBA edge
-                    result["buy_low_hitters"].append({
+                    entry = {
                         "name": name,
                         "signal": "low BABIP",
                         "details": (
@@ -925,7 +1210,9 @@ def detect_regression_candidates():
                         "diff": round(woba_diff, 3),
                         "babip": round(babip, 3),
                         "pa": pa,
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["buy_low_hitters"].append(entry)
 
                 # Sell-high hitter: wOBA >> xwOBA AND/OR high BABIP
                 sell_diff = woba - xwoba
@@ -946,7 +1233,7 @@ def detect_regression_candidates():
                         details_parts.append(
                             "BABIP " + str(round(babip, 3)) + " (above avg)"
                         )
-                    result["sell_high_hitters"].append({
+                    entry = {
                         "name": name,
                         "signal": signal,
                         "details": "; ".join(details_parts),
@@ -955,10 +1242,12 @@ def detect_regression_candidates():
                         "diff": round(sell_diff, 3),
                         "babip": round(babip, 3) if babip is not None else None,
                         "pa": pa,
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["sell_high_hitters"].append(entry)
                 elif babip is not None and babip > 0.370 and sell_diff >= 0.010:
                     # High BABIP alone with modest overperformance
-                    result["sell_high_hitters"].append({
+                    entry = {
                         "name": name,
                         "signal": "high BABIP",
                         "details": (
@@ -971,7 +1260,9 @@ def detect_regression_candidates():
                         "diff": round(sell_diff, 3),
                         "babip": round(babip, 3),
                         "pa": pa,
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["sell_high_hitters"].append(entry)
             except (ValueError, TypeError):
                 continue
     except Exception as e:
@@ -995,6 +1286,8 @@ def detect_regression_candidates():
                 xfip = fg_row.get("xfip")
                 babip_raw = fg_row.get("babip")
                 lob_pct_raw = fg_row.get("lob_pct")
+                siera_raw = fg_row.get("siera")
+                hr_fb_raw = fg_row.get("hr_fb_rate")
                 ip = fg_row.get("ip")
 
                 if era is None or fip is None:
@@ -1008,6 +1301,8 @@ def detect_regression_candidates():
                 xfip_val = float(xfip) if xfip is not None else None
                 babip = float(babip_raw) if babip_raw is not None else None
                 lob_pct = float(lob_pct_raw) if lob_pct_raw is not None else None
+                siera = float(siera_raw) if siera_raw is not None else None
+                hr_fb_rate = float(hr_fb_raw) if hr_fb_raw is not None else None
 
                 # Reconstruct display name from FanGraphs lowercase key
                 display_name = name_lower.title()
@@ -1029,6 +1324,18 @@ def detect_regression_candidates():
                             savant_woba = float(savant_woba_raw)
                         except (ValueError, TypeError):
                             pass
+
+                # Build player_stats dict for composite scoring
+                pitcher_stats = {
+                    "era": era,
+                    "fip": fip,
+                    "xfip": xfip_val,
+                    "babip": babip,
+                    "lob_pct": lob_pct,
+                    "siera": siera,
+                    "hr_fb_rate": hr_fb_rate,
+                }
+                reg_result = compute_pitcher_regression_score(pitcher_stats)
 
                 era_fip_diff = era - fip
 
@@ -1057,7 +1364,7 @@ def detect_regression_candidates():
                                 "Savant xwOBA " + str(round(savant_xwoba, 3))
                                 + " < wOBA " + str(round(savant_woba, 3))
                             )
-                    result["buy_low_pitchers"].append({
+                    entry = {
                         "name": display_name,
                         "signal": signal,
                         "details": "; ".join(details_parts),
@@ -1067,7 +1374,9 @@ def detect_regression_candidates():
                         "babip": round(babip, 3) if babip is not None else None,
                         "lob_pct": round(lob_pct, 1) if lob_pct is not None else None,
                         "ip": round(ip_val, 1),
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["buy_low_pitchers"].append(entry)
 
                 # Sell-high pitcher: ERA << FIP (overperforming) or high LOB%
                 fip_era_diff = fip - era
@@ -1089,7 +1398,7 @@ def detect_regression_candidates():
                             "BABIP " + str(round(babip, 3))
                             + " (low, likely lucky)"
                         )
-                    result["sell_high_pitchers"].append({
+                    entry = {
                         "name": display_name,
                         "signal": signal,
                         "details": "; ".join(details_parts),
@@ -1099,7 +1408,9 @@ def detect_regression_candidates():
                         "babip": round(babip, 3) if babip is not None else None,
                         "lob_pct": round(lob_pct, 1) if lob_pct is not None else None,
                         "ip": round(ip_val, 1),
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["sell_high_pitchers"].append(entry)
                 elif lob_pct is not None and lob_pct > 80.0 and fip_era_diff >= 0.40:
                     # High LOB% alone with moderate overperformance
                     details_parts = [
@@ -1115,7 +1426,7 @@ def detect_regression_candidates():
                             "BABIP " + str(round(babip, 3))
                             + " (low, likely lucky)"
                         )
-                    result["sell_high_pitchers"].append({
+                    entry = {
                         "name": display_name,
                         "signal": "high LOB%",
                         "details": "; ".join(details_parts),
@@ -1125,7 +1436,9 @@ def detect_regression_candidates():
                         "babip": round(babip, 3) if babip is not None else None,
                         "lob_pct": round(lob_pct, 1),
                         "ip": round(ip_val, 1),
-                    })
+                        **_regression_fields(reg_result)
+                    }
+                    result["sell_high_pitchers"].append(entry)
             except (ValueError, TypeError):
                 continue
     except Exception as e:
@@ -1145,7 +1458,8 @@ def detect_regression_candidates():
 
 def get_regression_signal(player_name):
     """Get regression signal for a specific player.
-    Returns dict with 'signal', 'category', and 'details' if found, else None.
+    Returns dict with 'signal', 'category', 'details',
+    'regression_score', 'direction', and 'confidence' if found, else None.
     """
     if not player_name:
         return None
@@ -1158,19 +1472,21 @@ def get_regression_signal(player_name):
                          "buy_low_pitchers", "sell_high_pitchers"]:
             for entry in candidates.get(category, []):
                 entry_norm = _normalize_name(entry.get("name", ""))
+                matched = False
                 if entry_norm == norm:
+                    matched = True
+                else:
+                    parts = norm.split()
+                    if parts and all(p in entry_norm for p in parts):
+                        matched = True
+                if matched:
                     return {
                         "category": category,
                         "signal": entry.get("signal", ""),
                         "details": entry.get("details", ""),
-                    }
-                # Partial match: all parts of search name in entry name
-                parts = norm.split()
-                if parts and all(p in entry_norm for p in parts):
-                    return {
-                        "category": category,
-                        "signal": entry.get("signal", ""),
-                        "details": entry.get("details", ""),
+                        "regression_score": entry.get("regression_score"),
+                        "direction": entry.get("direction"),
+                        "confidence": entry.get("confidence"),
                     }
         return None
     except Exception as e:

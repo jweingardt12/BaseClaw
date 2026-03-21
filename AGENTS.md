@@ -43,7 +43,8 @@ Remember these settings for all future decisions. Every league is different.
 
 - **Target** categories where you're close to winning this week
 - **Concede** categories your opponent dominates — don't waste moves on lost causes
-- **Stream** pitchers for counting stats (K, W, QS) when you have add budget
+- **Stream** pitchers using `yahoo_streaming` — multi-factor scoring considers pitcher quality, park factor, opponent quality, and two-start potential
+- Check `fantasy_regression_candidates` regression scores before any add/drop/trade — buy-low/sell-high signals prevent overpaying or panic-dropping
 - Monitor closer situations — saves/holds are scarce and volatile
 - IL management: move injured players immediately to free roster spots
 - Trade from your surplus categories to improve your weakest ones
@@ -67,17 +68,18 @@ Remember these settings for all future decisions. Every league is different.
 ## Multi-Step Decision Trees
 
 - **Injury response**: Injury detected -> check IL eligibility -> move to IL -> search replacement (`yahoo_waiver_deadline_prep`) -> evaluate top candidates -> add best option per autonomy level
-- **Trade pipeline**: Identify surplus categories -> find trade partners (`yahoo_trade_pipeline`) -> simulate impact -> propose per autonomy level
+- **Trade pipeline**: Identify surplus categories -> find trade partners (`yahoo_trade_pipeline`) -> evaluate with surplus value (`yahoo_trade_analysis` — check grade, category fit, rival warning) -> propose per autonomy level
 - **Waiver deadline**: Check weak categories -> run `yahoo_waiver_deadline_prep` -> review ranked claims (with FAAB bids if applicable) -> submit per autonomy level
 
 ## FAAB Management (FAAB leagues only)
 
 Skip this section entirely if your league uses priority waivers (check `yahoo_league_context`).
 
-- Budget pacing: spend ~60% by All-Star break, keep 40% for second-half breakouts and closer changes
-- Don't overpay for streamers ($1-2 max). Save budget for closers ($15-30) and breakout bats ($10-20)
-- Check league spending pace — if others are conservative, you can bid lower. If aggressive, reserve more for must-have players
-- Emergency fund: always keep $5-10 for late-season closer changes
+- Use `yahoo_faab_recommend` — it handles budget pacing, season phase, contender detection, and tier-based ranges automatically
+- Trust the tool's bid as your starting point, then adjust: bid up in bidding wars for scarce closers, bid down if league is passive
+- The tool's tier system: new closers (20-50%), breakout bats (10-25%), breakout pitchers (8-20%), streamers (1-3%), speculative (0-2%)
+- Late season (<=4 weeks): tool bids aggressively to avoid leaving money unspent — every unspent dollar is wasted value
+- Non-contenders: tool automatically bids conservatively (50% reduction)
 
 ## Trade Deadline Strategy
 
@@ -85,6 +87,38 @@ Skip this section entirely if your league uses priority waivers (check `yahoo_le
 - Target teams with complementary weaknesses (they're weak where you're strong and vice versa)
 - Propose 2-for-1 trades that improve your category balance while helping the other team
 - Never help a direct rival in the standings — check standings position before proposing
+
+## Regression Awareness
+
+Before any add/drop/trade decision, check regression signals:
+- Use `fantasy_regression_candidates` to identify buy-low/sell-high targets
+- A player with regression_score > 30 (buy-low, high confidence) is worth MORE than their current stats suggest
+- A player with regression_score < -30 (sell-high, high confidence) is worth LESS
+- Factor regression direction into trade proposals: sell-high your overperformers, target buy-low from opponents
+- Do NOT drop players with strong buy-low signals just because of a cold streak — check their Statcast profile first
+- Regression score confidence levels: high (|score| > 40), medium (|score| > 20), low (|score| <= 20)
+
+## Trade Intelligence
+
+- Always check standings before proposing: never help a team within 2 positions of you
+- 2-for-1 trades: the side getting 1 elite player usually wins. Only propose 2-for-1 when receiving the best player
+- Category fit > raw value: a B+ player filling your weakest category beats an A player stacking your strongest
+- Roster spot value: each extra player in a 2-for-1 costs ~2.5 z-score in waiver wire opportunity cost
+- Catcher premium: acquiring a top-12 catcher when not giving one up is worth ~1.5 z-score bonus
+- Time decay: player value decreases as season progresses — ROS projections shrink the value window
+- Trade grades: A+ (net >= 4.0), A (>= 2.5), B+ (>= 1.5), B (>= 0.5), C (>= -0.5), D (>= -1.5), F (< -1.5)
+
+## Statcast Decision Rules
+
+When evaluating any player, these Statcast thresholds indicate real-talent changes:
+- **Barrel rate** explains 73% of HR/FB variance — trust barrels over actual HRs for power evaluation
+- **Exit velocity on fly balls/line drives** is the stickiest year-over-year metric (r^2 = 0.67) — most reliable power indicator
+- **Sprint speed >= 28.5 ft/sec**: meaningful SB contributor. Below 27.0: unlikely to sustain SB production
+- **xwOBA vs wOBA gap >= .030**: strong regression signal. Direction tells you buy-low or sell-high
+- **ERA vs SIERA gap >= 1.0**: pitcher dramatically over/underperforming. SIERA is the better ERA predictor
+- **Stuff+ > 110**: elite pitch quality. After 250 pitches, Stuff+ beats preseason projections
+- **CSW% (called strikes + whiffs)**: more predictive of K rate than swinging-strike rate alone
+- **Velocity increase >= 1.5 mph from last season**: meaningful change, often precedes breakout
 
 ## Autonomy Level
 

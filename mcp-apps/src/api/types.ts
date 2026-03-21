@@ -353,6 +353,8 @@ export interface StreamingRecommendation {
   team: string;
   games: number;
   score: number;
+  stream_score?: number;
+  park_factor?: number;
   mlb_id?: number;
   intel?: PlayerIntel;
   trend?: TrendInfo;
@@ -383,6 +385,13 @@ export interface TradeEvalResponse {
   net_value: number;
   grade: string;
   position_impact: { losing: string[]; gaining: string[] };
+  adjusted_net_value?: number;
+  roster_spot_adj?: number;
+  category_fit_bonus?: number;
+  consolidation_premium?: number;
+  catcher_premium?: number;
+  rival_warning?: { is_rival: boolean; warning?: string; my_position?: number; partner_position?: number; gap?: number };
+  warnings?: string[];
 }
 
 export interface DailyUpdateResponse {
@@ -1231,6 +1240,10 @@ export interface FaabRecommendResponse {
   reasoning: string[];
   category_impact: Record<string, { add_z: number; drop_z: number; delta: number; direction: string }>;
   improving_categories: string[];
+  phase_multiplier?: number;
+  weeks_remaining?: number;
+  player_tier?: string;
+  is_contender?: boolean;
 }
 
 // Ownership Trends response

@@ -271,7 +271,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     server,
     "yahoo_trade_analysis",
     {
-      description: "Evaluate a trade by player names (not IDs). Resolves names, evaluates z-score value, and checks Statcast/intel data. Returns unified recommendation with reasoning.",
+      description: "Evaluate a trade by player names with surplus value analysis. Computes roster spot tax, category fit bonus, consolidation premium, catcher scarcity premium, and standings-aware rival warnings. Returns A+/F letter grade, adjusted net value breakdown, positional impact, and category simulation. Use before proposing or accepting any trade.",
       inputSchema: {
         give_names: z.array(z.string()).describe("Player names you would give up"),
         get_names: z.array(z.string()).describe("Player names you would receive"),
@@ -316,6 +316,26 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           lines.push("  Grade: " + str(te.grade));
           if (estimatedPlayers.length > 0) {
             lines.push("  NOTE: " + estimatedPlayers.map((p) => p.name).join(", ") + " z-score(s) estimated from ownership% (not in projections)");
+          }
+          // Surplus value breakdown
+          if (te.adjusted_net_value !== undefined) {
+            lines.push("  Adjusted Net: " + str(te.adjusted_net_value) + " (includes all premiums)");
+          }
+          if (te.roster_spot_adj && te.roster_spot_adj !== 0) {
+            lines.push("    Roster spot adj: " + (te.roster_spot_adj > 0 ? "+" : "") + str(te.roster_spot_adj));
+          }
+          if (te.category_fit_bonus && te.category_fit_bonus !== 0) {
+            lines.push("    Category fit: " + (te.category_fit_bonus > 0 ? "+" : "") + str(te.category_fit_bonus));
+          }
+          if (te.consolidation_premium && te.consolidation_premium !== 0) {
+            lines.push("    Consolidation: " + (te.consolidation_premium > 0 ? "+" : "") + str(te.consolidation_premium));
+          }
+          if (te.catcher_premium && te.catcher_premium > 0) {
+            lines.push("    Catcher premium: +" + str(te.catcher_premium));
+          }
+          const rivalWarn = te.rival_warning;
+          if (rivalWarn && rivalWarn.is_rival) {
+            lines.push("  WARNING: " + str(rivalWarn.warning));
           }
         }
 

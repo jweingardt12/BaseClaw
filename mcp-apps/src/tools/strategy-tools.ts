@@ -81,7 +81,7 @@ export function registerStrategyTools(server: McpServer) {
     server,
     "fantasy_regression_candidates",
     {
-      description: "Find buy-low and sell-high regression candidates based on Statcast metrics vs actual performance",
+      description: "Find buy-low/sell-high regression candidates with composite scores (-100 to +100). Multi-signal analysis: xwOBA vs wOBA, BABIP, HR/FB vs barrel rate, sprint speed, ERA vs SIERA, LOB%. Each candidate has a regression_score, direction (buy-low/sell-high), confidence (high/medium/low), and detailed signal breakdown. Use before any add/drop/trade decision.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -95,30 +95,38 @@ export function registerStrategyTools(server: McpServer) {
         const sellP = data.sell_high_pitchers || [];
         if (buyH.length > 0) {
           lines.push("");
-          lines.push("BUY LOW HITTERS (" + buyH.length + "):");
+          lines.push("BUY LOW HITTERS (" + buyH.length + ") [score > 0 = underperforming]:");
           for (const c of buyH.slice(0, 15)) {
-            lines.push("  " + str(c.name).padEnd(25) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
+            const regScore = c.regression_score !== undefined ? " [" + String(c.regression_score) + "]" : "";
+            const conf = c.confidence ? " (" + c.confidence + ")" : "";
+            lines.push("  " + str(c.name).padEnd(25) + regScore.padEnd(8) + conf.padEnd(10) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
           }
         }
         if (sellH.length > 0) {
           lines.push("");
-          lines.push("SELL HIGH HITTERS (" + sellH.length + "):");
+          lines.push("SELL HIGH HITTERS (" + sellH.length + ") [score > 0 = underperforming]:");
           for (const c of sellH.slice(0, 15)) {
-            lines.push("  " + str(c.name).padEnd(25) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
+            const regScore = c.regression_score !== undefined ? " [" + String(c.regression_score) + "]" : "";
+            const conf = c.confidence ? " (" + c.confidence + ")" : "";
+            lines.push("  " + str(c.name).padEnd(25) + regScore.padEnd(8) + conf.padEnd(10) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
           }
         }
         if (buyP.length > 0) {
           lines.push("");
-          lines.push("BUY LOW PITCHERS (" + buyP.length + "):");
+          lines.push("BUY LOW PITCHERS (" + buyP.length + ") [score > 0 = underperforming]:");
           for (const c of buyP.slice(0, 15)) {
-            lines.push("  " + str(c.name).padEnd(25) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
+            const regScore = c.regression_score !== undefined ? " [" + String(c.regression_score) + "]" : "";
+            const conf = c.confidence ? " (" + c.confidence + ")" : "";
+            lines.push("  " + str(c.name).padEnd(25) + regScore.padEnd(8) + conf.padEnd(10) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
           }
         }
         if (sellP.length > 0) {
           lines.push("");
-          lines.push("SELL HIGH PITCHERS (" + sellP.length + "):");
+          lines.push("SELL HIGH PITCHERS (" + sellP.length + ") [score > 0 = underperforming]:");
           for (const c of sellP.slice(0, 15)) {
-            lines.push("  " + str(c.name).padEnd(25) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
+            const regScore = c.regression_score !== undefined ? " [" + String(c.regression_score) + "]" : "";
+            const conf = c.confidence ? " (" + c.confidence + ")" : "";
+            lines.push("  " + str(c.name).padEnd(25) + regScore.padEnd(8) + conf.padEnd(10) + " " + str(c.signal).padEnd(20) + " " + str(c.details));
           }
         }
         if (buyH.length === 0 && sellH.length === 0 && buyP.length === 0 && sellP.length === 0) {

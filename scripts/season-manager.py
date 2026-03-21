@@ -49,6 +49,91 @@ _CATEGORY_CORRELATIONS = {
     "HLD": ["NSV"],
 }
 
+ROSTER_SPOT_VALUE = 2.5  # z-score value of an empty roster spot for trade eval
+
+CATEGORY_VOLATILITY = {
+    "R": 0.15, "H": 0.12, "HR": 0.20, "RBI": 0.15,
+    "TB": 0.15, "AVG": 0.08, "OBP": 0.08, "XBH": 0.18, "NSB": 0.25,
+    "K": 0.12, "IP": 0.10, "W": 0.25, "QS": 0.20,
+    "ERA": 0.15, "WHIP": 0.12, "HLD": 0.25, "NSV": 0.30,
+    "SV": 0.30, "SB": 0.25, "ER": 0.15, "L": 0.25,
+}
+
+PUNT_VIABILITY = {
+    "SV":  {"puntable": True,  "risk": "low",    "reason": "Closer roles volatile, capital better elsewhere"},
+    "NSV": {"puntable": True,  "risk": "low",    "reason": "Net saves volatile, same logic as SV"},
+    "SB":  {"puntable": True,  "risk": "low",    "reason": "Speed concentrated in few players, frees draft capital"},
+    "NSB": {"puntable": True,  "risk": "low",    "reason": "Net steals similar to SB"},
+    "W":   {"puntable": True,  "risk": "medium", "reason": "Wins volatile but correlated with QS"},
+    "HLD": {"puntable": True,  "risk": "low",    "reason": "Holds streamable and cheap"},
+    "AVG": {"puntable": True,  "risk": "medium", "reason": "AVG punt viable but limits hitter pool"},
+    "HR":  {"puntable": False, "risk": "high",   "reason": "HR correlates with R and RBI — gutts 3 categories"},
+    "R":   {"puntable": False, "risk": "high",   "reason": "Core counting stat correlated with HR and RBI"},
+    "RBI": {"puntable": False, "risk": "high",   "reason": "Core counting stat correlated with HR and R"},
+    "K":   {"puntable": False, "risk": "high",   "reason": "Most reliable pitching counting stat"},
+    "ERA": {"puntable": False, "risk": "high",   "reason": "Punting ERA destroys WHIP too (correlated)"},
+    "WHIP":{"puntable": False, "risk": "high",   "reason": "Punting WHIP destroys ERA too (correlated)"},
+    "QS":  {"puntable": True,  "risk": "medium", "reason": "QS puntable if going RP-heavy build"},
+    "OBP": {"puntable": False, "risk": "high",   "reason": "OBP correlates with R and overall offense"},
+    "IP":  {"puntable": True,  "risk": "medium", "reason": "IP puntable with RP-heavy approach"},
+    "TB":  {"puntable": False, "risk": "high",   "reason": "TB correlates with HR, XBH, RBI"},
+    "XBH": {"puntable": False, "risk": "high",   "reason": "XBH correlates with HR and TB"},
+    "H":   {"puntable": False, "risk": "high",   "reason": "H correlates with AVG and R"},
+}
+
+FAAB_BID_RANGES = {
+    "new_closer_contender": (0.20, 0.50),
+    "breakout_bat":         (0.10, 0.25),
+    "breakout_pitcher":     (0.08, 0.20),
+    "streaming_pitcher":    (0.01, 0.03),
+    "speculative_add":      (0.00, 0.02),
+    "replacement_level":    (0.00, 0.01),
+}
+
+
+def get_format_strategy(scoring_type="head"):
+    """Return strategy parameters based on league format."""
+    if scoring_type == "roto":
+        return {
+            "streaming_aggression": "conservative",
+            "punt_viable": False,
+            "trade_timing": "patient",
+            "category_balance": "critical",
+            "waiver_frequency": "low",
+        }
+    return {
+        "streaming_aggression": "aggressive",
+        "punt_viable": True,
+        "trade_timing": "aggressive",
+        "category_balance": "moderate",
+        "waiver_frequency": "high",
+    }
+
+
+def get_custom_category_adjustments(stat_categories):
+    """Adjust strategy for non-standard category sets."""
+    adjustments = {}
+    cat_names = [c.get("display_name", c.get("name", "")) if isinstance(c, dict) else str(c) for c in stat_categories]
+    if "QS" in cat_names and "W" not in cat_names:
+        adjustments["sp_value_boost"] = 1.15
+    if "OBP" in cat_names and "AVG" not in cat_names:
+        adjustments["obp_build"] = True
+    if "HLD" in cat_names or "NSV" in cat_names:
+        adjustments["reliever_pool_expanded"] = True
+        adjustments["closer_premium_reduced"] = 0.80
+    if "NSB" in cat_names:
+        adjustments["sb_threshold"] = 0.75
+    return adjustments
+
+
+def _get_park_factor(team_name):
+    """Look up park factor for a team name, reusing valuations.get_park_factor."""
+    try:
+        from valuations import get_park_factor
+        return get_park_factor(team_name)
+    except Exception:
+        return 1.0
+
 
 def get_db():
     """Get SQLite connection with tables initialized"""
@@ -1264,6 +1349,15 @@ def cmd_streaming(args, as_json=False):
 
     sc, gm, lg = get_league()
 
+    # League format awareness + settings (single API call)
+    try:
+        settings = lg.settings()
+        scoring_type = settings.get("scoring_type", "head")
+        format_strategy = get_format_strategy(scoring_type)
+    except Exception:
+        settings = {}
+        format_strategy = get_format_strategy("head")
+
     # Determine the week
     target_week = int(args[0]) if args else lg.current_week()
     if not as_json:
@@ -1271,7 +1365,6 @@ def cmd_streaming(args, as_json=False):
 
     # Get the week date range
     try:
-        settings = lg.settings()
         start_date_str = settings.get("start_date", "")
         if start_date_str:
             season_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -1372,26 +1465,44 @@ def cmd_streaming(args, as_json=False):
             tier = z_info.get("tier", "Streamable")
             per_cat = z_info.get("per_category_zscores", {})
 
-            # Base quality from z-score
-            score = z_final * 3.0
-
-            # Statcast quality: K z-score, ERA z-score, WHIP z-score
             k_z = per_cat.get("K", 0)
             era_z = per_cat.get("ERA", 0)
             whip_z = per_cat.get("WHIP", 0)
-            statcast_bonus = (k_z + era_z + whip_z) / 3.0
-            score += statcast_bonus * 2.0
         else:
             # Fallback
             z_final = 0
             tier = "Unknown"
-            score = float(pct) / 10.0 if pct else 0
+            k_z = 0
+            era_z = 0
+            whip_z = 0
 
-        # Two-start bonus
+        # Multi-factor streaming score
+        stream_score = 0
+
+        # Factor 1: Pitcher quality (30%) — use z-score based
+        pitcher_quality = z_final * 3.0 if z_info else 0
+        stream_score += pitcher_quality * 0.30
+
+        # Factor 2: Statcast quality bonus (20%)
+        statcast_bonus = (k_z + era_z + whip_z) / 3.0 if z_info else 0
+        stream_score += statcast_bonus * 2.0
+
+        # Factor 3: Two-start bonus (15%)
         if games >= 7:
-            score += 20.0
+            stream_score += 15
         elif games >= 6:
-            score += 10.0
+            stream_score += 8
+
+        # Factor 4: Park factor (15%)
+        pf = _get_park_factor(team_name)
+        pf_score = max(0, (1.05 - pf) * 100)
+        stream_score += pf_score * 0.15
+
+        score = stream_score
+
+        # Format adjustment: conservative streaming in roto
+        if format_strategy.get("streaming_aggression") == "conservative":
+            score *= 0.70
 
         scored.append({
             "name": name,
@@ -1401,6 +1512,8 @@ def cmd_streaming(args, as_json=False):
             "games": games,
             "positions": positions,
             "score": score,
+            "stream_score": round(stream_score, 2),
+            "park_factor": round(pf, 3),
             "z_score": round(z_final, 2),
             "tier": tier,
         })
@@ -1425,6 +1538,8 @@ def cmd_streaming(args, as_json=False):
                 "team": p["team"],
                 "games": p["games"],
                 "score": round(p["score"], 1),
+                "stream_score": p.get("stream_score", 0),
+                "park_factor": p.get("park_factor", 1.0),
                 "z_score": p.get("z_score", 0),
                 "tier": p.get("tier", "Unknown"),
                 "intel": p.get("intel"),
@@ -1453,6 +1568,34 @@ def cmd_streaming(args, as_json=False):
 
     print("")
     print("*2S* = Likely two-start pitcher (7+ team games this week)")
+
+
+def _should_warn_rival_trade(lg, trade_partner_team_key):
+    """Check if trade partner is a direct rival (within 2 positions in standings)."""
+    try:
+        standings = lg.standings()
+        my_pos = None
+        partner_pos = None
+        for idx, t in enumerate(standings, 1):
+            tk = str(t.get("team_key", ""))
+            if TEAM_ID in tk:
+                my_pos = idx
+            if trade_partner_team_key and trade_partner_team_key in tk:
+                partner_pos = idx
+        if my_pos is not None and partner_pos is not None:
+            gap = abs(my_pos - partner_pos)
+            if gap <= 2:
+                return {
+                    "is_rival": True,
+                    "my_position": my_pos,
+                    "partner_position": partner_pos,
+                    "gap": gap,
+                    "warning": "Trade partner is within " + str(gap) + " positions — direct rival",
+                }
+        return {"is_rival": False}
+    except Exception as e:
+        print("Warning: rival check failed: " + str(e))
+        return {"is_rival": False}
 
 
 def cmd_trade_eval(args, as_json=False):
@@ -1511,6 +1654,7 @@ def cmd_trade_eval(args, as_json=False):
                 except Exception:
                     continue
                 if found_player:
+                    found_player["_source_team_key"] = team_key
                     break
         except Exception:
             pass
@@ -1565,17 +1709,60 @@ def cmd_trade_eval(args, as_json=False):
         elif tier == "Core":
             warnings.append("CAUTION: Trading away Core-tier " + e.get("name", "") + " (Z=" + str(e.get("z_final", 0)) + ")")
 
-    # Grade the trade based on z-score differential
-    if diff > 3.0:
-        grade = "Strong Accept"
-    elif diff > 1.0:
-        grade = "Accept"
-    elif diff > -1.0:
-        grade = "Fair Trade"
-    elif diff > -3.0:
-        grade = "Decline"
-    else:
-        grade = "Strong Decline"
+    # Surplus value adjustments
+    roster_spot_adj = (len(give_players) - len(get_players)) * ROSTER_SPOT_VALUE
+
+    # Category fit bonus
+    category_fit_bonus = 0
+    try:
+        weak_cats = []
+        strong_cats = []
+        cat_ranks_result = _get_team_category_ranks(lg, TEAM_ID)
+        if cat_ranks_result:
+            num_teams_val = len(lg.teams()) if hasattr(lg, "teams") else 12
+            # _get_team_category_ranks returns (dict, weak_list, strong_list) or dict
+            if isinstance(cat_ranks_result, tuple) and len(cat_ranks_result) == 3:
+                _, weak_cats, strong_cats = cat_ranks_result
+            elif isinstance(cat_ranks_result, dict):
+                for cr_name, cr_info in cat_ranks_result.items():
+                    if isinstance(cr_info, dict):
+                        rank = cr_info.get("rank", 99)
+                        if rank >= num_teams_val - 2:
+                            weak_cats.append(cr_name)
+                        elif rank <= 3:
+                            strong_cats.append(cr_name)
+        for e in get_evals:
+            per_cat = e.get("per_category_zscores", {})
+            for cat_name, cat_z in per_cat.items():
+                if cat_name in weak_cats and cat_z > 0:
+                    category_fit_bonus += cat_z * 0.20
+                elif cat_name in strong_cats and cat_z > 0:
+                    category_fit_bonus -= cat_z * 0.05
+    except Exception as e:
+        print("Warning: category fit calculation failed: " + str(e))
+
+    # Consolidation premium
+    consolidation_premium = 0
+    best_give = max((e.get("z_final", 0) for e in give_evals), default=0)
+    best_get = max((e.get("z_final", 0) for e in get_evals), default=0)
+    if best_get != best_give:
+        consolidation_premium = (best_get - best_give) * 0.15
+
+    # Catcher premium
+    catcher_premium = 0
+    give_has_catcher = any("C" in p.get("eligible_positions", []) for p in give_players)
+    get_has_catcher = any("C" in p.get("eligible_positions", []) for p in get_players)
+    if get_has_catcher and not give_has_catcher:
+        catcher_premium = 1.5
+
+    # Rival warning — use trade partner key if known from get_players lookup
+    rival_info = {"is_rival": False}
+    if get_players and get_players[0].get("_source_team_key"):
+        rival_info = _should_warn_rival_trade(lg, get_players[0].get("_source_team_key", ""))
+
+    # Compute adjusted net value
+    adjusted_diff = diff + roster_spot_adj + category_fit_bonus + consolidation_premium + catcher_premium
+    grade = _grade_trade(adjusted_diff)
 
     # Position impact
     give_positions = set()
@@ -1630,6 +1817,12 @@ def cmd_trade_eval(args, as_json=False):
             "give_value": round(give_value, 2),
             "get_value": round(get_value, 2),
             "net_value": round(diff, 2),
+            "roster_spot_adj": round(roster_spot_adj, 2),
+            "category_fit_bonus": round(category_fit_bonus, 2),
+            "consolidation_premium": round(consolidation_premium, 2),
+            "catcher_premium": round(catcher_premium, 2),
+            "rival_warning": rival_info,
+            "adjusted_net_value": round(adjusted_diff, 2),
             "grade": grade,
             "warnings": warnings + pos_warnings,
             "position_impact": {
@@ -1663,7 +1856,18 @@ def cmd_trade_eval(args, as_json=False):
     print("Net Z-Score:            " + str(round(diff, 2)))
 
     print("")
+    print("Adjustments:")
+    print("  Roster spot adj:       " + str(round(roster_spot_adj, 2)))
+    print("  Category fit bonus:    " + str(round(category_fit_bonus, 2)))
+    print("  Consolidation premium: " + str(round(consolidation_premium, 2)))
+    print("  Catcher premium:       " + str(round(catcher_premium, 2)))
+    print("  Adjusted net value:    " + str(round(adjusted_diff, 2)))
+
+    print("")
     print("Trade Grade: " + grade)
+
+    if rival_info.get("is_rival"):
+        print("  RIVAL WARNING: " + rival_info.get("warning", ""))
 
     if warnings or pos_warnings:
         print("")
@@ -2394,6 +2598,25 @@ def _count_roster_games(roster, team_games):
     return {"batter_games": batter_games, "pitcher_games": pitcher_games}
 
 
+def _get_category_action(margin, cat_name):
+    """Return recommended action based on matchup margin and category."""
+    if margin == "close":
+        if cat_name in ("K", "W", "QS", "IP"):
+            return "Stream pitchers targeting this category"
+        elif cat_name in ("SB", "NSB"):
+            return "Start speed-first lineup construction"
+        elif cat_name in ("HR", "RBI", "R", "TB", "XBH"):
+            return "Ensure all power bats are starting"
+        elif cat_name in ("ERA", "WHIP"):
+            return "Consider benching volatile starters"
+        elif cat_name in ("SV", "HLD", "NSV"):
+            return "Monitor closer situations for streaming saves"
+        return "Focus streaming/lineup on this category"
+    elif margin == "losing":
+        return "Concede — redirect resources to toss-up categories"
+    return "Maintain — no special action needed"
+
+
 def cmd_matchup_strategy(args, as_json=False):
     """Analyze your matchup and build a category-by-category game plan to maximize wins"""
     if not as_json:
@@ -2561,14 +2784,24 @@ def cmd_matchup_strategy(args, as_json=False):
                     avg = (abs(my_num) + abs(opp_num)) / 2.0
                     if avg > 0:
                         pct_diff = diff / avg
-                        if pct_diff < 0.10:
+                        # Category-specific volatility threshold
+                        cat_name_upper = cat_name.upper() if cat_name else ""
+                        cat_vol = CATEGORY_VOLATILITY.get(cat_name, CATEGORY_VOLATILITY.get(cat_name_upper, 0.15))
+                        if cat_name in RATE_STATS:
+                            cat_vol = min(cat_vol, 0.10)  # tighter threshold for rate stats
+
+                        if pct_diff < cat_vol:
                             margin = "close"
-                        elif pct_diff > 0.30:
+                        elif pct_diff > cat_vol * 2:
                             margin = "dominant"
+                        else:
+                            margin = "comfortable"
                     else:
                         margin = "close"
                 except (ValueError, TypeError):
                     margin = "close"
+
+                action = _get_category_action(margin, cat_name)
 
                 categories.append({
                     "name": cat_name,
@@ -2576,6 +2809,7 @@ def cmd_matchup_strategy(args, as_json=False):
                     "opp_value": str(opp_val),
                     "result": result,
                     "margin": margin,
+                    "action": action,
                 })
 
             break  # Found our matchup, stop
@@ -4956,20 +5190,74 @@ def cmd_faab_recommend(args, as_json=False):
     z_final = player_info.get("z_final", 0)
     tier = player_info.get("tier", "Streamable")
 
-    # Calculate recommended bid based on z-score and remaining budget
-    # Higher z-score = higher bid, scaled by remaining budget
-    if z_final >= 4.0:  # Untouchable
-        bid_pct = 0.25
-    elif z_final >= 2.0:  # Core
-        bid_pct = 0.15
-    elif z_final >= 1.0:  # Solid
-        bid_pct = 0.08
-    elif z_final >= 0.0:  # Fringe
-        bid_pct = 0.04
-    else:  # Streamable
-        bid_pct = 0.01
+    # League format awareness + season phase (single settings call)
+    try:
+        settings = lg.settings()
+        scoring_type = settings.get("scoring_type", "head")
+        format_strategy = get_format_strategy(scoring_type)
+    except Exception:
+        settings = {}
+        format_strategy = get_format_strategy("head")
 
-    recommended_bid = max(1, int(faab_remaining * bid_pct))
+    # Season phase awareness
+    weeks_remaining = 26  # default full season
+    try:
+        current_week = lg.current_week()
+        end_week = int(settings.get("end_week", 26))
+        weeks_remaining = max(1, end_week - current_week)
+    except Exception:
+        pass
+
+    # Phase multiplier
+    if weeks_remaining <= 4:
+        phase_multiplier = 1.5
+    elif weeks_remaining <= 8:
+        phase_multiplier = 1.2
+    else:
+        phase_multiplier = 1.0
+
+    # Format adjustment
+    if format_strategy.get("waiver_frequency") == "low":
+        phase_multiplier *= 0.8
+
+    # Contender detection
+    is_contender = True
+    try:
+        standings = lg.standings()
+        num_teams_val = len(standings) if standings else 12
+        for idx, t in enumerate(standings, 1):
+            if TEAM_ID in str(t.get("team_key", "")):
+                if idx > num_teams_val // 2:
+                    is_contender = False
+                break
+    except Exception:
+        pass
+
+    if not is_contender:
+        phase_multiplier *= 0.5
+
+    # Player tier classification
+    positions = player_info.get("pos", "")
+    pct_owned = float(player_info.get("pct_owned", 0)) if player_info.get("pct_owned") else 0
+    if "RP" in str(positions) and z_final >= 2.0:
+        player_tier = "new_closer_contender"
+    elif z_final >= 3.0:
+        player_tier = "breakout_bat" if "SP" not in str(positions) else "breakout_pitcher"
+    elif z_final >= 1.5:
+        player_tier = "breakout_pitcher" if "SP" in str(positions) or "RP" in str(positions) else "breakout_bat"
+    elif z_final >= 0.5:
+        player_tier = "streaming_pitcher" if "SP" in str(positions) else "speculative_add"
+    elif z_final >= 0:
+        player_tier = "speculative_add"
+    else:
+        player_tier = "replacement_level"
+
+    # Compute bid from tier ranges
+    bid_range = FAAB_BID_RANGES.get(player_tier, (0.01, 0.05))
+    base_bid = (bid_range[0] + bid_range[1]) / 2.0 * faab_remaining
+    zscore_multiplier = min(max(z_final / 5.0, 0.2), 1.5)
+    recommended_bid = max(1, int(base_bid * phase_multiplier * zscore_multiplier))
+    recommended_bid = min(recommended_bid, int(faab_remaining * 0.50))
     bid_low = max(1, int(recommended_bid * 0.7))
     bid_high = min(faab_remaining, int(recommended_bid * 1.4))
 
@@ -4981,6 +5269,10 @@ def cmd_faab_recommend(args, as_json=False):
     reasons = []
     reasons.append("Player value: " + tier + " tier (z=" + str(round(z_final, 2)) + ")")
     reasons.append("FAAB remaining: $" + str(faab_remaining))
+    reasons.append("Player tier: " + player_tier)
+    reasons.append("Phase multiplier: " + str(round(phase_multiplier, 2)) + " (weeks remaining: " + str(weeks_remaining) + ")")
+    if not is_contender:
+        reasons.append("Non-contender discount applied")
     if improving:
         reasons.append("Improves: " + ", ".join(improving[:4]))
 
@@ -4997,6 +5289,10 @@ def cmd_faab_recommend(args, as_json=False):
         "faab_remaining": faab_remaining,
         "faab_after": faab_remaining - recommended_bid,
         "pct_of_budget": round(recommended_bid / max(faab_remaining, 1) * 100, 1),
+        "player_tier": player_tier,
+        "phase_multiplier": round(phase_multiplier, 2),
+        "weeks_remaining": weeks_remaining,
+        "is_contender": is_contender,
         "reasoning": reasons,
         "category_impact": impact.get("category_impact", {}),
         "improving_categories": improving,
@@ -5011,6 +5307,10 @@ def cmd_faab_recommend(args, as_json=False):
     print("  Recommended Bid: $" + str(recommended_bid) + " (range: $" + str(bid_low) + "-$" + str(bid_high) + ")")
     print("  FAAB Remaining: $" + str(faab_remaining) + " -> $" + str(faab_remaining - recommended_bid))
     print("  Budget %: " + str(round(recommended_bid / max(faab_remaining, 1) * 100, 1)) + "%")
+    print("  Player Tier: " + player_tier)
+    print("  Phase: " + str(round(phase_multiplier, 2)) + "x (" + str(weeks_remaining) + " weeks left)")
+    if not is_contender:
+        print("  Non-contender discount applied")
     for r in reasons:
         print("  " + r)
 
@@ -5223,6 +5523,14 @@ def cmd_punt_advisor(args, as_json=False):
         print("=" * 50)
 
     sc, gm, lg = get_league()
+
+    # League format awareness
+    try:
+        settings = lg.settings()
+        scoring_type = settings.get("scoring_type", "head")
+        format_strategy = get_format_strategy(scoring_type)
+    except Exception:
+        format_strategy = get_format_strategy("head")
 
     # ── 1. Get stat categories for names and sort orders ──
     try:
@@ -5471,6 +5779,13 @@ def cmd_punt_advisor(args, as_json=False):
             cat["recommendation"] = "punt"
             cat["reasoning"] = "Bottom tier with high cost to compete — punt candidate"
             punt_candidates.append(name)
+            viability = PUNT_VIABILITY.get(name, {})
+            cat["punt_viable"] = viability.get("puntable", True)
+            cat["punt_risk"] = viability.get("risk", "unknown")
+            cat["punt_reason"] = viability.get("reason", "")
+            if not viability.get("puntable", True):
+                cat["recommendation"] = "caution_punt"
+                cat["reasoning"] = "Research says punting " + name + " is high-risk: " + viability.get("reason", "correlated with other key categories")
         elif rank >= bottom_cutoff and cost == "medium":
             cat["recommendation"] = "consider_punting"
             cat["reasoning"] = "Bottom tier but moderate cost — could improve with targeted adds"
@@ -5481,6 +5796,12 @@ def cmd_punt_advisor(args, as_json=False):
         else:
             cat["recommendation"] = "hold"
             cat["reasoning"] = "Mid-pack — maintain current level"
+
+    # Roto guard: flag all punts as not recommended in roto
+    if not format_strategy.get("punt_viable", True):
+        for cat in categories:
+            if cat.get("recommendation") in ("punt", "consider_punting", "caution_punt"):
+                cat["reasoning"] = cat.get("reasoning", "") + " (NOTE: punting not recommended in roto format)"
 
     # ── 6. Check correlation warnings ──
     correlation_warnings = []
@@ -5631,12 +5952,24 @@ def _punt_advisor_from_projections(lg, as_json=False):
             rec = "hold"
             reasoning = "Mid-range z-score total"
 
-        categories.append({
+        entry = {
             "name": cat,
             "z_total": z_rounded,
             "recommendation": rec,
             "reasoning": reasoning,
-        })
+        }
+
+        # Annotate punt candidates with viability data
+        if rec == "punt":
+            viability = PUNT_VIABILITY.get(cat, {})
+            entry["punt_viable"] = viability.get("puntable", True)
+            entry["punt_risk"] = viability.get("risk", "unknown")
+            entry["punt_reason"] = viability.get("reason", "")
+            if not viability.get("puntable", True):
+                entry["recommendation"] = "caution_punt"
+                entry["reasoning"] = "Research says punting " + cat + " is high-risk: " + viability.get("reason", "correlated with other key categories")
+
+        categories.append(entry)
 
     # Correlation warnings
     correlation_warnings = []
@@ -8238,16 +8571,20 @@ def _extract_category_impact(sim):
 
 
 def _grade_trade(net_z):
-    """Grade a trade based on z-score differential (matches cmd_trade_eval scale)."""
-    if net_z > 3.0:
-        return "Strong Accept"
-    elif net_z > 1.0:
-        return "Accept"
-    elif net_z > -1.0:
-        return "Fair Trade"
-    elif net_z > -3.0:
-        return "Decline"
-    return "Strong Decline"
+    """Grade a trade based on net z-score value (includes all adjustments)."""
+    if net_z >= 4.0:
+        return "A+"
+    elif net_z >= 2.5:
+        return "A"
+    elif net_z >= 1.5:
+        return "B+"
+    elif net_z >= 0.5:
+        return "B"
+    elif net_z >= -0.5:
+        return "C"
+    elif net_z >= -1.5:
+        return "D"
+    return "F"
 
 
 def cmd_game_day_manager(args, as_json=False):

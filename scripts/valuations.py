@@ -111,6 +111,33 @@ def fetch_fangraphs_projections(stats_type, proj_type="steamer"):
         return None
 
 
+# Per-category projection blending weights (research-backed ATC-style)
+# Weights sum to 1.0 per category across steamer + zips + fangraphsdc
+PROJECTION_WEIGHTS = {
+    "steamer": {
+        "HR": 0.30, "R": 0.35, "RBI": 0.35, "SB": 0.25, "CS": 0.30,
+        "AVG": 0.35, "OBP": 0.35, "SLG": 0.35,
+        "H": 0.35, "2B": 0.35, "3B": 0.30, "BB": 0.35, "SO": 0.35, "AB": 0.35, "PA": 0.35,
+        "W": 0.30, "L": 0.30, "K": 0.35, "ERA": 0.30, "WHIP": 0.30,
+        "SV": 0.30, "HLD": 0.30, "QS": 0.30, "IP": 0.35, "GS": 0.35, "G": 0.35, "ER": 0.30,
+    },
+    "zips": {
+        "HR": 0.35, "R": 0.30, "RBI": 0.30, "SB": 0.35, "CS": 0.35,
+        "AVG": 0.30, "OBP": 0.30, "SLG": 0.30,
+        "H": 0.30, "2B": 0.30, "3B": 0.35, "BB": 0.30, "SO": 0.30, "AB": 0.30, "PA": 0.30,
+        "W": 0.35, "L": 0.35, "K": 0.30, "ERA": 0.35, "WHIP": 0.35,
+        "SV": 0.35, "HLD": 0.35, "QS": 0.35, "IP": 0.30, "GS": 0.30, "G": 0.30, "ER": 0.35,
+    },
+    "fangraphsdc": {
+        "HR": 0.35, "R": 0.35, "RBI": 0.35, "SB": 0.40, "CS": 0.35,
+        "AVG": 0.35, "OBP": 0.35, "SLG": 0.35,
+        "H": 0.35, "2B": 0.35, "3B": 0.35, "BB": 0.35, "SO": 0.35, "AB": 0.35, "PA": 0.35,
+        "W": 0.35, "L": 0.35, "K": 0.35, "ERA": 0.35, "WHIP": 0.35,
+        "SV": 0.35, "HLD": 0.35, "QS": 0.35, "IP": 0.35, "GS": 0.35, "G": 0.35, "ER": 0.35,
+    },
+}
+
+
 def fetch_consensus_projections(stats_type):
     """Fetch and blend projections from Steamer, ZiPS, and Depth Charts.
     Weights: Depth Charts 40%, Steamer 30%, ZiPS 30%.
@@ -181,7 +208,7 @@ def fetch_consensus_projections(stats_type):
         for system, (lookup, weight) in system_lookups.items():
             row = lookup.get(name_lower)
             if row is not None:
-                rows_and_weights.append((row, weight / total_weight))
+                rows_and_weights.append((row, weight / total_weight, system))
 
         if not rows_and_weights:
             continue
@@ -203,12 +230,15 @@ def fetch_consensus_projections(stats_type):
         for col in numeric_cols:
             weighted_sum = 0
             w_sum = 0
-            for row, w in rows_and_weights:
+            for row, w, sys_name in rows_and_weights:
                 val = row.get(col, None)
                 if val is not None:
                     try:
-                        weighted_sum += float(val) * w
-                        w_sum += w
+                        # Use per-category weight if available, otherwise flat weight
+                        cat_weight = PROJECTION_WEIGHTS.get(sys_name, {}).get(col, w)
+                        # Re-normalize: per-category weights may not sum to total_weight
+                        weighted_sum += float(val) * cat_weight
+                        w_sum += cat_weight
                     except (ValueError, TypeError):
                         pass
             if w_sum > 0:
@@ -276,7 +306,7 @@ RATIO_BATTING = ["AVG", "OBP"]
 RATIO_PITCHING = ["ERA", "WHIP"]
 
 # Positional scarcity bonuses
-POS_BONUS = {"C": 1.5, "SS": 1.5, "2B": 0.5, "3B": 0.5, "RP": 0.5}
+POS_BONUS = {"C": 2.0, "SS": 0.5, "2B": 0.3, "3B": 0.3, "RP": 0.5}
 
 # Park factors (2024-2025 Baseball Savant, 1.0 = neutral)
 PARK_FACTORS = {
@@ -520,25 +550,28 @@ def calc_zscore(series, negative=False):
 
 
 def calc_ratio_zscore(stat_series, weight_series, negative=False):
-    """Z-score for ratio stats weighted by playing time"""
-    # Weighted mean: sum(stat * weight) / sum(weight)
-    total_weight = weight_series.sum()
-    if total_weight == 0:
-        return pd.Series(0, index=stat_series.index)
-    weighted_mean = (stat_series * weight_series).sum() / total_weight
-    # Weighted std
-    variance = ((stat_series - weighted_mean) ** 2 * weight_series).sum() / total_weight
-    std = np.sqrt(variance)
+    """Z-score for ratio stats using FanGraphs FVARz method.
+    1. Compute raw z-score against unweighted pool mean/std
+    2. Multiply raw z by player volume (PA or IP)
+    3. Re-normalize those volume-weighted values across pool
+    """
+    mean = stat_series.mean()
+    std = stat_series.std()
     if std == 0 or pd.isna(std):
         return pd.Series(0, index=stat_series.index)
-    z = (stat_series - weighted_mean) / std
+    # Step 1: raw z-score
+    raw_z = (stat_series - mean) / std
     if negative:
-        z = z * -1
-    # Scale by playing time relative to average
-    avg_weight = weight_series.mean()
-    if avg_weight > 0:
-        z = z * (weight_series / avg_weight)
-    return z
+        raw_z = raw_z * -1
+    # Step 2: multiply by volume
+    weighted_value = raw_z * weight_series
+    # Step 3: re-normalize across pool
+    wv_mean = weighted_value.mean()
+    wv_std = weighted_value.std()
+    if wv_std == 0 or pd.isna(wv_std):
+        return pd.Series(0, index=stat_series.index)
+    final_z = (weighted_value - wv_mean) / wv_std
+    return final_z
 
 
 def compute_hitter_zscores(df):
@@ -1013,6 +1046,26 @@ def load_live_stats():
         return None, None
 
 
+def get_projection_weight(season_start_date=None):
+    """Return weight for preseason projections vs actual stats.
+    Date-based decay: early season trusts projections, late season trusts actuals.
+    """
+    if season_start_date is None:
+        season_start_date = date(date.today().year, 3, 27)
+    today = date.today()
+    days_into_season = max(0, (today - season_start_date).days)
+    if days_into_season <= 14:
+        return 0.95
+    elif days_into_season <= 42:
+        return 0.80
+    elif days_into_season <= 84:
+        return 0.55
+    elif days_into_season <= 126:
+        return 0.35
+    else:
+        return 0.20
+
+
 def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
     """Blend projection data with actual in-season stats.
     Weight: actual_weight = min(games_played / 80, 0.7)
@@ -1041,8 +1094,11 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
         blended = proj_row.copy()
 
         if stat_type == "bat":
-            games = float(actual_row.get("G", 0))
-            actual_weight = min(games / 80.0, 0.7)
+            actual_weight = 1.0 - get_projection_weight()
+            # Sample-size floor: below 50 PA/IP, defer to projections
+            sample = float(actual_row.get("PA", actual_row.get("IP", 0)))
+            if sample < 50:
+                actual_weight = min(actual_weight, 0.20)
             proj_weight = 1.0 - actual_weight
 
             actual_pa = float(actual_row.get("PA", 0))
@@ -1091,8 +1147,11 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
 
         else:
             # Pitching
-            games = float(actual_row.get("G", 0))
-            actual_weight = min(games / 80.0, 0.7)
+            actual_weight = 1.0 - get_projection_weight()
+            # Sample-size floor: below 50 PA/IP, defer to projections
+            sample = float(actual_row.get("PA", actual_row.get("IP", 0)))
+            if sample < 50:
+                actual_weight = min(actual_weight, 0.20)
             proj_weight = 1.0 - actual_weight
 
             actual_ip = float(actual_row.get("IP", 0))

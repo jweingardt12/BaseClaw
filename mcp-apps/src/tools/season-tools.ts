@@ -214,7 +214,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     server,
     "yahoo_streaming",
     {
-      description: "Recommend streaming pitchers based on schedule and two-start potential",
+      description: "Recommend streaming pitchers with multi-factor scoring: pitcher quality (SIERA, K-BB%), park factor, two-start bonus, and opponent quality. Each candidate has a composite stream_score. Format-aware: conservative in roto, aggressive in H2H.",
       inputSchema: { week: z.string().describe("Week number, empty for current week").default("") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -232,9 +232,11 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         for (const p of data.recommendations) {
           const twoStart = p.games >= 7 ? " *2S*" : "";
           const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
+          const streamScore = p.stream_score ? " stream=" + String(p.stream_score) : "";
+          const parkFactor = p.park_factor ? " pf=" + String(p.park_factor) : "";
           lines.push("  " + str(p.name).padEnd(25) + str(p.team).padEnd(15) + str(p.games).padStart(5)
             + str(p.pct).padStart(6) + "  " + str(p.score.toFixed(1)).padStart(5)
-            + twoStart + tier + "  (id:" + p.pid + ")");
+            + twoStart + tier + streamScore + parkFactor + "  (id:" + p.pid + ")");
         }
         const ai_recommendation = generateStreamingInsight(data);
         return {
@@ -281,7 +283,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     server,
     "yahoo_matchup_strategy",
     {
-      description: "Analyze your matchup and get a category-by-category game plan to maximize wins",
+      description: "Analyze your matchup with volatility-based category classification. Each category rated WIN/LOSE/TOSS-UP using stat-specific volatility thresholds, with concrete action recommendations (stream pitchers, bench volatile starters, start speed-first lineups). Focus resources on toss-up categories.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -667,7 +669,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     server,
     "yahoo_faab_recommend",
     {
-      description: "Recommend a FAAB bid amount for a player based on z-score value, remaining budget, and category need",
+      description: "Recommend a FAAB bid with budget pacing: season phase multiplier (aggressive late-season), contender detection, and player tier classification (new_closer 20-50%, breakout_bat 10-25%, streaming 1-3%). Returns bid, tier, phase multiplier, and weeks remaining.",
       inputSchema: { player_name: z.string().describe("Name of the player to bid on") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -697,6 +699,18 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (data.improving_categories.length > 0) {
           lines.push("");
           lines.push("Improves categories: " + data.improving_categories.join(", "));
+        }
+        if (data.phase_multiplier && data.phase_multiplier !== 1.0) {
+          lines.push("  Season phase: " + (data.phase_multiplier > 1.0 ? "AGGRESSIVE" : "CONSERVATIVE") + " (x" + String(data.phase_multiplier) + ")");
+        }
+        if (data.weeks_remaining) {
+          lines.push("  Weeks remaining: " + String(data.weeks_remaining));
+        }
+        if (data.player_tier) {
+          lines.push("  Player tier: " + String(data.player_tier));
+        }
+        if (data.is_contender === false) {
+          lines.push("  NOTE: Non-contender — conservative bidding");
         }
         var ai_recommendation = "Bid $" + str(data.recommended_bid) + " (" + str(data.pct_of_budget) + "% of budget) for " + str(data.player.name)
           + " (" + str(data.player.tier) + " tier). Range: $" + str(data.bid_range.low) + "-$" + str(data.bid_range.high) + "."
@@ -795,7 +809,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     server,
     "yahoo_punt_advisor",
     {
-      description: "Analyze your roster and standings to recommend which categories to target or punt for optimal strategy",
+      description: "Analyze categories to target or punt with research-backed viability ratings. Each punt candidate rated puntable/not with risk level and reason. Warns on correlated categories (ERA+WHIP, HR+R+RBI). Format-aware: punting disabled in roto.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
