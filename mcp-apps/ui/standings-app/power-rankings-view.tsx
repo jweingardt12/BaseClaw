@@ -29,7 +29,7 @@ function OwnershipBar({ pct }: { pct: number }) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex h-2 w-16 rounded-full overflow-hidden bg-muted">
-        <div className="bg-blue-500 rounded-full" style={{ width: Math.min(100, pct) + "%" }} />
+        <div className="bg-emerald-500 rounded-full" style={{ width: Math.min(100, pct) + "%" }} />
       </div>
       <span className="font-mono text-xs w-10">{formatFixed(pct, 1, "0.0")}%</span>
     </div>

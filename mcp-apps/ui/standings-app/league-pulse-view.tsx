@@ -25,7 +25,7 @@ function ActivityBar({ moves, trades, max }: { moves: number; trades: number; ma
   var movePct = max > 0 ? (moves / max) * 100 : 0;
   return (
     <div className="flex h-2 w-20 rounded-full overflow-hidden bg-muted">
-      <div className="bg-blue-500" style={{ width: movePct + "%" }} />
+      <div className="bg-emerald-500" style={{ width: movePct + "%" }} />
       <div className="bg-amber-500" style={{ width: (pct - movePct) + "%" }} />
     </div>
   );
@@ -111,7 +111,7 @@ export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[]; ai
             <div className="flex items-center gap-2">
               <Subheading level={3} className="text-sm">Activity Chart</Subheading>
               <div className="flex items-center gap-1.5 ml-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-500" />
+                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500" />
                 <span className="text-xs text-muted-foreground">Moves</span>
                 <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-500 ml-1" />
                 <span className="text-xs text-muted-foreground">Trades</span>

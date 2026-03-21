@@ -203,7 +203,7 @@ export function LeagueHistoryView({ data }: { data: { seasons: SeasonResult[] } 
               Champion
             </span>
             <span className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               Other
             </span>
             <span className="text-muted-foreground/60">(lower is better)</span>
@@ -226,7 +226,7 @@ export function LeagueHistoryView({ data }: { data: { seasons: SeasonResult[] } 
                   (isChampion
                     ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-2 border-amber-500"
                     : rank !== null && rank <= 3
-                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/50"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/50"
                       : "bg-muted text-muted-foreground border border-transparent")
                 }>
                   {s.year}
@@ -319,7 +319,7 @@ export function LeagueHistoryView({ data }: { data: { seasons: SeasonResult[] } 
               Champion
             </span>
             <span className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-sm bg-blue-500" />
+              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
               Top 3
             </span>
             <span className="flex items-center gap-1">

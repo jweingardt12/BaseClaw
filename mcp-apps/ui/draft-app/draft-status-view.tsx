@@ -172,10 +172,10 @@ export function DraftStatusView({ data }: { data: DraftStatusData }) {
             <div className="flex-1 space-y-2">
               {total > 0 && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="text-blue-500 font-medium">{hitterPct + "% H"}</span>
+                  <span className="text-emerald-500 font-medium">{hitterPct + "% H"}</span>
                   <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full bg-blue-500 rounded-full"
+                      className="h-full bg-emerald-500 rounded-full"
                       style={{ width: hitterPct + "%" }}
                     />
                   </div>
@@ -212,7 +212,7 @@ export function DraftStatusView({ data }: { data: DraftStatusData }) {
                         className={
                           "flex items-center justify-center w-10 h-10 rounded-lg border-2 text-xs font-bold transition-colors " +
                           (slot.filled
-                            ? "border-blue-500 bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                            ? "border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                             : "border-dashed border-muted-foreground/20 bg-transparent text-muted-foreground/20")
                         }
                       >

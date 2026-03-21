@@ -169,7 +169,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
                     className={
                       "text-xs font-mono " +
                       (count > 0
-                        ? (isPit ? "bg-orange-500/80 hover:bg-orange-500/80" : "bg-blue-500/80 hover:bg-blue-500/80")
+                        ? (isPit ? "bg-orange-500/80 hover:bg-orange-500/80" : "bg-emerald-500/80 hover:bg-emerald-500/80")
                         : "opacity-50")
                     }
                   >
@@ -293,7 +293,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
                                       "text-xs leading-none px-1 rounded " +
                                       (pitcher
                                         ? "text-orange-600 dark:text-orange-400 bg-orange-500/10"
-                                        : "text-blue-600 dark:text-blue-400 bg-blue-500/10")
+                                        : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10")
                                     }
                                   >
                                     {posLabel}
@@ -365,7 +365,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
                                   "text-xs shrink-0 " +
                                   (pitcher
                                     ? "text-orange-600 dark:text-orange-400 border-orange-500/30"
-                                    : "text-blue-600 dark:text-blue-400 border-blue-500/30")
+                                    : "text-emerald-600 dark:text-emerald-400 border-emerald-500/30")
                                 }
                               >
                                 {posLabel}

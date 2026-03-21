@@ -288,9 +288,9 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
             {(strat.target.length > 0 || strat.protect.length > 0) && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 {strat.target.length > 0 && (
-                  <div className="text-center p-2 rounded-md border border-blue-500/30 bg-blue-500/5">
-                    <Target className="h-3.5 w-3.5 mx-auto mb-1 text-blue-500" />
-                    <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">Target</p>
+                  <div className="text-center p-2 rounded-md border border-emerald-500/30 bg-emerald-500/5">
+                    <Target className="h-3.5 w-3.5 mx-auto mb-1 text-emerald-500" />
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Target</p>
                     <p className="text-xs text-muted-foreground break-words">{strat.target.join(", ")}</p>
                   </div>
                 )}

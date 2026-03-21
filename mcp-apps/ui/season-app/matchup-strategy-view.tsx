@@ -219,7 +219,7 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
       {/* Strategy Summary Badges */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {([
-          { key: "target" as const, label: "Target", Icon: Target, border: "border-blue-500/30 bg-blue-500/5", icon: "text-blue-500", text: "text-blue-600 dark:text-blue-400" },
+          { key: "target" as const, label: "Target", Icon: Target, border: "border-emerald-500/30 bg-emerald-500/5", icon: "text-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
           { key: "protect" as const, label: "Protect", Icon: Shield, border: "border-yellow-500/30 bg-yellow-500/5", icon: "text-yellow-500", text: "text-sem-warning" },
           { key: "concede" as const, label: "Concede", Icon: XCircle, border: "border-muted", icon: "text-muted-foreground", text: "text-muted-foreground" },
           { key: "lock" as const, label: "Lock", Icon: Lock, border: "border-green-500/30 bg-sem-success-subtle", icon: "text-sem-success", text: "text-sem-success" },

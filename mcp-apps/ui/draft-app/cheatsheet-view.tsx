@@ -17,7 +17,7 @@ interface CheatsheetData {
 var ROUND_COLORS = [
   "bg-primary/15",
   "bg-sem-success-subtle",
-  "bg-blue-500/10",
+  "bg-emerald-500/10",
   "bg-muted",
 ];
 

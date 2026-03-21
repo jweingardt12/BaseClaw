@@ -2,11 +2,11 @@ import { Badge } from "@plexui/ui/components/Badge";
 import { cn } from "../lib/utils";
 
 const POS_COLORS: Record<string, string> = {
-  C: "bg-[#2563eb] text-white border-[#2563eb]",
-  "1B": "bg-[#3b82f6] text-white border-[#3b82f6]",
-  "2B": "bg-[#1d4ed8] text-white border-[#1d4ed8]",
-  SS: "bg-[#1e40af] text-white border-[#1e40af]",
-  "3B": "bg-[#60a5fa] text-white border-[#60a5fa]",
+  C: "bg-[#059669] text-white border-[#059669]",
+  "1B": "bg-[#10b981] text-white border-[#10b981]",
+  "2B": "bg-[#047857] text-white border-[#047857]",
+  SS: "bg-[#065f46] text-white border-[#065f46]",
+  "3B": "bg-[#34d399] text-white border-[#34d399]",
   OF: "bg-[#15803d] text-white border-[#15803d]",
   DH: "bg-[#5c7266] text-white border-[#5c7266]",
   UTIL: "bg-[#7d9b88] text-white border-[#7d9b88]",
