@@ -322,7 +322,7 @@ export function PlayerDrawer({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">{children}</h3>
+    <h3 className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2 border-b border-zinc-100 dark:border-zinc-800 pb-1">{children}</h3>
   );
 }
 

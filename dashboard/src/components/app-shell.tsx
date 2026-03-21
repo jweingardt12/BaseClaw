@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCallback, lazy, Suspense, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDaysIcon,
   UsersIcon,
@@ -59,6 +59,7 @@ export function AppShell() {
   const queryClient = useQueryClient();
   const [chatOpen, setChatOpen] = useState(false);
   const [chatEverOpened, setChatEverOpened] = useState(false);
+  const leagueCtx = useQuery({ queryKey: ["leagueContext"], queryFn: api.getLeagueContext, staleTime: 600_000 });
 
   const handlePrefetch = useCallback(
     (path: string) => {
@@ -144,11 +145,11 @@ export function AppShell() {
 
             <SidebarFooter>
               <SidebarItem href="/league">
-                <Avatar square initials="XC" className="size-6" />
+                <Avatar square initials={leagueCtx.data?.team_name ? leagueCtx.data.team_name.slice(0, 2).toUpperCase() : "BC"} className="size-6" />
                 <SidebarLabel>
-                  <span className="block text-sm font-medium">Xi Chi Psi Alumni</span>
-                  <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                    My Team
+                  <span className="block text-sm font-medium truncate">{leagueCtx.data?.team_name || "My Team"}</span>
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {leagueCtx.data?.league_name || "Fantasy Baseball"}
                   </span>
                 </SidebarLabel>
               </SidebarItem>

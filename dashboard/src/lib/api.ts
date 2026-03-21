@@ -180,6 +180,8 @@ export interface LeagueContext {
   max_weekly_adds: number;
   faab_balance?: number;
   current_week?: number;
+  team_name?: string;
+  league_name?: string;
 }
 
 export type ApiResponse = Record<string, unknown>;
