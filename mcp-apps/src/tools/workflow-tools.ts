@@ -313,6 +313,51 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           lines.push("  Grade: " + str(te.grade));
         }
 
+        // Positional impact (Fix #6)
+        const posImpact = data.positional_impact;
+        if (posImpact && !("_error" in posImpact)) {
+          lines.push("");
+          lines.push("POSITIONAL IMPACT:");
+          if ((posImpact.upgrades || []).length > 0) {
+            for (const u of posImpact.upgrades) {
+              lines.push("  UPGRADE " + str(u.position) + ": " + str(u.current) + " -> " + str(u.new));
+            }
+          }
+          if ((posImpact.new_positions || []).length > 0) {
+            for (const np of posImpact.new_positions) {
+              lines.push("  NEW " + str(np.position) + ": " + str(np.player) + " (" + np.z_score + "z)");
+            }
+          }
+          if ((posImpact.redundancies || []).length > 0) {
+            for (const r of posImpact.redundancies) {
+              lines.push("  BLOCKED " + str(r.position) + ": " + str(r.current) + " already better");
+            }
+          }
+          if (posImpact.net_starting_impact) {
+            lines.push("  >> " + posImpact.net_starting_impact);
+          }
+        }
+
+        // Category impact (Fix #7)
+        const catImpact = data.category_impact;
+        if (catImpact && !("_error" in catImpact)) {
+          const gained = catImpact.categories_gained || [];
+          const lost = catImpact.categories_lost || [];
+          if (gained.length > 0 || lost.length > 0) {
+            lines.push("");
+            lines.push("CATEGORY IMPACT:");
+            if (gained.length > 0) lines.push("  Improves: " + gained.join(", "));
+            if (lost.length > 0) lines.push("  Hurts: " + lost.join(", "));
+          }
+          const details = catImpact.details || [];
+          if (details.length > 0) {
+            for (const d of details) {
+              const arrow = d.diff > 0 ? "+" : "";
+              lines.push("  " + str(d.category).padEnd(12) + " give=" + d.give_z.toFixed(2) + " get=" + d.get_z.toFixed(2) + " net=" + arrow + d.diff.toFixed(2));
+            }
+          }
+        }
+
         // Intel summary
         const intel = data.intel || {};
         const intelEntries = Object.entries(intel).filter(([, v]) => v && !("_error" in v));

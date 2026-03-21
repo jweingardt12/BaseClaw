@@ -1561,6 +1561,150 @@ def workflow_waiver_recommendations():
         return jsonify({"error": str(e)}), 500
 
 
+def _compute_positional_impact(roster_players, get_players, give_players):
+    """Compare incoming players to current roster starters for positional context."""
+    from valuations import get_player_zscore
+    try:
+        # Build position -> best starter map from current roster
+        # Exclude players being given away
+        give_names_lower = set()
+        for p in give_players:
+            name = p.get("name", "")
+            if name:
+                give_names_lower.add(str(name).lower())
+
+        pos_starters = {}  # position -> {name, z_score}
+        for rp in roster_players:
+            rp_name = str(rp.get("name", ""))
+            if rp_name.lower() in give_names_lower:
+                continue
+            positions = rp.get("eligible_positions", [])
+            z_info = get_player_zscore(rp_name)
+            z_val = z_info.get("z_final", 0) if z_info else 0
+            for pos in positions:
+                if pos in ("BN", "IL", "IL+", "DL", "NA"):
+                    continue
+                current = pos_starters.get(pos)
+                if current is None or z_val > current.get("z_score", 0):
+                    pos_starters[pos] = {"name": rp_name, "z_score": round(z_val, 2)}
+
+        upgrades = []
+        redundancies = []
+        new_positions = []
+
+        for gp in get_players:
+            if "_error" in gp:
+                continue
+            gp_name = gp.get("name", "Unknown")
+            gp_pos = str(gp.get("pos", ""))
+            gp_positions = [p.strip() for p in gp_pos.split(",") if p.strip()] if gp_pos else []
+            z_scores = gp.get("z_scores", {})
+            gp_z = float(z_scores.get("Final", 0))
+
+            best_upgrade = None
+            is_redundant = True
+
+            for pos in gp_positions:
+                if pos in ("BN", "IL", "IL+", "DL", "NA", "Util"):
+                    continue
+                current = pos_starters.get(pos)
+                if current is None:
+                    new_positions.append({"position": pos, "player": gp_name, "z_score": round(gp_z, 2)})
+                    is_redundant = False
+                else:
+                    is_upgrade = gp_z > current.get("z_score", 0)
+                    entry = {
+                        "position": pos,
+                        "current": current.get("name", "?") + " (" + str(current.get("z_score", 0)) + "z)",
+                        "new": gp_name + " (" + str(round(gp_z, 2)) + "z)",
+                        "upgrade": is_upgrade,
+                    }
+                    if is_upgrade:
+                        if best_upgrade is None or gp_z - current.get("z_score", 0) > best_upgrade.get("_diff", 0):
+                            entry["_diff"] = gp_z - current.get("z_score", 0)
+                            best_upgrade = entry
+                        is_redundant = False
+                    else:
+                        redundancies.append(entry)
+
+            if best_upgrade:
+                best_upgrade.pop("_diff", None)
+                upgrades.append(best_upgrade)
+
+        # Build summary
+        if upgrades:
+            summary = ", ".join(u.get("new", "?") + " upgrades " + u.get("position", "?") for u in upgrades)
+        elif new_positions:
+            summary = "Fills new position(s): " + ", ".join(p.get("position", "") for p in new_positions)
+        elif redundancies:
+            summary = "Would NOT start — blocked at " + ", ".join(r.get("position", "") for r in redundancies[:3])
+        else:
+            summary = "No positional impact data available"
+
+        return {
+            "upgrades": upgrades,
+            "redundancies": redundancies,
+            "new_positions": new_positions,
+            "net_starting_impact": summary,
+        }
+    except Exception as e:
+        return {"_error": str(e), "upgrades": [], "redundancies": [], "new_positions": [], "net_starting_impact": ""}
+
+
+def _compute_category_impact(give_players, get_players):
+    """Compare per-category z-scores between give and get sides."""
+    try:
+        give_cats = {}
+        get_cats = {}
+
+        for p in give_players:
+            if "_error" in p:
+                continue
+            z_scores = p.get("z_scores", {})
+            for cat, val in z_scores.items():
+                if cat == "Final":
+                    continue
+                try:
+                    give_cats[cat] = give_cats.get(cat, 0) + float(val)
+                except (ValueError, TypeError):
+                    pass
+
+        for p in get_players:
+            if "_error" in p:
+                continue
+            z_scores = p.get("z_scores", {})
+            for cat, val in z_scores.items():
+                if cat == "Final":
+                    continue
+                try:
+                    get_cats[cat] = get_cats.get(cat, 0) + float(val)
+                except (ValueError, TypeError):
+                    pass
+
+        all_cats = sorted(set(list(give_cats.keys()) + list(get_cats.keys())))
+        categories_gained = []
+        categories_lost = []
+        details = []
+
+        for cat in all_cats:
+            give_val = round(give_cats.get(cat, 0), 2)
+            get_val = round(get_cats.get(cat, 0), 2)
+            diff = round(get_val - give_val, 2)
+            details.append({"category": cat, "give_z": give_val, "get_z": get_val, "diff": diff})
+            if diff > 0.1:
+                categories_gained.append(cat)
+            elif diff < -0.1:
+                categories_lost.append(cat)
+
+        return {
+            "categories_gained": categories_gained,
+            "categories_lost": categories_lost,
+            "details": details,
+        }
+    except Exception as e:
+        return {"_error": str(e), "categories_gained": [], "categories_lost": [], "details": []}
+
+
 @app.route("/api/workflow/trade-analysis", methods=["POST"])
 def workflow_trade_analysis():
     try:
@@ -1624,6 +1768,12 @@ def workflow_trade_analysis():
             except Exception as e:
                 trade_eval = {"_error": str(e)}
 
+        # --- Positional awareness (Fix #6) ---
+        positional_impact = _compute_positional_impact(roster_players, get_players, give_players)
+
+        # --- Category-level impact (Fix #7) ---
+        category_impact = _compute_category_impact(give_players, get_players)
+
         # Get intel for each player
         all_names = give_names + get_names
         intel_data = {}
@@ -1640,6 +1790,8 @@ def workflow_trade_analysis():
             "get_ids": get_ids,
             "trade_eval": trade_eval,
             "intel": intel_data,
+            "positional_impact": positional_impact,
+            "category_impact": category_impact,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

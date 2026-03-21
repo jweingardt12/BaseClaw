@@ -140,14 +140,32 @@ export function generateStreamingInsight(data: StreamingResponse): string | null
   return parts.join(" ");
 }
 
-export function generateTradeInsight(data: TradeEvalResponse): string | null {
+export function generateTradeInsight(data: TradeEvalResponse, positionalImpact?: { upgrades?: Array<{ position: string }>; redundancies?: Array<{ position: string }>; net_starting_impact?: string }, categoryImpact?: { categories_gained?: string[]; categories_lost?: string[] }): string | null {
   var parts: string[] = [];
   parts.push("Grade: " + data.grade + ".");
   parts.push("Net value: " + (data.net_value >= 0 ? "+" : "") + data.net_value.toFixed(1) + " z-score.");
-  var losing = (data.position_impact && data.position_impact.losing) || [];
-  var gaining = (data.position_impact && data.position_impact.gaining) || [];
-  if (losing.length > 0) parts.push("You lose depth at " + losing.join(", ") + ".");
-  if (gaining.length > 0) parts.push("You gain at " + gaining.join(", ") + ".");
+  // Positional awareness
+  if (positionalImpact) {
+    var upgrades = positionalImpact.upgrades || [];
+    var redundancies = positionalImpact.redundancies || [];
+    if (upgrades.length > 0) {
+      parts.push("Upgrades " + upgrades.map(function (u) { return u.position; }).join(", ") + ".");
+    } else if (redundancies.length > 0) {
+      parts.push("Would NOT start — blocked at " + redundancies.slice(0, 3).map(function (r) { return r.position; }).join(", ") + ".");
+    }
+  } else {
+    var losing = (data.position_impact && data.position_impact.losing) || [];
+    var gaining = (data.position_impact && data.position_impact.gaining) || [];
+    if (losing.length > 0) parts.push("You lose depth at " + losing.join(", ") + ".");
+    if (gaining.length > 0) parts.push("You gain at " + gaining.join(", ") + ".");
+  }
+  // Category impact
+  if (categoryImpact) {
+    var gained = categoryImpact.categories_gained || [];
+    var lost = categoryImpact.categories_lost || [];
+    if (gained.length > 0) parts.push("Improves: " + gained.slice(0, 4).join(", ") + ".");
+    if (lost.length > 0) parts.push("Hurts: " + lost.slice(0, 4).join(", ") + ".");
+  }
   return parts.join(" ");
 }
 
