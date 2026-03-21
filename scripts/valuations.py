@@ -306,7 +306,10 @@ RATIO_BATTING = ["AVG", "OBP"]
 RATIO_PITCHING = ["ERA", "WHIP"]
 
 # Positional scarcity bonuses
-POS_BONUS = {"C": 2.0, "SS": 0.5, "2B": 0.3, "3B": 0.3, "RP": 0.5}
+# Catcher premium at 1.5 — compromise for 1C and 2C league formats.
+# TODO: make conditional on league roster slots when yahoo_league_context
+# is plumbed through (2.0 for 2C leagues, 1.0 for 1C leagues).
+POS_BONUS = {"C": 1.5, "SS": 0.5, "2B": 0.3, "3B": 0.3, "RP": 0.5}
 
 # Park factors (2024-2025 Baseball Savant, 1.0 = neutral)
 PARK_FACTORS = {

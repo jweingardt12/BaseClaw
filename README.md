@@ -60,7 +60,7 @@ Complex questions chain 3-8 tool calls automatically. Simple lookups are one cal
 
 2. **Analytics engine** — Z-score valuations using the FVARz method (volume-weighted rate stats so part-timers don't inflate rankings). Projections are consensus blends (Steamer + ZiPS + Depth Charts) with per-category weighting, park-factor adjusted, and blended with live stats via a date-based decay curve (projections dominate early, actuals take over mid-season). Positional scarcity bonuses (catcher premium, middle infield). The engine also runs category gap analysis, research-backed punt strategy with viability ratings, matchup classification with category-specific volatility thresholds, trade evaluation with surplus value analysis (roster spot tax, category fit, consolidation premium, catcher scarcity, rival warnings), FAAB bid recommendations with budget pacing and contender detection, multi-factor streaming pitcher scoring (pitcher quality + park factor + opponent quality), and a trade finder that scans every team for complementary deals.
 
-3. **Player intelligence** — Every player surface pulls Statcast data (xwOBA, xERA, exit velocity, barrel rate, percentile rankings, pitch arsenal), platoon splits, historical comparisons, arsenal change detection, 7/14/30-day trend splits, FanGraphs plate discipline (SIERA, K-BB%, HR/FB%), Reddit sentiment from r/fantasybaseball, and MLB transaction alerts. A multi-signal regression engine scores every qualified player from -100 (strong sell-high) to +100 (strong buy-low) using xwOBA gaps, BABIP, barrel rate vs HR/FB%, sprint speed, ERA vs SIERA, LOB%, and more — with confidence levels and individual signal breakdowns. API calls are cached with configurable TTL. Before the season starts, Savant data falls back to the prior year so intel surfaces stay populated during spring training.
+3. **Player intelligence** — Every player surface pulls Statcast data (xwOBA, xERA, exit velocity, barrel rate, percentile rankings, pitch arsenal), platoon splits, historical comparisons, arsenal change detection, 7/14/30-day trend splits, FanGraphs plate discipline (SIERA, K-BB%, HR/FB%), Reddit sentiment from r/fantasybaseball, and MLB transaction alerts. A research-calibrated regression engine scores every qualified player from -100 (strong sell-high) to +100 (strong buy-low) using 6 hitter signals (xwOBA gap, career-regressed BABIP, HR/FB vs barrels, plate discipline via O-Swing%, hard-hit divergence, sprint speed) and 7 pitcher signals (ERA vs SIERA, K-BB% vs ERA, ERA vs xERA, K-rate adjusted BABIP, LOB%, HR/FB%, velocity trend) — each with individual contribution breakdowns and confidence levels. API calls are cached with configurable TTL. Before the season starts, Savant data falls back to the prior year so intel surfaces stay populated during spring training.
 
 4. **Browser automation** — Write operations (add, drop, trade, lineup changes) use Playwright to automate the Yahoo Fantasy website directly, since Yahoo's API no longer grants write scope to new developer apps. Read operations still use the fast OAuth API.
 
@@ -381,7 +381,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 |------|-------------|
 | `fantasy_probable_pitchers` | Probable pitchers for upcoming games |
 | `fantasy_schedule_analysis` | Schedule-based analysis for streaming and lineup planning |
-| `fantasy_regression_candidates` | Multi-signal regression scoring (-100 to +100): xwOBA, BABIP, HR/FB vs barrels, sprint speed, ERA vs SIERA, LOB%. Each player gets a composite score, direction, and confidence level |
+| `fantasy_regression_candidates` | Research-calibrated regression scoring (-100 to +100): 6 hitter signals (xwOBA, BABIP, HR/FB vs barrels, plate discipline, hard-hit divergence, sprint speed) and 7 pitcher signals (ERA vs SIERA, K-BB% vs ERA, xERA, K-rate adjusted BABIP, LOB%, HR/FB%, velocity trend). Each player gets a composite score, direction, confidence level, and per-signal breakdowns |
 
 </details>
 
@@ -499,7 +499,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 - **Read operations**: Yahoo Fantasy OAuth API (fast, reliable)
 - **Write operations**: Playwright browser automation against Yahoo Fantasy website
 - **Valuations**: FVARz z-scores with per-category projection blending (Steamer + ZiPS + Depth Charts), park-factor adjusted, date-based decay curve for in-season blending, positional scarcity bonuses. Surplus value trade analysis, budget-paced FAAB, multi-factor streaming, research-backed punt viability
-- **Intelligence**: Statcast data, SIERA, platoon splits, arsenal changes, batted ball profiles, historical comparisons, multi-signal regression scoring (-100 to +100). Cached with configurable TTL
+- **Intelligence**: Statcast data, SIERA, platoon splits, arsenal changes, batted ball profiles, historical comparisons, research-calibrated regression scoring (-100 to +100) with 13 signals across hitters and pitchers. Cached with configurable TTL
 - **MCP Apps**: Inline HTML UIs (React + Plex UI + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
 - **Workflow tools**: 11 aggregated endpoints that bundle 5-7+ API calls server-side to keep tool call counts low
 

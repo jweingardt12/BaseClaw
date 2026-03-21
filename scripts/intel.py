@@ -588,6 +588,7 @@ def _fetch_fangraphs(stat_func, cache_label):
                         "k_rate": row.get("K%", None),
                         "o_swing_pct": row.get("O-Swing%", None),
                         "z_contact_pct": row.get("Z-Contact%", None),
+                        "contact_pct": row.get("Contact%", None),
                         "swstr_pct": row.get("SwStr%", None),
                         "data_season": season,
                     }
@@ -792,6 +793,7 @@ def _fetch_fangraphs_regression_batting():
                         "wrc_plus": row.get("wRC+", None),
                         "hr_fb_rate": row.get("HR/FB", None),
                         "pa": row.get("PA", None),
+                        "o_swing_pct": row.get("O-Swing%", None),
                         "data_season": year,
                     }
         _cache_set(cache_key, result)
@@ -830,6 +832,9 @@ def _fetch_fangraphs_regression_pitching():
                         "siera": row.get("SIERA", None),
                         "hr_fb_rate": row.get("HR/FB", None),
                         "ip": row.get("IP", None),
+                        "k_per_9": row.get("K/9", None),
+                        "k_rate": row.get("K%", None),
+                        "bb_rate": row.get("BB%", None),
                         "data_season": year,
                     }
         _cache_set(cache_key, result)
@@ -843,17 +848,26 @@ def compute_hitter_regression_score(player_stats):
     """Compute composite regression score for a hitter (-100 to +100).
     Positive = underperforming expected stats (buy-low).
     Negative = overperforming expected stats (sell-high).
+
+    Signal weights (v1.4 — research-calibrated):
+        xwOBA gap       ±15  descriptive, not predictive (Tango)
+        BABIP regression ±20  career-regressed target
+        HR/FB vs barrels ±20  barrel rate predicts HR/FB
+        Plate discipline ±20  O-Swing% r=0.83 YoY
+        Hard-hit diverg. ±15  r²=0.67 YoY, stickiest metric
+        Sprint speed     ±10  SB sustainability
     """
     score = 0
     signals = []
 
-    # Signal 1: xwOBA vs wOBA (weight: 35%)
+    # Signal 1: xwOBA vs wOBA (weight: ±15)
+    # Descriptive not predictive (Tango) — reduced from ±35
     xwoba = player_stats.get("xwoba", 0)
     woba = player_stats.get("woba", 0)
     if xwoba and woba:
         xwoba_gap = float(xwoba) - float(woba)
         if abs(xwoba_gap) >= 0.020:
-            signal_score = min(max(xwoba_gap * 1000, -35), 35)
+            signal_score = min(max(xwoba_gap * 500, -15), 15)
             score += signal_score
             signals.append({
                 "name": "xwOBA_gap",
@@ -863,18 +877,30 @@ def compute_hitter_regression_score(player_stats):
                 "contribution": round(signal_score, 1),
             })
 
-    # Signal 2: BABIP vs .300 baseline (weight: 25%)
+    # Signal 2: BABIP vs career-regressed target (weight: ±20)
+    # Uses Bayesian shrinkage toward .300 when career data available
     babip = player_stats.get("babip")
     if babip is not None:
         try:
             babip_val = float(babip)
-            babip_gap = 0.300 - babip_val
+            career_babip = player_stats.get("career_babip")
+            career_bip = player_stats.get("career_bip")
+            if career_babip is not None and career_bip is not None:
+                prior_weight = 820  # ~2 seasons of BIP
+                babip_target = (
+                    (float(career_babip) * float(career_bip) + 0.300 * prior_weight)
+                    / (float(career_bip) + prior_weight)
+                )
+            else:
+                babip_target = 0.300
+            babip_gap = babip_target - babip_val
             if abs(babip_gap) >= 0.025:
-                signal_score = min(max(babip_gap * 500, -25), 25)
+                signal_score = min(max(babip_gap * 400, -20), 20)
                 score += signal_score
                 signals.append({
                     "name": "BABIP_regression",
                     "value": round(babip_gap, 3),
+                    "target": round(babip_target, 3),
                     "direction": "buy-low" if babip_gap > 0 else "sell-high",
                     "strength": "strong" if abs(babip_gap) >= 0.040 else "moderate",
                     "contribution": round(signal_score, 1),
@@ -882,7 +908,7 @@ def compute_hitter_regression_score(player_stats):
         except (ValueError, TypeError):
             pass
 
-    # Signal 3: HR/FB% vs barrel rate prediction (weight: 20%)
+    # Signal 3: HR/FB% vs barrel rate prediction (weight: ±20)
     barrel_rate = player_stats.get("barrel_pct") or player_stats.get("barrel_rate")
     hr_fb_rate = player_stats.get("hr_fb_rate")
     if barrel_rate is not None and hr_fb_rate is not None:
@@ -905,7 +931,67 @@ def compute_hitter_regression_score(player_stats):
         except (ValueError, TypeError):
             pass
 
-    # Signal 4: Sprint speed for SB regression (weight: 10%)
+    # Signal 4: Plate discipline — O-Swing% (weight: ±20)
+    # O-Swing% has r=0.83 YoY stability — deviation from baseline is predictive
+    o_swing = player_stats.get("o_swing_pct")
+    if o_swing is not None:
+        try:
+            o_swing_val = float(o_swing)
+            if o_swing_val > 1:
+                o_swing_val = o_swing_val / 100.0
+            career_o_swing = player_stats.get("career_o_swing_pct")
+            if career_o_swing is not None:
+                baseline = float(career_o_swing)
+                if baseline > 1:
+                    baseline = baseline / 100.0
+            else:
+                baseline = 0.31  # league average fallback
+            # Lower O-Swing% than baseline = better discipline = buy-low
+            discipline_gap = baseline - o_swing_val
+            if abs(discipline_gap) >= 0.03:
+                signal_score = min(max(discipline_gap * 500, -20), 20)
+                score += signal_score
+                signals.append({
+                    "name": "plate_discipline",
+                    "value": round(o_swing_val, 3),
+                    "baseline": round(baseline, 3),
+                    "direction": "buy-low" if discipline_gap > 0 else "sell-high",
+                    "strength": "strong" if abs(discipline_gap) >= 0.05 else "moderate",
+                    "contribution": round(signal_score, 1),
+                })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 5: Hard-hit divergence (weight: ±15)
+    # Hard-hit% is the stickiest batted-ball metric (r²=0.67 YoY)
+    # Divergence between hard-hit quality and actual SLG flags luck
+    hard_hit_pct = player_stats.get("hard_hit_pct")
+    slg = player_stats.get("slg")
+    if hard_hit_pct is not None and slg is not None:
+        try:
+            hh = float(hard_hit_pct)
+            if hh > 1:
+                hh = hh / 100.0
+            slg_val = float(slg)
+            # Expected SLG from hard-hit rate (league avg: .36 HH% -> .400 SLG)
+            expected_slg = 0.400 + (hh - 0.36) * 1.2
+            divergence = expected_slg - slg_val
+            if abs(divergence) >= 0.030:
+                signal_score = min(max(divergence * 300, -15), 15)
+                score += signal_score
+                signals.append({
+                    "name": "hard_hit_divergence",
+                    "value": round(hh, 3),
+                    "expected_slg": round(expected_slg, 3),
+                    "actual_slg": round(slg_val, 3),
+                    "direction": "buy-low" if divergence > 0 else "sell-high",
+                    "strength": "strong" if abs(divergence) >= 0.050 else "moderate",
+                    "contribution": round(signal_score, 1),
+                })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 6: Sprint speed for SB regression (weight: ±10)
     sprint_speed = player_stats.get("sprint_speed")
     stolen_bases = player_stats.get("sb", 0)
     if sprint_speed is not None:
@@ -913,22 +999,22 @@ def compute_hitter_regression_score(player_stats):
             ss = float(sprint_speed)
             sb = int(float(stolen_bases)) if stolen_bases else 0
             if ss >= 28.5 and sb < 5:
-                score += 8
+                score += 10
                 signals.append({
                     "name": "speed_underutilized",
                     "value": ss,
                     "direction": "buy-low",
                     "strength": "moderate",
-                    "contribution": 8,
+                    "contribution": 10,
                 })
             elif ss < 27.0 and sb > 10:
-                score -= 8
+                score -= 10
                 signals.append({
                     "name": "speed_unsustainable_sb",
                     "value": ss,
                     "direction": "sell-high",
                     "strength": "moderate",
-                    "contribution": -8,
+                    "contribution": -10,
                 })
         except (ValueError, TypeError):
             pass
@@ -941,10 +1027,36 @@ def compute_hitter_regression_score(player_stats):
     }
 
 
+def _pitcher_babip_baseline(k_per_9):
+    """K-rate adjusted BABIP baseline. High-K pitchers suppress BABIP."""
+    if k_per_9 is None:
+        return 0.300
+    try:
+        k9 = float(k_per_9)
+    except (ValueError, TypeError):
+        return 0.300
+    if k9 >= 10.0:
+        return 0.288
+    if k9 >= 8.5:
+        return 0.295
+    if k9 <= 6.0:
+        return 0.308
+    return 0.300
+
+
 def compute_pitcher_regression_score(player_stats):
     """Compute composite regression score for a pitcher (-100 to +100).
     Positive = underperforming expected (buy-low).
     Negative = overperforming expected (sell-high).
+
+    Signal weights (v1.4 — research-calibrated):
+        ERA vs SIERA     ±25  reduced from ±35
+        K-BB% vs ERA     ±20  R²=0.224, best ERA predictor
+        ERA vs xERA      ±10  not more predictive than FIP
+        BABIP against    ±15  K-rate adjusted baseline
+        LOB% extremes    ±15  unchanged
+        HR/FB%           ±10  unchanged
+        Velocity trend    ±5  binary flag for >=1.0 mph YoY
     """
     score = 0
     signals = []
@@ -953,15 +1065,20 @@ def compute_pitcher_regression_score(player_stats):
     siera = player_stats.get("siera")
     xera = player_stats.get("xera") or siera  # SIERA used as xERA proxy
 
-    # Signal 1: ERA vs SIERA (weight: 35%)
-    if era is not None and siera is not None:
+    # Convert era once — callers already pass float, but be defensive
+    try:
+        era_val = float(era) if era is not None else None
+    except (ValueError, TypeError):
+        era_val = None
+
+    # Signal 1: ERA vs SIERA (weight: ±25) — reduced from ±35
+    if era_val is not None and siera is not None:
         try:
-            era_val = float(era)
             siera_val = float(siera)
             if era_val > 0 and siera_val > 0:
                 era_gap = era_val - siera_val
                 if abs(era_gap) >= 0.50:
-                    signal_score = min(max(era_gap * 20, -35), 35)
+                    signal_score = min(max(era_gap * 15, -25), 25)
                     score += signal_score
                     signals.append({
                         "name": "ERA_vs_SIERA",
@@ -973,15 +1090,42 @@ def compute_pitcher_regression_score(player_stats):
         except (ValueError, TypeError):
             pass
 
-    # Signal 2: ERA vs xERA (weight: 25%)
-    if era is not None and xera is not None and xera != siera:
+    # Signal 2: K-BB% vs ERA (weight: ±20) — NEW
+    # R²=0.224, single best predictor of future ERA
+    k_bb_pct = player_stats.get("k_bb_pct")
+    if k_bb_pct is not None and era_val is not None:
         try:
-            era_val = float(era)
+            k_bb_val = float(k_bb_pct)
+            if k_bb_val > 1:
+                k_bb_val = k_bb_val / 100.0
+            # Expected ERA from K-BB%: ~5.0 - K-BB% * 15
+            # K-BB% 0.15 -> ERA ~2.75, K-BB% 0.10 -> ERA ~3.50
+            expected_era = 5.0 - k_bb_val * 15.0
+            k_bb_gap = era_val - expected_era
+            if abs(k_bb_gap) >= 0.50:
+                signal_score = min(max(k_bb_gap * 15, -20), 20)
+                score += signal_score
+                signals.append({
+                    "name": "K-BB%_vs_ERA",
+                    "value": round(k_bb_val, 3),
+                    "expected_era": round(expected_era, 2),
+                    "actual_era": round(era_val, 2),
+                    "direction": "buy-low" if k_bb_gap > 0 else "sell-high",
+                    "strength": "strong" if abs(k_bb_gap) >= 1.0 else "moderate",
+                    "contribution": round(signal_score, 1),
+                })
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 3: ERA vs xERA (weight: ±10) — reduced from ±25
+    # Not more predictive than FIP — supplementary only
+    if era_val is not None and xera is not None and xera != siera:
+        try:
             xera_val = float(xera)
             if era_val > 0 and xera_val > 0:
                 xera_gap = era_val - xera_val
                 if abs(xera_gap) >= 0.40:
-                    signal_score = min(max(xera_gap * 15, -25), 25)
+                    signal_score = min(max(xera_gap * 8, -10), 10)
                     score += signal_score
                     signals.append({
                         "name": "ERA_vs_xERA",
@@ -993,27 +1137,30 @@ def compute_pitcher_regression_score(player_stats):
         except (ValueError, TypeError):
             pass
 
-    # Signal 3: BABIP against (weight: 15%)
+    # Signal 4: BABIP against (weight: ±15) — K-rate adjusted baseline
     babip = player_stats.get("babip")
     if babip is not None:
         try:
             babip_val = float(babip)
-            if abs(babip_val - 0.300) >= 0.025:
-                babip_signal = (0.300 - babip_val) * 300
+            babip_baseline = _pitcher_babip_baseline(player_stats.get("k_per_9"))
+            babip_dev = babip_val - babip_baseline
+            if abs(babip_dev) >= 0.025:
+                babip_signal = (babip_baseline - babip_val) * 300
                 signal_score = min(max(-babip_signal, -15), 15)
                 score += signal_score
-                if abs(babip_val - 0.300) >= 0.030:
+                if abs(babip_dev) >= 0.030:
                     signals.append({
                         "name": "BABIP_against",
                         "value": round(babip_val, 3),
-                        "direction": "buy-low" if babip_val > 0.330 else "sell-high",
-                        "strength": "strong" if abs(babip_val - 0.300) >= 0.050 else "moderate",
+                        "baseline": round(babip_baseline, 3),
+                        "direction": "buy-low" if babip_val > babip_baseline + 0.030 else "sell-high",
+                        "strength": "strong" if abs(babip_dev) >= 0.050 else "moderate",
                         "contribution": round(signal_score, 1),
                     })
         except (ValueError, TypeError):
             pass
 
-    # Signal 4: LOB% extremes (weight: 15%)
+    # Signal 5: LOB% extremes (weight: ±15)
     lob_pct = player_stats.get("lob_pct")
     if lob_pct is not None:
         try:
@@ -1037,7 +1184,7 @@ def compute_pitcher_regression_score(player_stats):
         except (ValueError, TypeError):
             pass
 
-    # Signal 5: HR/FB% vs league average (weight: 10%)
+    # Signal 6: HR/FB% vs league average (weight: ±10)
     hr_fb = player_stats.get("hr_fb_rate")
     if hr_fb is not None:
         try:
@@ -1046,6 +1193,25 @@ def compute_pitcher_regression_score(player_stats):
             if abs(hr_fb_deviation) >= 0.03:
                 signal_score = min(max(hr_fb_deviation * -150, -10), 10)
                 score += signal_score
+        except (ValueError, TypeError):
+            pass
+
+    # Signal 7: Velocity trend (weight: ±5) — binary flag
+    # Activates when velo_change_yoy data is available
+    velo_change = player_stats.get("velo_change_yoy")
+    if velo_change is not None:
+        try:
+            velo_delta = float(velo_change)
+            if abs(velo_delta) >= 1.0:
+                signal_score = 5 if velo_delta >= 1.0 else -5
+                score += signal_score
+                signals.append({
+                    "name": "velocity_trend",
+                    "value": round(velo_delta, 1),
+                    "direction": "buy-low" if velo_delta >= 1.0 else "sell-high",
+                    "strength": "moderate",
+                    "contribution": signal_score,
+                })
         except (ValueError, TypeError):
             pass
 
@@ -1087,7 +1253,6 @@ def detect_regression_candidates():
     try:
         savant_bat = _fetch_savant_expected("batter")
         fg_bat = _fetch_fangraphs_regression_batting()
-
         # Fetch barrel and sprint speed data for composite scoring
         statcast_bat = {}
         sprint_bat = {}
@@ -1151,6 +1316,19 @@ def detect_regression_candidates():
                         except (ValueError, TypeError):
                             sprint_speed = None
 
+                # O-Swing% from the same FanGraphs regression fetch
+                o_swing_pct = fg_row.get("o_swing_pct") if fg_row else None
+
+                # Look up hard-hit% from statcast data
+                hard_hit_pct = None
+                if statcast_row:
+                    hh_raw = statcast_row.get("hard_hit_percent", statcast_row.get("hard_hit_rate"))
+                    if hh_raw is not None:
+                        try:
+                            hard_hit_pct = float(hh_raw)
+                        except (ValueError, TypeError):
+                            hard_hit_pct = None
+
                 # Build player_stats dict for composite scoring
                 hitter_stats = {
                     "xwoba": xwoba,
@@ -1160,6 +1338,10 @@ def detect_regression_candidates():
                     "hr_fb_rate": hr_fb_rate,
                     "sprint_speed": sprint_speed,
                     "sb": row.get("sb", 0),
+                    "o_swing_pct": o_swing_pct,
+                    "hard_hit_pct": hard_hit_pct,
+                    "avg": row.get("ba"),
+                    "slg": row.get("slg"),
                 }
                 reg_result = compute_hitter_regression_score(hitter_stats)
 
@@ -1325,6 +1507,17 @@ def detect_regression_candidates():
                         except (ValueError, TypeError):
                             pass
 
+                # Compute K-BB% and gather extra fields
+                k_rate_raw = fg_row.get("k_rate")
+                bb_rate_raw = fg_row.get("bb_rate")
+                k_bb_pct = None
+                if k_rate_raw is not None and bb_rate_raw is not None:
+                    try:
+                        k_bb_pct = float(k_rate_raw) - float(bb_rate_raw)
+                    except (ValueError, TypeError):
+                        pass
+                k_per_9 = fg_row.get("k_per_9")
+
                 # Build player_stats dict for composite scoring
                 pitcher_stats = {
                     "era": era,
@@ -1334,6 +1527,8 @@ def detect_regression_candidates():
                     "lob_pct": lob_pct,
                     "siera": siera,
                     "hr_fb_rate": hr_fb_rate,
+                    "k_bb_pct": k_bb_pct,
+                    "k_per_9": k_per_9,
                 }
                 reg_result = compute_pitcher_regression_score(pitcher_stats)
 

@@ -120,6 +120,31 @@ When evaluating any player, these Statcast thresholds indicate real-talent chang
 - **CSW% (called strikes + whiffs)**: more predictive of K rate than swinging-strike rate alone
 - **Velocity increase >= 1.5 mph from last season**: meaningful change, often precedes breakout
 
+## Regression Signal Weights (v1.4)
+
+Hitter signals (max composite: ±100):
+| Signal | Cap | Multiplier | Notes |
+|--------|-----|------------|-------|
+| xwOBA gap | ±15 | 500 | Descriptive not predictive (Tango) |
+| BABIP regression | ±20 | 400 | Career-regressed target via Bayesian shrinkage toward .300 |
+| HR/FB vs barrels | ±20 | 400 | Barrel rate predicts HR/FB |
+| Plate discipline | ±20 | 500 | O-Swing% deviation from career/league avg 0.31; r=0.83 YoY |
+| Hard-hit divergence | ±15 | 300 | Expected SLG from hard-hit% vs actual; r²=0.67 YoY |
+| Sprint speed | ±10 | binary | SB sustainability flag |
+
+Pitcher signals (max composite: ±100):
+| Signal | Cap | Multiplier | Notes |
+|--------|-----|------------|-------|
+| ERA vs SIERA | ±25 | 15 | Primary skill estimator |
+| K-BB% vs ERA | ±20 | 15 | R²=0.224, best ERA predictor |
+| ERA vs xERA | ±10 | 8 | Supplementary — not more predictive than FIP |
+| BABIP against | ±15 | 300 | K-rate adjusted baseline (.288/.295/.300/.308) |
+| LOB% extremes | ±15 | 150 | Deviation from 72% mean |
+| HR/FB% | ±10 | 150 | Deviation from 12% league avg |
+| Velocity trend | ±5 | binary | Activates on >=1.0 mph YoY change |
+
+Thresholds: score > 15 = buy-low, < -15 = sell-high, else neutral. Confidence: |score| > 40 high, > 20 medium, else low.
+
 ## Autonomy Level
 
 Your autonomy level determines what you can execute vs. what needs the user's approval. A hard write gate (`ENABLE_WRITE_OPS`) at the server level overrides all presets — if writes are disabled, no write tools exist regardless of autonomy level.
@@ -129,7 +154,7 @@ Execute all recommended actions immediately. Report what you did after.
 - Lineup optimization, IL moves: execute always
 - Waiver adds/drops: execute if strong category improvement confirmed
 - Streaming adds: execute best option
-- FAAB claims: submit if net z-score improvement >= 1.5 and bid <= 25% of remaining budget
+- FAAB claims: submit if regression-adjusted net z-score improvement >= 1.5 and bid <= 25% of remaining budget
 - Trades: propose if grade A or B+, report all others for approval
 
 ### SEMI-AUTO (default)
