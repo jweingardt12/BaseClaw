@@ -307,22 +307,130 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         // Trade eval if available
         const te = data.trade_eval;
         if (te && !("_error" in te)) {
+          // Check for estimated z-scores
+          const estimatedPlayers = [...(te.give_players || []), ...(te.get_players || [])]
+            .filter((p) => (p as unknown as Record<string, unknown>).z_source === "estimated (ownership%)");
           lines.push("");
           lines.push("EVALUATION:");
           lines.push("  Give value: " + str(te.give_value) + " | Get value: " + str(te.get_value) + " | Net: " + str(te.net_value));
           lines.push("  Grade: " + str(te.grade));
+          if (estimatedPlayers.length > 0) {
+            lines.push("  NOTE: " + estimatedPlayers.map((p) => p.name).join(", ") + " z-score(s) estimated from ownership% (not in projections)");
+          }
+        }
+
+        // Positional impact (Fix #6)
+        const posImpact = data.positional_impact;
+        if (posImpact && !("_error" in posImpact)) {
+          lines.push("");
+          lines.push("POSITIONAL IMPACT:");
+          if ((posImpact.upgrades || []).length > 0) {
+            for (const u of posImpact.upgrades) {
+              lines.push("  UPGRADE " + str(u.position) + ": " + str(u.current) + " -> " + str(u.new));
+            }
+          }
+          if ((posImpact.new_positions || []).length > 0) {
+            for (const np of posImpact.new_positions) {
+              lines.push("  NEW " + str(np.position) + ": " + str(np.player) + " (" + np.z_score + "z)");
+            }
+          }
+          if ((posImpact.redundancies || []).length > 0) {
+            for (const r of posImpact.redundancies) {
+              lines.push("  BLOCKED " + str(r.position) + ": " + str(r.current) + " already better");
+            }
+          }
+          if (posImpact.net_starting_impact) {
+            lines.push("  >> " + posImpact.net_starting_impact);
+          }
+        }
+
+        // Category impact (Fix #7)
+        const catImpact = data.category_impact;
+        if (catImpact && !("_error" in catImpact)) {
+          const gained = catImpact.categories_gained || [];
+          const lost = catImpact.categories_lost || [];
+          if (gained.length > 0 || lost.length > 0) {
+            lines.push("");
+            lines.push("CATEGORY IMPACT:");
+            if (gained.length > 0) lines.push("  Improves: " + gained.join(", "));
+            if (lost.length > 0) lines.push("  Hurts: " + lost.join(", "));
+          }
+          const details = catImpact.details || [];
+          if (details.length > 0) {
+            for (const d of details) {
+              const arrow = d.diff > 0 ? "+" : "";
+              lines.push("  " + str(d.category).padEnd(12) + " give=" + d.give_z.toFixed(2) + " get=" + d.get_z.toFixed(2) + " net=" + arrow + d.diff.toFixed(2));
+            }
+          }
         }
 
         // Intel summary
         const intel = data.intel || {};
-        const intelEntries = Object.entries(intel).filter(([, v]) => v && !("_error" in v));
+        const intelEntries = Object.entries(intel).filter(([, v]) => v != null);
         if (intelEntries.length > 0) {
           lines.push("");
           lines.push("INTEL:");
           for (const [name, report] of intelEntries) {
-            const sc = report.statcast || {};
-            if (sc.quality_tier) {
-              lines.push("  " + str(name).padEnd(25) + " tier=" + str(sc.quality_tier));
+            if ("_error" in report) {
+              lines.push("  " + str(name).padEnd(25) + " (intel unavailable: " + str((report as Record<string, string>)._error) + ")");
+              continue;
+            }
+            const sc = (report as Record<string, any>).statcast || {};
+            const trends = (report as Record<string, any>).trends || {};
+            const ctx = (report as Record<string, any>).context || {};
+            const disc = (report as Record<string, any>).discipline || {};
+            const arsenal = (report as Record<string, any>).arsenal_changes || {};
+
+            // Build a rich summary line
+            const parts: string[] = [];
+
+            // Batted ball quality
+            const bb = sc.batted_ball || {};
+            if (bb.barrel_tier) parts.push("barrel:" + bb.barrel_tier);
+            if (bb.ev_tier) parts.push("EV:" + bb.ev_tier);
+
+            // Expected stats
+            const exp = sc.expected || {};
+            if (exp.xwoba_tier) parts.push("xwOBA:" + exp.xwoba_tier + "(" + (exp.xwoba || "?") + ")");
+
+            // Speed
+            const spd = sc.speed || {};
+            if (spd.speed_tier) parts.push("speed:" + spd.speed_tier);
+
+            // Discipline
+            if (disc.k_rate) parts.push("K%:" + (disc.k_rate * 100).toFixed(1));
+            if (disc.bb_rate) parts.push("BB%:" + (disc.bb_rate * 100).toFixed(1));
+
+            // Arsenal (pitchers)
+            const pitches = arsenal.current || {};
+            const pitchNames = Object.keys(pitches);
+            if (pitchNames.length > 0) {
+              const best = pitchNames.reduce((a, b) =>
+                (pitches[a]?.whiff_rate || 0) > (pitches[b]?.whiff_rate || 0) ? a : b
+              );
+              const bestPitch = pitches[best];
+              if (bestPitch) {
+                parts.push("best-pitch:" + (bestPitch.pitch_name || best) + "(" + (bestPitch.whiff_rate || "?") + "% whiff)");
+              }
+            }
+
+            // Trend
+            if (trends.status && trends.status !== "neutral") {
+              parts.push("trend:" + trends.status);
+            }
+
+            // Context/sentiment
+            if (ctx.sentiment) parts.push("buzz:" + ctx.sentiment);
+
+            if (parts.length > 0) {
+              lines.push("  " + str(name));
+              // Split into two lines if too long
+              const line1 = parts.slice(0, 4).join(" | ");
+              const line2 = parts.slice(4).join(" | ");
+              lines.push("    " + line1);
+              if (line2) lines.push("    " + line2);
+            } else if (sc.note) {
+              lines.push("  " + str(name).padEnd(25) + " (" + str(sc.note) + ")");
             }
           }
         }

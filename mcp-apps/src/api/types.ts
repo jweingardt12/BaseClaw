@@ -1468,6 +1468,33 @@ export interface WaiverRecommendationsResponse {
   roster: RosterResponse;
 }
 
+export interface PositionalUpgrade {
+  position: string;
+  current: string;
+  new: string;
+  upgrade: boolean;
+}
+
+export interface PositionalImpactResponse {
+  upgrades: PositionalUpgrade[];
+  redundancies: PositionalUpgrade[];
+  new_positions: Array<{ position: string; player: string; z_score: number }>;
+  net_starting_impact: string;
+}
+
+export interface CategoryImpactDetail {
+  category: string;
+  give_z: number;
+  get_z: number;
+  diff: number;
+}
+
+export interface CategoryImpactResponse {
+  categories_gained: string[];
+  categories_lost: string[];
+  details: CategoryImpactDetail[];
+}
+
 export interface TradeAnalysisResponse {
   give_players: ValuePlayer[];
   get_players: ValuePlayer[];
@@ -1475,6 +1502,8 @@ export interface TradeAnalysisResponse {
   get_ids: string[];
   trade_eval: TradeEvalResponse | null;
   intel: Record<string, PlayerIntel>;
+  positional_impact?: PositionalImpactResponse;
+  category_impact?: CategoryImpactResponse;
 }
 
 // Player Stats response

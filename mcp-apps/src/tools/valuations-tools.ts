@@ -19,7 +19,8 @@ export function registerValuationsTools(server: McpServer) {
     async ({ pos_type, count }) => {
       try {
         const data = await apiGet<RankingsResponse>("/api/rankings", { pos_type, count: String(count) });
-        const label = pos_type === "B" ? "Hitter" : "Pitcher";
+        const effectiveType = data.pos_type || pos_type;
+        const label = effectiveType.toUpperCase() === "B" ? "Hitter" : "Pitcher";
         const text = "Top " + count + " " + label + " Rankings (z-score, source: " + data.source + "):\n"
           + data.players.map((p) => {
             const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";

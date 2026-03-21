@@ -756,10 +756,17 @@ def api_whats_new():
 
 @app.route("/api/trade-finder")
 def api_trade_finder():
+    import concurrent.futures
     try:
         target = request.args.get("target", "")
+        timeout = int(request.args.get("timeout", "120"))
         args = [target] if target else []
-        result = season_manager.cmd_trade_finder(args, as_json=True)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(season_manager.cmd_trade_finder, args, as_json=True)
+            try:
+                result = future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                return jsonify({"error": "Trade finder timed out after " + str(timeout) + "s. Try with a specific target player name."}), 504
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1561,6 +1568,153 @@ def workflow_waiver_recommendations():
         return jsonify({"error": str(e)}), 500
 
 
+def _compute_positional_impact(roster_players, get_players, give_players):
+    """Compare incoming players to current roster starters for positional context."""
+    from valuations import get_player_zscore
+    try:
+        # Build position -> best starter map from current roster
+        # Exclude players being given away
+        give_names_lower = set()
+        for p in give_players:
+            name = p.get("name", "")
+            if name:
+                give_names_lower.add(str(name).lower())
+
+        pos_starters = {}  # position -> {name, z_score}
+        for rp in roster_players:
+            rp_name = str(rp.get("name", ""))
+            if rp_name.lower() in give_names_lower:
+                continue
+            positions = rp.get("eligible_positions", [])
+            z_info = get_player_zscore(rp_name)
+            z_val = z_info.get("z_final", 0) if z_info else 0
+            for pos in positions:
+                if pos in ("BN", "IL", "IL+", "DL", "NA"):
+                    continue
+                current = pos_starters.get(pos)
+                if current is None or z_val > current.get("z_score", 0):
+                    pos_starters[pos] = {"name": rp_name, "z_score": round(z_val, 2)}
+
+        upgrades = []
+        redundancies = []
+        new_positions = []
+
+        for gp in get_players:
+            if "_error" in gp:
+                continue
+            gp_name = gp.get("name", "Unknown")
+            # Prefer eligible_positions (from Yahoo), fall back to pos string
+            gp_positions = gp.get("eligible_positions", [])
+            if not gp_positions:
+                gp_pos = str(gp.get("pos", ""))
+                gp_positions = [p.strip() for p in gp_pos.split(",") if p.strip()] if gp_pos else []
+            z_scores = gp.get("z_scores", {})
+            gp_z = float(z_scores.get("Final", 0))
+
+            best_upgrade = None
+            is_redundant = True
+
+            for pos in gp_positions:
+                if pos in ("BN", "IL", "IL+", "DL", "NA", "Util"):
+                    continue
+                current = pos_starters.get(pos)
+                if current is None:
+                    new_positions.append({"position": pos, "player": gp_name, "z_score": round(gp_z, 2)})
+                    is_redundant = False
+                else:
+                    is_upgrade = gp_z > current.get("z_score", 0)
+                    entry = {
+                        "position": pos,
+                        "current": current.get("name", "?") + " (" + str(current.get("z_score", 0)) + "z)",
+                        "new": gp_name + " (" + str(round(gp_z, 2)) + "z)",
+                        "upgrade": is_upgrade,
+                    }
+                    if is_upgrade:
+                        if best_upgrade is None or gp_z - current.get("z_score", 0) > best_upgrade.get("_diff", 0):
+                            entry["_diff"] = gp_z - current.get("z_score", 0)
+                            best_upgrade = entry
+                        is_redundant = False
+                    else:
+                        redundancies.append(entry)
+
+            if best_upgrade:
+                best_upgrade.pop("_diff", None)
+                upgrades.append(best_upgrade)
+
+        # Build summary
+        if upgrades:
+            summary = ", ".join(u.get("new", "?") + " upgrades " + u.get("position", "?") for u in upgrades)
+        elif new_positions:
+            summary = "Fills new position(s): " + ", ".join(p.get("position", "") for p in new_positions)
+        elif redundancies:
+            summary = "Would NOT start — blocked at " + ", ".join(r.get("position", "") for r in redundancies[:3])
+        else:
+            summary = "No positional impact data available"
+
+        return {
+            "upgrades": upgrades,
+            "redundancies": redundancies,
+            "new_positions": new_positions,
+            "net_starting_impact": summary,
+        }
+    except Exception as e:
+        return {"_error": str(e), "upgrades": [], "redundancies": [], "new_positions": [], "net_starting_impact": ""}
+
+
+def _compute_category_impact(give_players, get_players):
+    """Compare per-category z-scores between give and get sides."""
+    try:
+        give_cats = {}
+        get_cats = {}
+
+        for p in give_players:
+            if "_error" in p:
+                continue
+            z_scores = p.get("z_scores", {})
+            for cat, val in z_scores.items():
+                if cat == "Final":
+                    continue
+                try:
+                    give_cats[cat] = give_cats.get(cat, 0) + float(val)
+                except (ValueError, TypeError):
+                    pass
+
+        for p in get_players:
+            if "_error" in p:
+                continue
+            z_scores = p.get("z_scores", {})
+            for cat, val in z_scores.items():
+                if cat == "Final":
+                    continue
+                try:
+                    get_cats[cat] = get_cats.get(cat, 0) + float(val)
+                except (ValueError, TypeError):
+                    pass
+
+        all_cats = sorted(set(list(give_cats.keys()) + list(get_cats.keys())))
+        categories_gained = []
+        categories_lost = []
+        details = []
+
+        for cat in all_cats:
+            give_val = round(give_cats.get(cat, 0), 2)
+            get_val = round(get_cats.get(cat, 0), 2)
+            diff = round(get_val - give_val, 2)
+            details.append({"category": cat, "give_z": give_val, "get_z": get_val, "diff": diff})
+            if diff > 0.1:
+                categories_gained.append(cat)
+            elif diff < -0.1:
+                categories_lost.append(cat)
+
+        return {
+            "categories_gained": categories_gained,
+            "categories_lost": categories_lost,
+            "details": details,
+        }
+    except Exception as e:
+        return {"_error": str(e), "categories_gained": [], "categories_lost": [], "details": []}
+
+
 @app.route("/api/workflow/trade-analysis", methods=["POST"])
 def workflow_trade_analysis():
     try:
@@ -1602,13 +1756,52 @@ def workflow_trade_analysis():
                 players = val.get("players", [])
                 if players:
                     p = players[0]
-                    get_players.append(p)
-                    # Try search for player ID
+                    # Try search in free agents for player ID and position data
                     search = _safe_call(yahoo_fantasy.cmd_search, [name])
+                    found_in_search = False
                     for rp in (search or {}).get("results", []):
                         if str(rp.get("name", "")).lower() == str(p.get("name", "")).lower():
                             get_ids.append(str(rp.get("player_id", "")))
+                            # Enrich with position data from Yahoo
+                            positions = rp.get("eligible_positions") or rp.get("positions")
+                            if positions:
+                                p["eligible_positions"] = positions
+                                if not p.get("pos"):
+                                    p["pos"] = ",".join(
+                                        pos for pos in positions
+                                        if pos not in ("BN", "IL", "IL+", "DL", "NA", "Util")
+                                    )
+                            found_in_search = True
                             break
+                    # If not found in free agents (player is rostered), scan all team rosters
+                    if not found_in_search:
+                        try:
+                            _sc, _gm, _lg = yahoo_fantasy.get_league()
+                            all_teams = _lg.teams()  # dict: team_key -> team_info
+                            for team_key in all_teams:
+                                try:
+                                    team_obj = _lg.to_team(team_key)
+                                    team_roster = team_obj.roster()
+                                    for tp in team_roster:
+                                        if str(tp.get("name", "")).lower() == str(p.get("name", "")).lower():
+                                            get_ids.append(str(tp.get("player_id", "")))
+                                            positions = tp.get("eligible_positions", [])
+                                            if positions:
+                                                p["eligible_positions"] = positions
+                                                if not p.get("pos"):
+                                                    p["pos"] = ",".join(
+                                                        pos for pos in positions
+                                                        if pos not in ("BN", "IL", "IL+", "DL", "NA", "Util")
+                                                    )
+                                            found_in_search = True
+                                            break
+                                except Exception:
+                                    continue
+                                if found_in_search:
+                                    break
+                        except Exception:
+                            pass
+                    get_players.append(p)
                 else:
                     get_players.append({"name": name, "_error": "Player not found in projections"})
             except Exception:
@@ -1623,6 +1816,12 @@ def workflow_trade_analysis():
                 )
             except Exception as e:
                 trade_eval = {"_error": str(e)}
+
+        # --- Positional awareness (Fix #6) ---
+        positional_impact = _compute_positional_impact(roster_players, get_players, give_players)
+
+        # --- Category-level impact (Fix #7) ---
+        category_impact = _compute_category_impact(give_players, get_players)
 
         # Get intel for each player
         all_names = give_names + get_names
@@ -1640,6 +1839,8 @@ def workflow_trade_analysis():
             "get_ids": get_ids,
             "trade_eval": trade_eval,
             "intel": intel_data,
+            "positional_impact": positional_impact,
+            "category_impact": category_impact,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
