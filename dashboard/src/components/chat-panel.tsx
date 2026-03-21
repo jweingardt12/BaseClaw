@@ -3,7 +3,7 @@ import { Dialog, DialogTitle, DialogBody } from "@/catalyst/dialog";
 import { Button } from "@/catalyst/button";
 import { Badge } from "@/catalyst/badge";
 import { Textarea } from "@/catalyst/textarea";
-import { Loader2, Send } from "lucide-react";
+import { ArrowPathIcon, PaperAirplaneIcon } from "@heroicons/react/20/solid";
 import { postChat } from "@/lib/api";
 
 interface Message {
@@ -137,9 +137,9 @@ export function ChatPanel({
               className="self-end"
             >
               {streaming ? (
-                <Loader2 className="size-4 animate-spin" />
+                <ArrowPathIcon className="size-4 animate-spin" />
               ) : (
-                <Send className="size-4" />
+                <PaperAirplaneIcon className="size-4" />
               )}
             </Button>
           </div>

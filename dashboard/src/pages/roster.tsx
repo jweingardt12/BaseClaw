@@ -12,8 +12,15 @@ import {
   DropdownItem,
   DropdownDivider,
 } from "@/catalyst/dropdown";
-import { BoltIcon } from "@heroicons/react/20/solid";
-import { MoreHorizontal, ArrowRightLeft, ArrowDown, ArrowUp, UserMinus, Loader2 } from "lucide-react";
+import {
+  BoltIcon,
+  EllipsisHorizontalIcon,
+  ArrowsRightLeftIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  UserMinusIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/20/solid";
 import { toast } from "sonner";
 import { PlayerDrawer } from "@/components/player-drawer";
 import { PlayerAvatar } from "@/components/player-avatar";
@@ -163,38 +170,38 @@ export function RosterPage() {
     return (
       <Dropdown>
         <DropdownButton plain className="p-0.5 -m-0.5">
-          <MoreHorizontal className="size-4 text-zinc-400" />
+          <EllipsisHorizontalIcon className="size-4 text-zinc-400" />
         </DropdownButton>
         <DropdownMenu anchor="bottom end">
           {isActive && (
             <DropdownItem onClick={() => player.player_id && moveToPositionMutation.mutate({ playerId: player.player_id, position: "BN" })}>
-              <ArrowDown className="size-4" data-slot="icon" />Move to Bench
+              <ArrowDownIcon className="size-4" data-slot="icon" />Move to Bench
             </DropdownItem>
           )}
           {isActive && (
             <DropdownItem onClick={() => setSwapDialogPlayer(player)}>
-              <ArrowRightLeft className="size-4" data-slot="icon" />Swap Position…
+              <ArrowsRightLeftIcon className="size-4" data-slot="icon" />Swap Position…
             </DropdownItem>
           )}
           {isBench && (player.eligible_positions ?? []).filter((p: string) => p !== "Util").map((pos: string) => (
             <DropdownItem key={pos} onClick={() => player.player_id && moveToPositionMutation.mutate({ playerId: player.player_id, position: pos })}>
-              <ArrowUp className="size-4" data-slot="icon" />Set as {pos}
+              <ArrowUpIcon className="size-4" data-slot="icon" />Set as {pos}
             </DropdownItem>
           ))}
           {isBench && (player.eligible_positions ?? []).includes("Util") && (
             <DropdownItem onClick={() => player.player_id && moveToPositionMutation.mutate({ playerId: player.player_id, position: "Util" })}>
-              <ArrowUp className="size-4" data-slot="icon" />Set as Util
+              <ArrowUpIcon className="size-4" data-slot="icon" />Set as Util
             </DropdownItem>
           )}
           {isIL && (
             <DropdownItem onClick={() => player.player_id && moveToPositionMutation.mutate({ playerId: player.player_id, position: "BN" })}>
-              <ArrowUp className="size-4" data-slot="icon" />Activate to Bench
+              <ArrowUpIcon className="size-4" data-slot="icon" />Activate to Bench
             </DropdownItem>
           )}
           {(isBench || isIL) && (
             <><DropdownDivider />
             <DropdownItem onClick={() => setDropTarget(player)}>
-              <UserMinus className="size-4 text-red-500" data-slot="icon" />
+              <UserMinusIcon className="size-4 text-red-500" data-slot="icon" />
               <span className="text-red-600 dark:text-red-400">Drop Player</span>
             </DropdownItem></>
           )}
@@ -476,7 +483,7 @@ export function RosterPage() {
             disabled={optimizeMutation.isPending || roster.isLoading}
           >
             {optimizeMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" data-slot="icon" />
+              <ArrowPathIcon className="size-4 animate-spin" data-slot="icon" />
             ) : (
               <BoltIcon data-slot="icon" />
             )}
@@ -585,7 +592,7 @@ export function RosterPage() {
         <DialogActions>
           <Button plain onClick={() => setDropTarget(null)}>Cancel</Button>
           <Button color="red" onClick={() => dropTarget && dropMutation.mutate(dropTarget.name)} disabled={dropMutation.isPending}>
-            {dropMutation.isPending && <Loader2 className="size-4 animate-spin" data-slot="icon" />}
+            {dropMutation.isPending && <ArrowPathIcon className="size-4 animate-spin" data-slot="icon" />}
             Drop Player
           </Button>
         </DialogActions>
@@ -629,7 +636,7 @@ function PositionSwapDialog({ player, open, onOpenChange, roster: _roster, getPl
                   {current ? <span className="text-sm text-zinc-500">swaps with {current.name}</span>
                     : <span className="text-sm text-green-600 dark:text-green-400">Empty</span>}
                 </div>
-                <ArrowRightLeft className="size-4 text-zinc-400" />
+                <ArrowsRightLeftIcon className="size-4 text-zinc-400" />
               </button>
             );
           })}
@@ -642,12 +649,12 @@ function PositionSwapDialog({ player, open, onOpenChange, roster: _roster, getPl
                 <Badge color="zinc" className="text-xs">BN</Badge>
                 <span className="text-sm text-zinc-700 dark:text-zinc-300">Move to Bench</span>
               </div>
-              <ArrowDown className="size-4 text-zinc-400" />
+              <ArrowDownIcon className="size-4 text-zinc-400" />
             </button>
           )}
         </div>
         {isPending && (
-          <div className="flex items-center gap-2 mt-3 text-sm text-zinc-500"><Loader2 className="size-4 animate-spin" />Updating…</div>
+          <div className="flex items-center gap-2 mt-3 text-sm text-zinc-500"><ArrowPathIcon className="size-4 animate-spin" />Updating…</div>
         )}
       </DialogBody>
     </Dialog>
