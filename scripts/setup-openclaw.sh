@@ -19,8 +19,6 @@ fi
 OC_HOME="$HOME/.openclaw"
 MCPORTER_CFG="$OC_HOME/workspace/config/mcporter.json"
 SKILL_DIR="$OC_HOME/workspace/skills/baseclaw"
-GATEWAY="http://localhost:18789"
-# NOTE: Cron API path is /api/cron/jobs — verify against your gateway version
 ENV_FILE="$INSTALL_DIR/.env"
 
 # Colors
@@ -48,9 +46,9 @@ if [ ! -d "$OC_HOME" ]; then
   exit 0
 fi
 
-GATEWAY_UP=false
-if curl -sf "$GATEWAY/health" >/dev/null 2>&1; then
-  GATEWAY_UP=true
+HAS_OPENCLAW=false
+if command -v openclaw >/dev/null 2>&1; then
+  HAS_OPENCLAW=true
 fi
 
 info "OpenClaw detected at $OC_HOME"
@@ -121,12 +119,12 @@ done
 ok "Skill installed at $SKILL_DIR ($COPIED files)"
 
 # ---------------------------------------------------------------------------
-# Step 4: Cron job registration (optional)
+# Step 4: Cron job registration (optional, requires openclaw CLI)
 # ---------------------------------------------------------------------------
 CRON_FILE="$BASE_DIR/openclaw-cron-examples.json"
 CRON_COUNT=0
 
-if [ "$GATEWAY_UP" = true ] && [ -f "$CRON_FILE" ]; then
+if [ "$HAS_OPENCLAW" = true ] && [ -f "$CRON_FILE" ]; then
   echo ""
   echo "Available scheduled jobs:"
   echo "  1. Daily morning briefing + auto lineup    (9:00 AM)"
@@ -143,46 +141,25 @@ if [ "$GATEWAY_UP" = true ] && [ -f "$CRON_FILE" ]; then
   DO_CRON="${DO_CRON:-Y}"
 
   if [[ "$DO_CRON" =~ ^[Yy] ]]; then
-    # Read gateway auth token
-    GW_TOKEN=""
-    OC_CFG="$OC_HOME/openclaw.json"
-    if [ -f "$OC_CFG" ]; then
-      GW_TOKEN=$(python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        c = json.load(f)
-    print(c.get('gateway', {}).get('auth', {}).get('token', ''))
-except Exception:
-    pass
-" "$OC_CFG" 2>/dev/null) || true
+    # Detect system timezone
+    SYS_TZ=""
+    if command -v timedatectl >/dev/null 2>&1; then
+      SYS_TZ=$(timedatectl show -p Timezone --value 2>/dev/null) || true
     fi
-
-    if [ -z "$GW_TOKEN" ]; then
-      warn "Could not read gateway token from $OC_CFG"
-      read -rp "Enter gateway auth token (or press Enter to skip): " GW_TOKEN
+    if [ -z "$SYS_TZ" ] && [ -f /etc/localtime ]; then
+      SYS_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||') || true
     fi
+    SYS_TZ="${SYS_TZ:-America/New_York}"
 
-    if [ -n "$GW_TOKEN" ]; then
-      # Detect system timezone
-      SYS_TZ=""
-      if command -v timedatectl >/dev/null 2>&1; then
-        SYS_TZ=$(timedatectl show -p Timezone --value 2>/dev/null) || true
-      fi
-      if [ -z "$SYS_TZ" ] && [ -f /etc/localtime ]; then
-        SYS_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||') || true
-      fi
-      SYS_TZ="${SYS_TZ:-America/New_York}"
+    echo "  (MLB games use Eastern time — most users should keep America/New_York)"
+    read -rp "Timezone for cron jobs? [$SYS_TZ] " USER_TZ
+    USER_TZ="${USER_TZ:-$SYS_TZ}"
 
-      echo "  (MLB games use Eastern time — most users should keep America/New_York)"
-      read -rp "Timezone for cron jobs? [$SYS_TZ] " USER_TZ
-      USER_TZ="${USER_TZ:-$SYS_TZ}"
+    # Register each job via openclaw CLI (reads JSON, calls openclaw cron add)
+    CRON_COUNT=$(python3 - "$CRON_FILE" "$USER_TZ" <<'PYEOF'
+import json, sys, subprocess
 
-      # Register each job
-      CRON_COUNT=$(python3 - "$CRON_FILE" "$GATEWAY" "$GW_TOKEN" "$USER_TZ" <<'PYEOF'
-import json, sys, urllib.request, urllib.error
-
-cron_file, gateway, token, tz = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+cron_file, tz = sys.argv[1], sys.argv[2]
 
 try:
     with open(cron_file) as f:
@@ -194,46 +171,35 @@ except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
 
 registered = 0
 for job in jobs:
-    # Override timezone
-    if "schedule" in job:
-        job["schedule"]["tz"] = tz
-    # Ensure delivery and enabled fields
-    job.setdefault("delivery", {"mode": "announce"})
-    job["enabled"] = True
-
-    data = json.dumps(job).encode()
-    req = urllib.request.Request(
-        gateway + "/api/cron/jobs",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token,
-        },
-        method="POST",
-    )
+    cmd = [
+        "openclaw", "cron", "add",
+        "--name", job.get("name", ""),
+        "--cron", job.get("schedule", {}).get("expr", ""),
+        "--tz", tz,
+        "--session", job.get("sessionTarget", "isolated"),
+        "--message", job.get("payload", {}).get("message", ""),
+        "--announce",
+    ]
     try:
-        urllib.request.urlopen(req, timeout=10)
-        registered += 1
-    except urllib.error.HTTPError as e:
-        body = e.read().decode(errors="replace")
-        if "already exists" in body.lower() or "duplicate" in body.lower():
-            registered += 1  # count as success
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            registered += 1
+        elif "already exists" in result.stderr.lower() or "duplicate" in result.stderr.lower():
+            registered += 1
         else:
-            print("  Failed: " + job.get("name", "?") + " (" + str(e.code) + ")", file=sys.stderr)
+            msg = result.stderr.strip() or result.stdout.strip()
+            print("  Failed: " + job.get("name", "?") + " — " + msg, file=sys.stderr)
     except Exception as e:
-        print("  Failed: " + job.get("name", "?") + " (" + str(e) + ")", file=sys.stderr)
+        print("  Failed: " + job.get("name", "?") + " — " + str(e), file=sys.stderr)
 
 print(registered)
 PYEOF
-      )
-      ok "$CRON_COUNT cron jobs registered"
-    else
-      warn "Skipping cron registration (no auth token)"
-    fi
+    )
+    ok "$CRON_COUNT cron jobs registered"
   fi
-elif [ "$GATEWAY_UP" != true ]; then
-  warn "OpenClaw gateway not running — skipping cron registration"
-  echo "  Start OpenClaw and run this script again, or register jobs manually."
+elif [ "$HAS_OPENCLAW" != true ]; then
+  warn "openclaw CLI not found — skipping cron registration"
+  echo "  Install OpenClaw and run this script again, or register jobs manually."
 fi
 
 # ---------------------------------------------------------------------------
