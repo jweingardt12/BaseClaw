@@ -1,8 +1,8 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Tabs } from "@plexui/ui/components/Tabs";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { useCallTool } from "../shared/use-call-tool";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";

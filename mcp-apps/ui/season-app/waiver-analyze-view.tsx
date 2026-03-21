@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Tabs } from "@plexui/ui/components/Tabs";
 import { Dialog } from "@plexui/ui/components/Dialog";
@@ -171,7 +171,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
           {(data.weak_categories || []).map((c, i) => {
             const name = typeof c === "string" ? c : c.name;
             const detail = typeof c === "string" ? "" : " (" + c.rank + "/" + c.total + ")";
-            return <Badge key={i} color="danger" className="text-xs">{name}{detail}</Badge>;
+            return <Badge key={i} color="danger" size="sm">{name}{detail}</Badge>;
           })}
         </div>
       )}
@@ -227,7 +227,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                   <TableCell className="hidden sm:table-cell">
                     <div className="flex gap-1 flex-wrap">
                       {p.positions.split(",").map((pos) => (
-                        <Badge key={pos.trim()} color="secondary" className="text-xs">{pos.trim()}</Badge>
+                        <Badge key={pos.trim()} color="secondary" size="sm">{pos.trim()}</Badge>
                       ))}
                     </div>
                   </TableCell>
@@ -239,7 +239,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {p.status && p.status !== "Healthy" && (
-                      <Badge color="danger" className="text-xs">{p.status}</Badge>
+                      <Badge color="danger" size="sm">{p.status}</Badge>
                     )}
                   </TableCell>
                   <TableCell>

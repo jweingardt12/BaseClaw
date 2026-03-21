@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { TeamLogo } from "../shared/team-logo";
@@ -180,7 +180,7 @@ export function WeekPlannerView({ data }: { data: WeekPlannerData }) {
                       {p.name}
                     </td>
                     <td className="py-1.5 pr-2">
-                      <Badge color="secondary" className="text-xs">{p.position}</Badge>
+                      <Badge color="secondary" size="sm">{p.position}</Badge>
                     </td>
                     <td className="py-1.5 pr-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">

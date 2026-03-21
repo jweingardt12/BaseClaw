@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { Tabs } from "@plexui/ui/components/Tabs";
 import { useCallTool } from "../shared/use-call-tool";
 
@@ -76,7 +76,7 @@ export function BestAvailableView({ data, app, navigate }: { data: BestAvailable
             <Badge
               key={pos}
               color={posFilter === pos ? "primary" : "secondary"}
-              className="text-xs cursor-pointer"
+               size="sm" className="cursor-pointer"
               onClick={function () { setPosFilter(pos); }}
             >
               {pos}
@@ -93,7 +93,7 @@ export function BestAvailableView({ data, app, navigate }: { data: BestAvailable
             <div className="flex-1 min-w-0">
               <p className="text-xl-app font-bold truncate"><PlayerCell player={topPlayer} app={app} navigate={navigate} context="draft" /></p>
               <div className="flex items-center gap-2 mt-1">
-                <Badge color="secondary" className="text-xs">{topPlayer.positions ? topPlayer.positions.join(", ") : (topPlayer.position || "?")}</Badge>
+                <Badge color="secondary" size="sm">{topPlayer.positions ? topPlayer.positions.join(", ") : (topPlayer.position || "?")}</Badge>
               </div>
             </div>
             {topPlayer.z_score != null && (
@@ -129,7 +129,7 @@ export function BestAvailableView({ data, app, navigate }: { data: BestAvailable
                 <div className={"flex items-center gap-2 py-1.5 px-2 rounded " + (actualIndex % 2 === 0 ? "bg-muted/30" : "")}>
                   <span className="font-mono text-xs text-muted-foreground w-6 text-right">{p.rank}</span>
                   <span className="text-sm flex-1 truncate font-medium"><PlayerCell player={p} app={app} navigate={navigate} context="draft" /></span>
-                  <Badge color="secondary" className="text-xs shrink-0">{posDisplay}</Badge>
+                  <Badge color="secondary" size="sm" className="shrink-0">{posDisplay}</Badge>
                   <ZScoreBar z={p.z_score} />
                 </div>
               </div>

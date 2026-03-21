@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -69,7 +69,7 @@ export function PuntAdvisorView({ data }: { data: PuntAdvisorResponse; app?: any
               <p className="text-xs text-muted-foreground mb-1.5">Punt Candidates</p>
               <div className="flex flex-wrap gap-1">
                 {puntCandidates.map(function (cat) {
-                  return <Badge key={cat} color="danger" className="text-xs">{cat}</Badge>;
+                  return <Badge key={cat} color="danger" size="sm">{cat}</Badge>;
                 })}
               </div>
             </CardContent>
@@ -81,7 +81,7 @@ export function PuntAdvisorView({ data }: { data: PuntAdvisorResponse; app?: any
               <p className="text-xs text-muted-foreground mb-1.5">Target Categories</p>
               <div className="flex flex-wrap gap-1">
                 {targetCategories.map(function (cat) {
-                  return <Badge key={cat} variant="success" className="text-xs">{cat}</Badge>;
+                  return <Badge key={cat} color="success" size="sm">{cat}</Badge>;
                 })}
               </div>
             </CardContent>
@@ -112,7 +112,7 @@ export function PuntAdvisorView({ data }: { data: PuntAdvisorResponse; app?: any
                   <span className="text-muted-foreground text-xs">/{c.total}</span>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge color={recommendationColor(c.recommendation)} className="text-xs">
+                  <Badge color={recommendationColor(c.recommendation)} size="sm">
                     {c.recommendation}
                   </Badge>
                 </TableCell>

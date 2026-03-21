@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent } from "../catalyst/card";
+import { Card, CardContent } from "../components/card";
 import { IntelPanel } from "../shared/intel-panel";
 import { IntelBadge, type PlayerIntel } from "../shared/intel-badge";
 import { PlayerName } from "../shared/player-name";
@@ -8,7 +8,7 @@ import { KpiTile } from "../shared/kpi-tile";
 import { VerdictBadge } from "../shared/verdict-badge";
 import { Button } from "@plexui/ui/components/Button";
 import { Copy, Check } from "@/shared/icons";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
 
 // Data comes from /api/intel/player — it IS the PlayerIntel object with a name

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 
@@ -122,7 +122,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
                       {selected ? <CheckSquare size={14} className="text-destructive flex-shrink-0" /> : <Square size={14} className="text-muted-foreground flex-shrink-0" />}
                       <span className={"truncate " + (selected ? "font-medium" : "")}><PlayerName name={p.name} playerId={p.player_id} mlbId={p.mlb_id} app={app} navigate={navigate} context="trade" /></span>
                       {p.intel && <IntelBadge intel={p.intel} size="sm" />}
-                      {p.position && <Badge color="secondary" className="text-xs ml-auto flex-shrink-0">{p.position}</Badge>}
+                      {p.position && <Badge color="secondary" size="sm" className="ml-auto flex-shrink-0">{p.position}</Badge>}
                     </button>
                   );
                 })}
@@ -170,7 +170,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
                       {selected ? <CheckSquare size={14} className="text-primary flex-shrink-0" /> : <Square size={14} className="text-muted-foreground flex-shrink-0" />}
                       <span className={"truncate " + (selected ? "font-medium" : "")}><PlayerName name={p.name} playerId={p.player_id} mlbId={p.mlb_id} app={app} navigate={navigate} context="trade" /></span>
                       {p.intel && <IntelBadge intel={p.intel} size="sm" />}
-                      {p.position && <Badge color="secondary" className="text-xs ml-auto flex-shrink-0">{p.position}</Badge>}
+                      {p.position && <Badge color="secondary" size="sm" className="ml-auto flex-shrink-0">{p.position}</Badge>}
                     </button>
                   );
                 })}
@@ -196,7 +196,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
                 <p className="text-xs text-muted-foreground mb-1">Give</p>
                 <div className="flex flex-wrap gap-1">
                   {givePlayers.map((p) => (
-                    <Badge key={p.player_id} color="danger" className="text-xs">{p.name}</Badge>
+                    <Badge key={p.player_id} color="danger" size="sm">{p.name}</Badge>
                   ))}
                   {givePlayers.length === 0 && <span className="text-xs text-muted-foreground">None selected</span>}
                 </div>
@@ -206,7 +206,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
                 <p className="text-xs text-muted-foreground mb-1">Get</p>
                 <div className="flex flex-wrap gap-1">
                   {getPlayers.map((p) => (
-                    <Badge key={p.player_id} className="text-xs">{p.name}</Badge>
+                    <Badge key={p.player_id} size="sm">{p.name}</Badge>
                   ))}
                   {getPlayers.length === 0 && <span className="text-xs text-muted-foreground">None selected</span>}
                 </div>
@@ -257,7 +257,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
                     <TrendingDown size={12} className="text-destructive" />
                     <span className="text-muted-foreground">Losing:</span>
                     {evaluation.position_impact.losing.map((p: string) => (
-                      <Badge key={p} color="secondary" className="text-xs">{p}</Badge>
+                      <Badge key={p} color="secondary" size="sm">{p}</Badge>
                     ))}
                   </div>
                 )}
@@ -266,7 +266,7 @@ export function TradeBuilderView({ data, app, navigate }: { data: TradeBuilderDa
                     <TrendingUp size={12} className="text-primary" />
                     <span className="text-muted-foreground">Gaining:</span>
                     {evaluation.position_impact.gaining.map((p: string) => (
-                      <Badge key={p} color="secondary" className="text-xs">{p}</Badge>
+                      <Badge key={p} color="secondary" size="sm">{p}</Badge>
                     ))}
                   </div>
                 )}

@@ -1,6 +1,6 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Progress } from "../catalyst/progress";
+import { Progress } from "../components/progress";
 import { Info } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 import { AiInsight } from "../shared/ai-insight";
@@ -33,10 +33,10 @@ interface SeasonPaceData {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "in") return <Badge className="text-xs bg-sem-success">In</Badge>;
-  if (status === "bubble") return <Badge className="text-xs bg-sem-warning">Bubble</Badge>;
-  if (status === "out") return <Badge color="danger" className="text-xs">Out</Badge>;
-  return <Badge color="secondary" className="text-xs">{status}</Badge>;
+  if (status === "in") return <Badge size="sm" className="bg-sem-success">In</Badge>;
+  if (status === "bubble") return <Badge size="sm" className="bg-sem-warning">Bubble</Badge>;
+  if (status === "out") return <Badge color="danger" size="sm">Out</Badge>;
+  return <Badge color="secondary" size="sm">{status}</Badge>;
 }
 
 export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
@@ -59,8 +59,8 @@ export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
       </div>
 
       <div className="flex items-center gap-2">
-        <Badge color="secondary" className="text-xs">Week {data.current_week}/{data.end_week}</Badge>
-        <Badge color="secondary" className="text-xs">{data.playoff_teams} playoff spots</Badge>
+        <Badge color="secondary" size="sm">Week {data.current_week}/{data.end_week}</Badge>
+        <Badge color="secondary" size="sm">{data.playoff_teams} playoff spots</Badge>
       </div>
 
       <div className="space-y-1">

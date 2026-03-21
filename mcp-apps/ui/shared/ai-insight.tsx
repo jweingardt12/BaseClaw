@@ -1,5 +1,5 @@
 import { Sparkles } from "@/shared/icons";
-import { Text } from "../catalyst/text";
+import { Text } from "../components/text";
 
 interface AiInsightProps {
   recommendation: string | null | undefined;

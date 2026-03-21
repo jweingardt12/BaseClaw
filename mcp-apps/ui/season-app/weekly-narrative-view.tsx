@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { KpiTile } from "../shared/kpi-tile";
@@ -51,12 +51,12 @@ function catResultBg(result: string): string {
 function standingsDirectionBadge(direction: string, from: string | number, to: string | number) {
   var d = (direction || "").toLowerCase();
   if (d === "up") {
-    return <Badge className="bg-sem-success text-xs">{from + " -> " + to + " (up)"}</Badge>;
+    return <Badge size="sm" className="bg-sem-success">{from + " -> " + to + " (up)"}</Badge>;
   }
   if (d === "down") {
-    return <Badge className="bg-sem-risk text-xs">{from + " -> " + to + " (down)"}</Badge>;
+    return <Badge size="sm" className="bg-sem-risk">{from + " -> " + to + " (down)"}</Badge>;
   }
-  return <Badge color="secondary" className="text-xs">{from + " -> " + to + " (hold)"}</Badge>;
+  return <Badge color="secondary" size="sm">{from + " -> " + to + " (hold)"}</Badge>;
 }
 
 export function WeeklyNarrativeView({ data, app, navigate }: { data: WeeklyNarrativeResponse; app?: any; navigate?: (data: any) => void }) {

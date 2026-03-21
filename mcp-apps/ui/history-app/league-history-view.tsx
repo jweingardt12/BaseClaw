@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { Trophy, TrendingUp } from "@/shared/icons";
 import { KpiTile } from "../shared/kpi-tile";
 
@@ -246,7 +246,7 @@ export function LeagueHistoryView({ data }: { data: { seasons: SeasonResult[] } 
                 {/* Your finish */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   {s.your_finish && s.your_finish !== "-" ? (
-                    <Badge color={getFinishBadgeColor(s.your_finish)} className="text-xs font-bold">
+                    <Badge color={getFinishBadgeColor(s.your_finish)}  size="sm" className="font-bold">
                       {s.your_finish}
                     </Badge>
                   ) : (

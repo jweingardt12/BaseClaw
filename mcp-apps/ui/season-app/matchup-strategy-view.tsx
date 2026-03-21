@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerName } from "../shared/player-name";
@@ -85,15 +85,15 @@ function scoreLabel(wins: number, losses: number): string {
 function classificationBadge(cls: string) {
   switch (cls) {
     case "target":
-      return <Badge className="bg-sem-info text-xs"><Target className="h-2.5 w-2.5 mr-0.5 inline" />Target</Badge>;
+      return <Badge size="sm" className="bg-sem-info"><Target className="h-2.5 w-2.5 mr-0.5 inline" />Target</Badge>;
     case "protect":
-      return <Badge className="bg-sem-warning text-xs"><Shield className="h-2.5 w-2.5 mr-0.5 inline" />Protect</Badge>;
+      return <Badge size="sm" className="bg-sem-warning"><Shield className="h-2.5 w-2.5 mr-0.5 inline" />Protect</Badge>;
     case "concede":
-      return <Badge color="secondary" className="text-xs text-muted-foreground"><XCircle className="h-2.5 w-2.5 mr-0.5 inline" />Concede</Badge>;
+      return <Badge color="secondary" size="sm" className="text-muted-foreground"><XCircle className="h-2.5 w-2.5 mr-0.5 inline" />Concede</Badge>;
     case "lock":
-      return <Badge className="bg-sem-success text-xs"><Lock className="h-2.5 w-2.5 mr-0.5 inline" />Lock</Badge>;
+      return <Badge size="sm" className="bg-sem-success"><Lock className="h-2.5 w-2.5 mr-0.5 inline" />Lock</Badge>;
     default:
-      return <Badge color="secondary" className="text-xs">{cls}</Badge>;
+      return <Badge color="secondary" size="sm">{cls}</Badge>;
   }
 }
 
@@ -288,7 +288,7 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
               {(d.opp_transactions || []).map(function (tx, idx) {
                 return (
                   <div key={idx} className="flex items-center gap-2 text-sm">
-                    <Badge color={tx.type === "add" ? undefined : "zinc"} className="text-xs w-12 justify-center">
+                    <Badge color={tx.type === "add" ? undefined : "zinc"}  size="sm" className="w-12 justify-center">
                       {tx.type === "add" ? "ADD" : "DROP"}
                     </Badge>
                     <span>{tx.player}</span>
@@ -342,7 +342,7 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-wrap gap-0.5">
                           {(wt.categories || []).map(function (cat) {
-                            return <Badge key={cat} color="secondary" className="text-xs">{cat}</Badge>;
+                            return <Badge key={cat} color="secondary" size="sm">{cat}</Badge>;
                           })}
                         </div>
                       </TableCell>

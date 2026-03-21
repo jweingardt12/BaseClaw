@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
-import { DescriptionList, DescriptionTerm, DescriptionDetails } from "../catalyst/description-list";
+import { Subheading } from "../components/heading";
+import { DescriptionList, DescriptionTerm, DescriptionDetails } from "../components/description-list";
 import { AiInsight } from "../shared/ai-insight";
 
 interface LeagueInfo {

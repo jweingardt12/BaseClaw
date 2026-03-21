@@ -1,5 +1,5 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { cn } from "../lib/utils";
 import { EmptyState } from "../shared/empty-state";
@@ -72,7 +72,7 @@ function StatsTable({ players, statColumns, app, navigate }: { players: RosterSt
                 <PlayerName name={p.name} playerId={p.player_id} mlbId={p.mlb_id} app={app} navigate={navigate} context="roster" />
               </TableCell>
               <TableCell>
-                <Badge color="secondary" className="text-xs">{p.position}</Badge>
+                <Badge color="secondary" size="sm">{p.position}</Badge>
               </TableCell>
               {statColumns.map(function (stat) {
                 return (

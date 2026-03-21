@@ -1,7 +1,7 @@
-import { Card, CardContent } from "../catalyst/card";
+import { Card, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { EmptyState } from "../shared/empty-state";
 import { KpiTile } from "../shared/kpi-tile";
 import { Trophy, Award } from "@/shared/icons";
@@ -47,7 +47,7 @@ export function AchievementsView({ data, app, navigate }: { data: AchievementsRe
       {/* Team Info */}
       <div className="flex items-center justify-between">
         <p className="font-semibold">{data.team_name}</p>
-        {data.record && <Badge color="secondary" className="text-xs">{data.record}</Badge>}
+        {data.record && <Badge color="secondary" size="sm">{data.record}</Badge>}
       </div>
 
       {/* Earned Achievements */}
@@ -64,7 +64,7 @@ export function AchievementsView({ data, app, navigate }: { data: AchievementsRe
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="font-semibold text-sm">{a.name}</p>
-                          {a.value && <Badge className="bg-sem-success text-xs">{a.value}</Badge>}
+                          {a.value && <Badge size="sm" className="bg-sem-success">{a.value}</Badge>}
                         </div>
                         <Text className="mt-0.5">{a.description}</Text>
                       </div>

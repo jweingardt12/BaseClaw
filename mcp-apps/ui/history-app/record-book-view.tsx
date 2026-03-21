@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Tabs } from "@plexui/ui/components/Tabs";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { Trophy, TrendingUp, Target, Award } from "@/shared/icons";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -227,7 +227,7 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
                       <TableCell className="text-right font-mono font-semibold">{formatFixed(c.win_pct, 1, "0.0")}%</TableCell>
                       <TableCell className="hidden sm:table-cell text-center font-mono">{c.playoffs}</TableCell>
                       <TableCell className="hidden sm:table-cell text-center">
-                        <Badge color="secondary" className="text-xs font-bold">{"#" + c.best_finish + " (" + c.best_year + ")"}</Badge>
+                        <Badge color="secondary" size="sm" className="font-bold">{"#" + c.best_finish + " (" + c.best_year + ")"}</Badge>
                       </TableCell>
                     </TableRow>
                   );

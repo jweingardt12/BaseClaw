@@ -1,7 +1,7 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { KpiTile } from "../shared/kpi-tile";
 import { AiInsight } from "../shared/ai-insight";
@@ -51,12 +51,12 @@ type RivalHistoryData = RivalHistoryOverviewResponse & RivalHistoryDetailRespons
 function dominanceBadge(dominance: string) {
   var d = (dominance || "").toLowerCase();
   if (d === "dominant" || d === "strong") {
-    return <Badge className="bg-sem-success text-xs">{dominance}</Badge>;
+    return <Badge size="sm" className="bg-sem-success">{dominance}</Badge>;
   }
   if (d === "dominated" || d === "weak") {
-    return <Badge className="bg-sem-risk text-xs">{dominance}</Badge>;
+    return <Badge size="sm" className="bg-sem-risk">{dominance}</Badge>;
   }
-  return <Badge className="bg-sem-warning text-xs">{dominance}</Badge>;
+  return <Badge size="sm" className="bg-sem-warning">{dominance}</Badge>;
 }
 
 function resultRowBg(result: string): string {
@@ -66,9 +66,9 @@ function resultRowBg(result: string): string {
 }
 
 function resultBadge(result: string) {
-  if (result === "win") return <Badge className="bg-sem-success text-xs">W</Badge>;
-  if (result === "loss") return <Badge className="bg-sem-risk text-xs">L</Badge>;
-  return <Badge className="bg-sem-warning text-xs">T</Badge>;
+  if (result === "win") return <Badge size="sm" className="bg-sem-success">W</Badge>;
+  if (result === "loss") return <Badge size="sm" className="bg-sem-risk">L</Badge>;
+  return <Badge size="sm" className="bg-sem-warning">T</Badge>;
 }
 
 export function RivalHistoryView({ data, app, navigate }: { data: RivalHistoryData; app?: any; navigate?: (data: any) => void }) {
@@ -108,7 +108,7 @@ function RivalOverviewView({ data }: { data: RivalHistoryOverviewResponse }) {
         <div className="flex items-center gap-1 flex-wrap">
           <span className="text-xs text-muted-foreground">Seasons:</span>
           {data.seasons_scanned.map(function (s) {
-            return <Badge key={s} color="secondary" className="text-xs">{s}</Badge>;
+            return <Badge key={s} color="secondary" size="sm">{s}</Badge>;
           })}
         </div>
       )}
@@ -224,7 +224,7 @@ function RivalDetailView({ data }: { data: RivalHistoryDetailResponse }) {
                 <p className="text-xs font-semibold text-sem-success mb-1.5">You Dominate</p>
                 <div className="flex flex-wrap gap-1">
                   {youDom.map(function (cat) {
-                    return <Badge key={cat} className="bg-sem-success text-xs">{cat}</Badge>;
+                    return <Badge key={cat}  size="sm" className="bg-sem-success">{cat}</Badge>;
                   })}
                 </div>
               </CardContent>
@@ -236,7 +236,7 @@ function RivalDetailView({ data }: { data: RivalHistoryDetailResponse }) {
                 <p className="text-xs font-semibold text-sem-risk mb-1.5">They Dominate</p>
                 <div className="flex flex-wrap gap-1">
                   {theyDom.map(function (cat) {
-                    return <Badge key={cat} color="danger" className="text-xs">{cat}</Badge>;
+                    return <Badge key={cat} color="danger" size="sm">{cat}</Badge>;
                   })}
                 </div>
               </CardContent>

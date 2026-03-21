@@ -1,8 +1,8 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { useCallTool } from "../shared/use-call-tool";
 
 import { IntelBadge } from "../shared/intel-badge";
@@ -32,13 +32,13 @@ interface InjuryReportData {
 function PlayerRow({ player, showFind, onFind, readyToActivate, loading, app, navigate }: { player: InjuredPlayer; showFind?: boolean; onFind?: () => void; readyToActivate?: boolean; loading?: boolean; app?: any; navigate?: (data: any) => void }) {
   return (
     <div className="flex items-center gap-2 py-1.5 border-b last:border-0">
-      <Badge color="secondary" className="text-xs w-8 justify-center">{player.position}</Badge>
+      <Badge color="secondary" size="sm" className="w-8 justify-center">{player.position}</Badge>
       <span className="font-medium text-sm flex-1"><PlayerName name={player.name} mlbId={player.mlb_id} app={app} navigate={navigate} context="roster" /></span>
       {player.intel && <IntelBadge intel={player.intel} size="sm" />}
-      <Badge color="danger" className="text-xs">{player.status}</Badge>
+      <Badge color="danger" size="sm">{player.status}</Badge>
       {player.description && <span className="text-xs text-muted-foreground hidden sm:inline">{player.description}</span>}
       {readyToActivate && (
-        <Badge className="text-xs bg-sem-success gap-1">
+        <Badge size="sm" className="bg-sem-success gap-1">
           <CheckCircle className="h-3 w-3" />
           Ready to Activate
         </Badge>

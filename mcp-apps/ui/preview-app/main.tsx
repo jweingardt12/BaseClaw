@@ -1,10 +1,9 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
+import { Input } from "@plexui/ui/components/Input";
 import {
   Sidebar,
   SidebarContent,
@@ -19,7 +18,8 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
-} from "@/components/ui/sidebar";
+} from "@plexui/ui/components/Sidebar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/card";
 import { fetchViewData, createLiveApp } from "./live-data";
 import { createMockApp } from "./mock-app";
 import { VIEW_GROUPS, type ViewDef } from "./view-registry";
@@ -82,7 +82,8 @@ function MoonIcon() {
 function DarkModeToggle({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode: (v: boolean) => void }) {
   return (
     <Button
-      size="icon-sm"
+      size="sm"
+      uniform
       variant="outline"
       onClick={() => setDarkMode(!darkMode)}
       title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -273,8 +274,8 @@ function PreviewApp() {
 
   return (
     <div className="min-h-[100dvh] -m-3 bg-background text-foreground">
-      <SidebarProvider defaultOpen>
-        <Sidebar variant="inset" collapsible="icon" className="border-r">
+      <SidebarProvider defaultOpen collapsible="icon">
+        <Sidebar className="border-r">
           <SidebarHeader className="gap-3">
             <div className="space-y-1 px-1">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">BaseClaw</p>
@@ -294,7 +295,7 @@ function PreviewApp() {
                 <Button
                   key={name}
                   size="xs"
-                  variant={groupFilter === name ? "default" : "outline"}
+                  color={groupFilter === name ? "primary" : "secondary"} variant={groupFilter === name ? "solid" : "outline"}
                   onClick={() => setGroupFilter(name)}
                 >
                   {name}
@@ -303,9 +304,9 @@ function PreviewApp() {
             </div>
 
             <div className="flex items-center gap-1 px-1">
-              <Button size="xs" variant={sortMode === "featured" ? "default" : "outline"} onClick={() => setSortMode("featured")}>Featured</Button>
-              <Button size="xs" variant={sortMode === "alpha" ? "default" : "outline"} onClick={() => setSortMode("alpha")}>A-Z</Button>
-              <Button size="xs" variant={sortMode === "recent" ? "default" : "outline"} onClick={() => setSortMode("recent")}>Recent</Button>
+              <Button size="xs" color={sortMode === "featured" ? "primary" : "secondary"} variant={sortMode === "featured" ? "solid" : "outline"} onClick={() => setSortMode("featured")}>Featured</Button>
+              <Button size="xs" color={sortMode === "alpha" ? "primary" : "secondary"} variant={sortMode === "alpha" ? "solid" : "outline"} onClick={() => setSortMode("alpha")}>A-Z</Button>
+              <Button size="xs" color={sortMode === "recent" ? "primary" : "secondary"} variant={sortMode === "recent" ? "solid" : "outline"} onClick={() => setSortMode("recent")}>Recent</Button>
             </div>
 
             {featuredViews.length > 0 && (
@@ -314,7 +315,7 @@ function PreviewApp() {
                   <Button
                     key={entry.id}
                     size="xs"
-                    variant={activeView === entry.id ? "default" : "ghost"}
+                    color={activeView === entry.id ? "primary" : "secondary"} variant={activeView === entry.id ? "solid" : "ghost"}
                     onClick={() => handleSelectView(entry.id)}
                   >
                     {entry.label}
@@ -366,10 +367,10 @@ function PreviewApp() {
               <div className="flex items-center gap-2">
                 {!IS_PUBLIC_PREVIEW && (
                   <div className="flex items-center gap-1">
-                    <Button size="xs" variant={effectiveDataSource === "mock" ? "default" : "outline"} onClick={() => { setDataSourceRaw("mock"); setOverlayData(null); }}>
+                    <Button size="xs" color={effectiveDataSource === "mock" ? "primary" : "secondary"} variant={effectiveDataSource === "mock" ? "solid" : "outline"} onClick={() => { setDataSourceRaw("mock"); setOverlayData(null); }}>
                       Mock
                     </Button>
-                    <Button size="xs" variant={effectiveDataSource === "live" ? "default" : "outline"} onClick={() => { setDataSourceRaw("live"); setOverlayData(null); }}>
+                    <Button size="xs" color={effectiveDataSource === "live" ? "primary" : "secondary"} variant={effectiveDataSource === "live" ? "solid" : "outline"} onClick={() => { setDataSourceRaw("live"); setOverlayData(null); }}>
                       Live
                     </Button>
                   </div>

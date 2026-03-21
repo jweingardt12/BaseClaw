@@ -1,7 +1,7 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
+import { Card, CardContent } from "../components/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { mlbHeadshotUrl, teamLogoFromAbbrev } from "../shared/mlb-images";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -95,7 +95,7 @@ function TrendTable({ players, direction }: { players: TrendPlayer[]; direction:
               <TableCell className="hidden sm:table-cell">
                 <div className="flex gap-1 flex-wrap">
                   {(p.position || "").split(",").filter(Boolean).map(function (pos) {
-                    return <Badge key={pos.trim()} color="secondary" className="text-xs">{pos.trim()}</Badge>;
+                    return <Badge key={pos.trim()} color="secondary" size="sm">{pos.trim()}</Badge>;
                   })}
                 </div>
               </TableCell>
@@ -131,8 +131,8 @@ export function TransactionTrendsView({ data }: { data: TransactionTrendsData })
       </div>
 
       <div className="flex gap-2 mb-1">
-        <Badge className="text-xs">{added.length + " most added"}</Badge>
-        <Badge color="danger" className="text-xs">{dropped.length + " most dropped"}</Badge>
+        <Badge size="sm">{added.length + " most added"}</Badge>
+        <Badge color="danger" size="sm">{dropped.length + " most dropped"}</Badge>
       </div>
 
       {/* Most Added */}

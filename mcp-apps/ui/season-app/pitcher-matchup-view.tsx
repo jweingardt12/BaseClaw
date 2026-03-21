@@ -1,6 +1,6 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { TeamLogo } from "../shared/team-logo";
@@ -88,7 +88,7 @@ export function PitcherMatchupView({ data }: { data: PitcherMatchupData }) {
               <TableCell className="font-medium">
                 <span className="flex items-center gap-1.5">
                   {p.name}
-                  {p.two_start && <Badge className="text-xs bg-purple-600 text-white">2S</Badge>}
+                  {p.two_start && <Badge size="sm" className="bg-purple-600 text-white">2S</Badge>}
                 </span>
               </TableCell>
               <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
@@ -115,7 +115,7 @@ export function PitcherMatchupView({ data }: { data: PitcherMatchupData }) {
                 {typeof p.opp_k_pct === "number" ? formatFixed(p.opp_k_pct * 100, 1, "-") + "%" : "-"}
               </TableCell>
               <TableCell className="text-center">
-                <Badge className={"text-xs " + gradeColor(p.matchup_grade)}>{p.matchup_grade}</Badge>
+                <Badge size="sm" className={gradeColor(p.matchup_grade)}>{p.matchup_grade}</Badge>
               </TableCell>
             </TableRow>
           ))}

@@ -39,7 +39,7 @@ export function InjuriesView({ data }: { data: { injuries: MlbInjury[] } }) {
                   <TableCell>
                     <span className="flex items-center gap-1">
                       <TeamLogo name={inj.team} />
-                      <Badge color="secondary" className="text-xs font-bold">{inj.team}</Badge>
+                      <Badge color="secondary" size="sm" className="font-bold">{inj.team}</Badge>
                     </span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{inj.description}</TableCell>

@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
+import { Card, CardContent } from "../components/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Tabs } from "@plexui/ui/components/Tabs";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { TeamLogo } from "../shared/team-logo";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { BarChart3, Loader2 } from "@/shared/icons";
 import { useCallTool } from "../shared/use-call-tool";
 import { ZScoreBar, ZScoreExplainer, getTier, tierGrade } from "../shared/z-score";
@@ -92,7 +92,7 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
                 <PlayerCell player={topPlayer} app={app} navigate={navigate} context="default" />
               </p>
               <div className="flex items-center gap-2 mt-1">
-                {topPlayer.position && <Badge color="secondary" className="text-xs">{topPlayer.position}</Badge>}
+                {topPlayer.position && <Badge color="secondary" size="sm">{topPlayer.position}</Badge>}
               </div>
             </div>
             <VerdictBadge grade={formatFixed(topPlayer.z_score, 1, "0.0")} variant={topPlayer.z_score >= 2 ? "success" : topPlayer.z_score >= 1 ? "info" : "warning"} size="lg" />
@@ -160,7 +160,7 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
                       <PlayerCell player={p} app={app} navigate={navigate} context="default" />
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      {p.position && <Badge color="secondary" className="text-xs">{p.position}</Badge>}
+                      {p.position && <Badge color="secondary" size="sm">{p.position}</Badge>}
                     </TableCell>
                     <TableCell className="text-right">
                       <ZScoreBar z={p.z_score} />

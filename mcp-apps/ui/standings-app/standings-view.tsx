@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -21,10 +21,10 @@ interface StandingsEntry {
 var MY_TEAM = "You Can Clip These Wings";
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <Badge className="text-xs bg-sem-warning">{rank}</Badge>;
-  if (rank === 2) return <Badge className="text-xs bg-sem-neutral">{rank}</Badge>;
-  if (rank === 3) return <Badge className="text-xs bg-sem-info">{rank}</Badge>;
-  return <Badge color="secondary" className="text-xs">{rank}</Badge>;
+  if (rank === 1) return <Badge size="sm" className="bg-sem-warning">{rank}</Badge>;
+  if (rank === 2) return <Badge size="sm" className="bg-sem-neutral">{rank}</Badge>;
+  if (rank === 3) return <Badge size="sm" className="bg-sem-info">{rank}</Badge>;
+  return <Badge color="secondary" size="sm">{rank}</Badge>;
 }
 
 function WinLossBar({ wins, losses }: { wins: number; losses: number }) {

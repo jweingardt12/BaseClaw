@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { useCallTool } from "../shared/use-call-tool";
 import { AiInsight } from "../shared/ai-insight";
 import { Search, Loader2 } from "@/shared/icons";
@@ -13,10 +13,10 @@ interface WhoOwnsData {
 }
 
 function ownershipBadge(type: string) {
-  if (type === "team") return <Badge className="text-xs">Owned</Badge>;
-  if (type === "freeagents") return <Badge color="success" className="text-xs">Free Agent</Badge>;
-  if (type === "waivers") return <Badge color="warning" className="text-xs">Waivers</Badge>;
-  return <Badge color="secondary" className="text-xs">{type}</Badge>;
+  if (type === "team") return <Badge size="sm">Owned</Badge>;
+  if (type === "freeagents") return <Badge color="success" size="sm">Free Agent</Badge>;
+  if (type === "waivers") return <Badge color="warning" size="sm">Waivers</Badge>;
+  return <Badge color="secondary" size="sm">{type}</Badge>;
 }
 
 export function WhoOwnsView({ data, app, navigate }: { data: WhoOwnsData; app: any; navigate: (data: any) => void }) {

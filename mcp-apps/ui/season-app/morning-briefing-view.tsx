@@ -1,8 +1,8 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 
@@ -153,13 +153,13 @@ function scoreLabel(wins: number, losses: number): string {
 function classificationIcon(cls: string) {
   switch (cls) {
     case "target":
-      return <Badge className="bg-sem-info text-xs"><Target className="h-2.5 w-2.5 mr-0.5 inline" />Target</Badge>;
+      return <Badge size="sm" className="bg-sem-info"><Target className="h-2.5 w-2.5 mr-0.5 inline" />Target</Badge>;
     case "protect":
-      return <Badge className="bg-sem-warning text-xs"><Shield className="h-2.5 w-2.5 mr-0.5 inline" />Protect</Badge>;
+      return <Badge size="sm" className="bg-sem-warning"><Shield className="h-2.5 w-2.5 mr-0.5 inline" />Protect</Badge>;
     case "concede":
-      return <Badge color="secondary" className="text-xs text-muted-foreground"><XCircle className="h-2.5 w-2.5 mr-0.5 inline" />Concede</Badge>;
+      return <Badge color="secondary" size="sm" className="text-muted-foreground"><XCircle className="h-2.5 w-2.5 mr-0.5 inline" />Concede</Badge>;
     case "lock":
-      return <Badge className="bg-sem-success text-xs"><Lock className="h-2.5 w-2.5 mr-0.5 inline" />Lock</Badge>;
+      return <Badge size="sm" className="bg-sem-success"><Lock className="h-2.5 w-2.5 mr-0.5 inline" />Lock</Badge>;
     default:
       return null;
   }
@@ -228,7 +228,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-primary" />
           <Subheading>Morning Briefing</Subheading>
-          {matchup.week && <Badge color="secondary" className="text-xs">Week {matchup.week}</Badge>}
+          {matchup.week && <Badge color="secondary" size="sm">Week {matchup.week}</Badge>}
         </div>
         {app && (
           <Button variant="outline" color="secondary" onClick={handleRefresh} disabled={loading} className="h-8 text-xs gap-1">
@@ -245,7 +245,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
             <div className="flex items-center gap-2">
               <CheckSquare className="h-4 w-4 text-primary" />
               <CardTitle className="text-base">Action Items</CardTitle>
-              <Badge color="secondary" className="text-xs">{actions.length}</Badge>
+              <Badge color="secondary" size="sm">{actions.length}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -253,7 +253,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
               {actions.map(function (item, idx) {
                 return (
                   <div key={idx} className="flex items-start gap-2">
-                    <Badge className={"text-xs shrink-0 mt-0.5 " + priorityColor(item.priority)}>
+                    <Badge size="sm" className={"shrink-0 mt-0.5 " + priorityColor(item.priority)}>
                       {priorityLabel(item.priority)}
                     </Badge>
                     <span className="text-sm">{item.message}</span>
@@ -361,12 +361,12 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
             {(injury.injured_active || []).map(function (p: InjuredPlayer) {
               return (
                 <div key={p.name} className="flex items-center gap-2 py-1.5 border-b last:border-0">
-                  <Badge color="secondary" className="text-xs w-8 justify-center">{p.position}</Badge>
+                  <Badge color="secondary" size="sm" className="w-8 justify-center">{p.position}</Badge>
                   <span className="font-medium text-sm flex-1">
                     <PlayerName name={p.name} mlbId={p.mlb_id} app={app} navigate={navigate} context="roster" />
                   </span>
                   {p.intel && <IntelBadge intel={p.intel} size="sm" />}
-                  <Badge color="danger" className="text-xs">{p.status}</Badge>
+                  <Badge color="danger" size="sm">{p.status}</Badge>
                   {p.injury_description && <span className="text-xs text-muted-foreground hidden sm:inline">{p.injury_description}</span>}
                 </div>
               );
@@ -389,11 +389,11 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
             {(injury.healthy_il || []).map(function (p: InjuredPlayer) {
               return (
                 <div key={p.name} className="flex items-center gap-2 py-1.5 border-b last:border-0">
-                  <Badge color="secondary" className="text-xs w-8 justify-center">{p.position}</Badge>
+                  <Badge color="secondary" size="sm" className="w-8 justify-center">{p.position}</Badge>
                   <span className="font-medium text-sm flex-1">
                     <PlayerName name={p.name} mlbId={p.mlb_id} app={app} navigate={navigate} context="roster" />
                   </span>
-                  <Badge className="text-xs bg-sem-success">Ready</Badge>
+                  <Badge size="sm" className="bg-sem-success">Ready</Badge>
                 </div>
               );
             })}
@@ -414,12 +414,12 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
             {(lineup.suggested_swaps || []).map(function (s: LineupSwap, i: number) {
               return (
                 <div key={i} className="flex items-center gap-2 py-1">
-                  <Badge color="danger" className="text-xs">Bench</Badge>
+                  <Badge color="danger" size="sm">Bench</Badge>
                   <span className="text-sm"><PlayerName name={s.bench_player} context="roster" /></span>
                   <ArrowRightLeft size={14} className="text-muted-foreground" />
-                  <Badge className="text-xs">Start</Badge>
+                  <Badge size="sm">Start</Badge>
                   <span className="text-sm"><PlayerName name={s.start_player} context="roster" /></span>
-                  <Badge color="secondary" className="text-xs">{s.position}</Badge>
+                  <Badge color="secondary" size="sm">{s.position}</Badge>
                 </div>
               );
             })}
@@ -441,7 +441,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
               {(strategy.opp_transactions || []).map(function (tx: OppTransaction, idx: number) {
                 return (
                   <div key={idx} className="flex items-center gap-2 text-sm">
-                    <Badge color={tx.type === "add" ? undefined : "zinc"} className="text-xs w-12 justify-center">
+                    <Badge color={tx.type === "add" ? undefined : "zinc"}  size="sm" className="w-12 justify-center">
                       {tx.type === "add" ? "ADD" : "DROP"}
                     </Badge>
                     <span>{tx.player}</span>
@@ -493,7 +493,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-wrap gap-0.5">
                           {(wt.categories || []).map(function (cat) {
-                            return <Badge key={cat} color="secondary" className="text-xs">{cat}</Badge>;
+                            return <Badge key={cat} color="secondary" size="sm">{cat}</Badge>;
                           })}
                         </div>
                       </TableCell>
@@ -558,7 +558,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
               {(whatsNew.league_activity || []).slice(0, 8).map(function (a: WhatsNewActivity, idx: number) {
                 return (
                   <div key={idx} className="flex items-center gap-2 text-sm">
-                    <Badge color={a.type === "add" ? undefined : "zinc"} className="text-xs w-12 justify-center">
+                    <Badge color={a.type === "add" ? undefined : "zinc"}  size="sm" className="w-12 justify-center">
                       {a.type.toUpperCase()}
                     </Badge>
                     <span>{a.player}</span>

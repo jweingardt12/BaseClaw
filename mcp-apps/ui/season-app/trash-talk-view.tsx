@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { KpiTile } from "../shared/kpi-tile";
 import { Copy, Check, MessageSquare } from "@/shared/icons";
 
@@ -60,8 +60,8 @@ export function TrashTalkView({ data, app, navigate }: { data: TrashTalkResponse
           <p className="font-semibold">vs. {data.opponent}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className={intensityColor(data.intensity) + " text-xs"}>{data.intensity}</Badge>
-          {ctx.score && <Badge color="secondary" className="text-xs">{ctx.score}</Badge>}
+          <Badge size="sm" className={intensityColor(data.intensity)}>{data.intensity}</Badge>
+          {ctx.score && <Badge color="secondary" size="sm">{ctx.score}</Badge>}
         </div>
       </div>
 
@@ -89,9 +89,9 @@ export function TrashTalkView({ data, app, navigate }: { data: TrashTalkResponse
 
       {/* Context Badges */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge color="secondary" className="text-xs">Your Rank: {ctx.your_rank}</Badge>
-        <Badge color="secondary" className="text-xs">Their Rank: {ctx.their_rank}</Badge>
-        {ctx.score && <Badge color="secondary" className="text-xs">Score: {ctx.score}</Badge>}
+        <Badge color="secondary" size="sm">Your Rank: {ctx.your_rank}</Badge>
+        <Badge color="secondary" size="sm">Their Rank: {ctx.their_rank}</Badge>
+        {ctx.score && <Badge color="secondary" size="sm">Score: {ctx.score}</Badge>}
       </div>
 
       {/* Additional Lines */}

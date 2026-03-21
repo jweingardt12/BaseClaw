@@ -1,6 +1,6 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { formatFixed } from "../shared/number-format";
 import { AiInsight } from "../shared/ai-insight";
 
@@ -19,10 +19,10 @@ interface PowerRankingTeam {
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <Badge className="text-xs bg-sem-warning">{rank}</Badge>;
-  if (rank === 2) return <Badge className="text-xs bg-sem-neutral">{rank}</Badge>;
-  if (rank === 3) return <Badge className="text-xs bg-sem-info">{rank}</Badge>;
-  return <Badge color="secondary" className="text-xs">{rank}</Badge>;
+  if (rank === 1) return <Badge size="sm" className="bg-sem-warning">{rank}</Badge>;
+  if (rank === 2) return <Badge size="sm" className="bg-sem-neutral">{rank}</Badge>;
+  if (rank === 3) return <Badge size="sm" className="bg-sem-info">{rank}</Badge>;
+  return <Badge color="secondary" size="sm">{rank}</Badge>;
 }
 
 function OwnershipBar({ pct }: { pct: number }) {

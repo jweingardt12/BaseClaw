@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Tabs } from "@plexui/ui/components/Tabs";
 import { useCallTool } from "../shared/use-call-tool";
@@ -93,14 +93,14 @@ export function CloserMonitorView({ data, app, navigate }: { data: CloserMonitor
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
                       {(p.positions || []).map((pos) => (
-                        <Badge key={pos} color="secondary" className="text-xs">{pos}</Badge>
+                        <Badge key={pos} color="secondary" size="sm">{pos}</Badge>
                       ))}
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs">{p.percent_owned}%</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {p.status && p.status !== "Healthy" && (
-                      <Badge color="danger" className="text-xs">{p.status}</Badge>
+                      <Badge color="danger" size="sm">{p.status}</Badge>
                     )}
                   </TableCell>
                 </TableRow>
@@ -135,7 +135,7 @@ export function CloserMonitorView({ data, app, navigate }: { data: CloserMonitor
                   <TableCell className="text-right font-mono text-xs">{p.percent_owned}%</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {p.status && p.status !== "Healthy" && (
-                      <Badge color="danger" className="text-xs">{p.status}</Badge>
+                      <Badge color="danger" size="sm">{p.status}</Badge>
                     )}
                   </TableCell>
                   <TableCell>

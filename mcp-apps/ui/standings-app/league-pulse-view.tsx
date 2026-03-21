@@ -1,8 +1,8 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Badge } from "@plexui/ui/components/Badge";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import * as React from "react";
@@ -68,8 +68,8 @@ export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[]; ai
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {mostActive && <Badge className="text-xs bg-sem-success">Most Active: {mostActive.name} ({mostActive.total})</Badge>}
-        {leastActive && <Badge color="secondary" className="text-xs">Least Active: {leastActive.name} ({leastActive.total})</Badge>}
+        {mostActive && <Badge size="sm" className="bg-sem-success">Most Active: {mostActive.name} ({mostActive.total})</Badge>}
+        {leastActive && <Badge color="secondary" size="sm">Least Active: {leastActive.name} ({leastActive.total})</Badge>}
       </div>
 
       <Table>

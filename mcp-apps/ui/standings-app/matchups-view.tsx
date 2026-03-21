@@ -1,6 +1,6 @@
-import { Card, CardContent } from "../catalyst/card";
+import { Card, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { AiInsight } from "../shared/ai-insight";
 import { RefreshButton } from "../shared/refresh-button";
 

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { ComparisonBar } from "../shared/comparison-bar";
 
 import { PlayerCell } from "../shared/player-row";
@@ -69,7 +69,7 @@ function TradePlayerRow({ player, app, navigate }: { player: Player; app?: any; 
       <span className="font-medium text-sm flex-1"><PlayerCell player={player} app={app} navigate={navigate} context="trade" /></span>
       <div className="flex gap-1">
         {positions.map((pos) => (
-          <Badge key={pos} color="secondary" className="text-xs">{pos}</Badge>
+          <Badge key={pos} color="secondary" size="sm">{pos}</Badge>
         ))}
       </div>
       {player.value != null && (
@@ -188,7 +188,7 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
                 <div>
                   <span className="text-xs text-muted-foreground">Losing: </span>
                   {(impact.losing || []).map((pos) => (
-                    <Badge key={pos} color="secondary" className="text-xs mr-1 border-red-500 text-sem-risk">{pos}</Badge>
+                    <Badge key={pos} color="secondary" size="sm" className="mr-1 border-red-500 text-sem-risk">{pos}</Badge>
                   ))}
                 </div>
               )}
@@ -196,7 +196,7 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
                 <div>
                   <span className="text-xs text-muted-foreground">Gaining: </span>
                   {(impact.gaining || []).map((pos) => (
-                    <Badge key={pos} color="secondary" className="text-xs mr-1 border-green-500 text-green-600">{pos}</Badge>
+                    <Badge key={pos} color="secondary" size="sm" className="mr-1 border-green-500 text-green-600">{pos}</Badge>
                   ))}
                 </div>
               )}

@@ -24,8 +24,8 @@ export function PlayerCard({ name, position, positions, status, team, mlbId, per
       <div className="flex items-center gap-2">
         {mlbId && <Avatar imageUrl={mlbHeadshotUrl(mlbId)} size={32} />}
         <span className="font-medium">{name}</span>
-        {posArray.map((p) => <Badge key={p} color="secondary" className="text-xs">{p}</Badge>)}
-        {status && status !== "Healthy" && <Badge color="danger" className="text-xs">{status}</Badge>}
+        {posArray.map((p) => <Badge key={p} color="secondary" size="sm">{p}</Badge>)}
+        {status && status !== "Healthy" && <Badge color="danger" size="sm">{status}</Badge>}
       </div>
     );
   }
@@ -39,8 +39,8 @@ export function PlayerCard({ name, position, positions, status, team, mlbId, per
           {team && <span className="text-xs text-muted-foreground">{team}</span>}
         </div>
         <div className="flex items-center gap-1 mt-0.5">
-          {posArray.map((p) => <Badge key={p} color="secondary" className="text-xs">{p}</Badge>)}
-          {status && status !== "Healthy" && <Badge color="danger" className="text-xs">{status}</Badge>}
+          {posArray.map((p) => <Badge key={p} color="secondary" size="sm">{p}</Badge>)}
+          {status && status !== "Healthy" && <Badge color="danger" size="sm">{status}</Badge>}
           {percentOwned !== undefined && <span className="text-xs text-muted-foreground ml-1">{percentOwned}% owned</span>}
           {zScore !== undefined && <ZScoreBadge z={zScore} size="sm" />}
         </div>

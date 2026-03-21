@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { mlbHeadshotUrl } from "../shared/mlb-images";
@@ -164,7 +164,7 @@ export function SimulateView({ data, app, navigate }: { data: SimulateData; app:
                   </span>
                   <div className="flex gap-1 flex-wrap">
                     {(data.add_player.positions || "").split(",").filter(Boolean).map(function (pos) {
-                      return <Badge key={pos.trim()} color="secondary" className="text-xs">{pos.trim()}</Badge>;
+                      return <Badge key={pos.trim()} color="secondary" size="sm">{pos.trim()}</Badge>;
                     })}
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export function SimulateView({ data, app, navigate }: { data: SimulateData; app:
                     </span>
                     <div className="flex gap-1 flex-wrap">
                       {(data.drop_player.positions || "").split(",").filter(Boolean).map(function (pos) {
-                        return <Badge key={pos.trim()} color="secondary" className="text-xs">{pos.trim()}</Badge>;
+                        return <Badge key={pos.trim()} color="secondary" size="sm">{pos.trim()}</Badge>;
                       })}
                     </div>
                   </div>
@@ -214,16 +214,16 @@ export function SimulateView({ data, app, navigate }: { data: SimulateData; app:
 
       {/* Impact Summary Badges */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Badge className={"text-xs " + netBadgeColor(netChange)}>
+        <Badge size="sm" className={netBadgeColor(netChange)}>
           {"Net: " + (netChange > 0 ? "+" : "") + netChange}
         </Badge>
         {improved > 0 && (
-          <Badge color="secondary" className="text-xs text-green-600 border-green-500/30">
+          <Badge color="secondary" size="sm" className="text-green-600 border-green-500/30">
             {improved + " improved"}
           </Badge>
         )}
         {regressed > 0 && (
-          <Badge color="secondary" className="text-xs text-red-600 border-red-500/30">
+          <Badge color="secondary" size="sm" className="text-red-600 border-red-500/30">
             {regressed + " regressed"}
           </Badge>
         )}

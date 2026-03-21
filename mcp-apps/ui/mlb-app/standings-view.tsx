@@ -1,5 +1,5 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 
 import { TeamLogo } from "../shared/team-logo";
 

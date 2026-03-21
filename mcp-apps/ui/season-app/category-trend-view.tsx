@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Card, CardContent } from "../catalyst/card";
+import { Card, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Tabs } from "@plexui/ui/components/Tabs";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -71,9 +71,9 @@ function getColor(name: string): string {
 }
 
 function trendBadge(trend: string) {
-  if (trend === "improving") return <Badge className="text-xs bg-green-600">Improving</Badge>;
-  if (trend === "declining") return <Badge color="danger" className="text-xs">Declining</Badge>;
-  return <Badge color="secondary" className="text-xs">Stable</Badge>;
+  if (trend === "improving") return <Badge size="sm" className="bg-green-600">Improving</Badge>;
+  if (trend === "declining") return <Badge color="danger" size="sm">Declining</Badge>;
+  return <Badge color="secondary" size="sm">Stable</Badge>;
 }
 
 export function CategoryTrendView({ data }: { data: CategoryTrendData }) {
@@ -179,7 +179,7 @@ export function CategoryTrendView({ data }: { data: CategoryTrendData }) {
               <p className="text-xs text-muted-foreground mb-1.5">Improving</p>
               <div className="flex flex-wrap gap-1">
                 {improving.map(function (c) {
-                  return <Badge key={c.name} className="bg-sem-success text-xs">{c.name}</Badge>;
+                  return <Badge key={c.name}  size="sm" className="bg-sem-success">{c.name}</Badge>;
                 })}
               </div>
             </CardContent>
@@ -191,7 +191,7 @@ export function CategoryTrendView({ data }: { data: CategoryTrendData }) {
               <p className="text-xs text-muted-foreground mb-1.5">Declining</p>
               <div className="flex flex-wrap gap-1">
                 {declining.map(function (c) {
-                  return <Badge key={c.name} color="danger" className="text-xs">{c.name}</Badge>;
+                  return <Badge key={c.name} color="danger" size="sm">{c.name}</Badge>;
                 })}
               </div>
             </CardContent>

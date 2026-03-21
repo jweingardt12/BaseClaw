@@ -1,6 +1,6 @@
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { useCallTool } from "../shared/use-call-tool";
 import { AiInsight } from "../shared/ai-insight";
 import { CheckCircle, XCircle, ArrowLeft, Loader2 } from "@/shared/icons";

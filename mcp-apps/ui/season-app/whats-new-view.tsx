@@ -1,7 +1,7 @@
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { RefreshButton } from "../shared/refresh-button";
@@ -105,7 +105,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <AlertTriangle size={14} className="text-destructive" />
               Injuries
-              <Badge color="danger" className="text-xs">{data.injuries.length}</Badge>
+              <Badge color="danger" size="sm">{data.injuries.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -125,10 +125,10 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
                       <PlayerName name={p.name} app={app} navigate={navigate} context="roster" />
                     </TableCell>
                     <TableCell>
-                      <Badge color="secondary" className="text-xs">{p.position}</Badge>
+                      <Badge color="secondary" size="sm">{p.position}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge color="danger" className="text-xs">{p.status}</Badge>
+                      <Badge color="danger" size="sm">{p.status}</Badge>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{p.section}</TableCell>
                   </TableRow>
@@ -146,7 +146,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <ArrowRightLeft size={14} />
               Pending Trades
-              <Badge color="secondary" className="text-xs">{data.pending_trades.length}</Badge>
+              <Badge color="secondary" size="sm">{data.pending_trades.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -167,7 +167,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <Activity size={14} />
               League Activity
-              <Badge color="secondary" className="text-xs">{data.league_activity.length}</Badge>
+              <Badge color="secondary" size="sm">{data.league_activity.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -183,7 +183,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
                 {data.league_activity.slice(0, 10).map((a, i) => (
                   <TableRow key={i}>
                     <TableCell>
-                      <Badge color={a.type === "add" ? undefined : "zinc"} className="text-xs">{a.type}</Badge>
+                      <Badge color={a.type === "add" ? undefined : "zinc"} size="sm">{a.type}</Badge>
                     </TableCell>
                     <TableCell className="font-medium">
                       <PlayerName name={a.player} app={app} navigate={navigate} context="waivers" />
@@ -204,7 +204,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp size={14} />
               Trending Pickups
-              <Badge color="secondary" className="text-xs">{data.trending.length}</Badge>
+              <Badge color="secondary" size="sm">{data.trending.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -247,7 +247,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <Star size={14} />
               Prospect Call-Ups
-              <Badge color="secondary" className="text-xs">{data.prospects.length}</Badge>
+              <Badge color="secondary" size="sm">{data.prospects.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -266,7 +266,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
                       <PlayerName name={p.player} app={app} navigate={navigate} context="waivers" />
                     </TableCell>
                     <TableCell>
-                      <Badge color="secondary" className="text-xs">{p.type}</Badge>
+                      <Badge color="secondary" size="sm">{p.type}</Badge>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">

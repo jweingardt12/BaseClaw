@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Tabs } from "@plexui/ui/components/Tabs";
 import { AiInsight } from "../shared/ai-insight";
@@ -98,7 +98,7 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
               <p className="text-xs text-muted-foreground mb-1.5">Strongest</p>
               <div className="flex flex-wrap gap-1">
                 {(data.strongest || []).map((s) => (
-                  <Badge key={s} className="bg-sem-success text-xs">{s}</Badge>
+                  <Badge key={s}  size="sm" className="bg-sem-success">{s}</Badge>
                 ))}
               </div>
             </CardContent>
@@ -110,7 +110,7 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
               <p className="text-xs text-muted-foreground mb-1.5">Weakest</p>
               <div className="flex flex-wrap gap-1">
                 {(data.weakest || []).map((s) => (
-                  <Badge key={s} color="danger" className="text-xs">{s}</Badge>
+                  <Badge key={s} color="danger" size="sm">{s}</Badge>
                 ))}
               </div>
             </CardContent>
@@ -193,8 +193,8 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
                 </div>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
-                {c.strength === "strong" && <Badge className="text-xs bg-green-600">Strong</Badge>}
-                {c.strength === "weak" && <Badge color="danger" className="text-xs">Weak</Badge>}
+                {c.strength === "strong" && <Badge size="sm" className="bg-green-600">Strong</Badge>}
+                {c.strength === "weak" && <Badge color="danger" size="sm">Weak</Badge>}
               </TableCell>
             </TableRow>
           ))}

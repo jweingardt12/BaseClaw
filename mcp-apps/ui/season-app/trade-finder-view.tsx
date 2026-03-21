@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Dialog } from "@plexui/ui/components/Dialog";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { useCallTool } from "../shared/use-call-tool";
 import { RefreshButton } from "../shared/refresh-button";
 import { PlayerCell } from "../shared/player-row";
@@ -100,7 +100,7 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">Weak:</span>
             {data.weak_categories.map((c) => (
-              <Badge key={c} color="danger" className="text-xs">{c}</Badge>
+              <Badge key={c} color="danger" size="sm">{c}</Badge>
             ))}
           </div>
         )}
@@ -108,7 +108,7 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">Strong:</span>
             {data.strong_categories.map((c) => (
-              <Badge key={c} className="text-xs bg-sem-success">{c}</Badge>
+              <Badge key={c}  size="sm" className="bg-sem-success">{c}</Badge>
             ))}
           </div>
         )}
@@ -128,14 +128,14 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               {partner.team_name}
-              <Badge color="secondary" className="text-xs">
+              <Badge color="secondary" size="sm">
                 Score: {formatFixed(partner.score, 1, "0.0")}
               </Badge>
             </CardTitle>
             <div className="flex items-center gap-1 flex-wrap mt-1">
               <span className="text-xs text-muted-foreground">Complementary:</span>
               {(partner.complementary_categories || []).map((c) => (
-                <Badge key={c} color="secondary" className="text-xs">{c}</Badge>
+                <Badge key={c} color="secondary" size="sm">{c}</Badge>
               ))}
             </div>
           </CardHeader>

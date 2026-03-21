@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
 import { Dialog } from "@plexui/ui/components/Dialog";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerName } from "../shared/player-name";
 import { EmptyState } from "../shared/empty-state";
@@ -70,7 +70,7 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
         <Subheading className="flex items-center gap-2">
           <ArrowRightLeft size={18} />
           Pending Trades
-          <Badge color="secondary" className="text-xs">{trades.length}</Badge>
+          <Badge color="secondary" size="sm">{trades.length}</Badge>
         </Subheading>
         <RefreshButton app={app} toolName="yahoo_pending_trades" navigate={navigate} />
       </div>
@@ -90,7 +90,7 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
                 <span className="text-muted-foreground mx-2">vs</span>
                 {trade.tradee_team_name || trade.tradee_team_key}
               </CardTitle>
-              <Badge color="secondary" className="text-xs">{trade.status}</Badge>
+              <Badge color="secondary" size="sm">{trade.status}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">

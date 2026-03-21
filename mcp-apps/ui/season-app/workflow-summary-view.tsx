@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { AiInsight } from "../shared/ai-insight";
 import { EmptyState } from "../shared/empty-state";
@@ -68,7 +68,7 @@ export function WorkflowSummaryView({ data }: { data: WorkflowSummaryData }) {
               <p className="text-xs text-muted-foreground font-semibold">Action Items</p>
               {actionItems.map((item, idx) => (
                 <div key={idx} className="flex items-start gap-2">
-                  <Badge color="secondary" className="text-xs">P{item.priority || 3}</Badge>
+                  <Badge color="secondary" size="sm">P{item.priority || 3}</Badge>
                   <span className="text-sm">{item.message || item.type || "Action"}</span>
                 </div>
               ))}

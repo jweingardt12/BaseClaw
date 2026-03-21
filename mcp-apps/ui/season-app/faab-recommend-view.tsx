@@ -1,7 +1,7 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { KpiTile } from "../shared/kpi-tile";
 import { formatFixed } from "../shared/number-format";
@@ -73,12 +73,12 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
             <div>
               <Subheading>{player.name}</Subheading>
               <div className="flex items-center gap-2 mt-1">
-                <Badge color="secondary" className="text-xs">{player.pos}</Badge>
+                <Badge color="secondary" size="sm">{player.pos}</Badge>
                 <span className="text-sm text-muted-foreground">{player.team}</span>
               </div>
             </div>
             <div className="text-right">
-              <Badge color={tierBadgeColor(player.tier)} className="text-xs mb-1">{player.tier}</Badge>
+              <Badge color={tierBadgeColor(player.tier)}  size="sm" className="mb-1">{player.tier}</Badge>
               <p className="font-mono text-sm text-muted-foreground">z={formatFixed(player.z_final, 2, "0.00")}</p>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-muted-foreground">Improves:</span>
           {improving.map(function (cat) {
-            return <Badge key={cat} color="success" className="text-xs">{cat}</Badge>;
+            return <Badge key={cat} color="success" size="sm">{cat}</Badge>;
           })}
         </div>
       )}

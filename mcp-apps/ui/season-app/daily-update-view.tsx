@@ -1,7 +1,7 @@
 import { LineupOptimizeView } from "./lineup-optimize-view";
 import { InjuryReportView } from "./injury-report-view";
-import { Subheading } from "../catalyst/heading";
-import { Text } from "../catalyst/text";
+import { Subheading } from "../components/heading";
+import { Text } from "../components/text";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 

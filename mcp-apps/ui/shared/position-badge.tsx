@@ -25,7 +25,7 @@ interface PositionBadgeProps {
 export function PositionBadge({ position, className }: PositionBadgeProps) {
   const colorClass = POS_COLORS[position] || "";
   return (
-    <Badge color="secondary" className={cn("text-xs px-1.5 rounded-sm font-mono uppercase", colorClass, className)}>
+    <Badge color="secondary" size="sm" className={cn("px-1.5 rounded-sm font-mono uppercase", colorClass, className)}>
       {position}
     </Badge>
   );

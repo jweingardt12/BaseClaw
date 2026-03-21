@@ -1,5 +1,5 @@
 import { Skeleton } from "@plexui/ui/components/Skeleton";
-import { Card, CardHeader, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardContent } from "../components/card";
 
 export function ViewSkeleton() {
   return (

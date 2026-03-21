@@ -1,6 +1,6 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { PlayerName } from "../shared/player-name";
 import { AlertTriangle } from "@/shared/icons";
 import { parseRoundKey, sortRoundEntries } from "./round-key";

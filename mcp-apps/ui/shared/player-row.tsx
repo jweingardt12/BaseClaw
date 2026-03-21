@@ -141,7 +141,7 @@ export function PlayerRow({ player, columns, statKeys, app, navigate, context, a
 
         {player.position !== undefined && (
           <TableCell className="w-14">
-            <Badge color="secondary" className="font-mono text-xs font-bold">{player.position || "?"}</Badge>
+            <Badge color="secondary" size="sm" className="font-mono font-bold">{player.position || "?"}</Badge>
           </TableCell>
         )}
 
@@ -154,7 +154,7 @@ export function PlayerRow({ player, columns, statKeys, app, navigate, context, a
             <div className="flex gap-1 flex-wrap">
               {posDisplay.split(",").map(function (pos) {
                 var p = pos.trim();
-                return p ? <Badge key={p} color="secondary" className="text-xs">{p}</Badge> : null;
+                return p ? <Badge key={p} color="secondary" size="sm">{p}</Badge> : null;
               })}
             </div>
           </TableCell>
@@ -206,7 +206,7 @@ export function PlayerRow({ player, columns, statKeys, app, navigate, context, a
 
         {hasStatus ? (
           <TableCell>
-            <Badge color="danger" className="text-xs">{player.status}</Badge>
+            <Badge color="danger" size="sm">{player.status}</Badge>
           </TableCell>
         ) : cols.length > 0 ? (
           <TableCell></TableCell>

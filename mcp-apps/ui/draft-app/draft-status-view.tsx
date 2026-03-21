@@ -1,7 +1,7 @@
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
-import { Progress } from "../catalyst/progress";
-import { Text } from "../catalyst/text";
+import { Progress } from "../components/progress";
+import { Text } from "../components/text";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { KpiTile } from "../shared/kpi-tile";
 
@@ -192,7 +192,7 @@ export function DraftStatusView({ data }: { data: DraftStatusData }) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Roster Fill</CardTitle>
-            <Badge color="secondary" className="text-xs font-mono">
+            <Badge color="secondary" size="sm" className="font-mono">
               {filledCount + " / " + totalSlots}
             </Badge>
           </div>

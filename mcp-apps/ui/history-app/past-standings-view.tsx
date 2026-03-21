@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 
@@ -105,7 +105,7 @@ export function PastStandingsView({ data, app, navigate }: { data: PastStandings
                   <TableRow key={s.rank}>
                     <TableCell>
                       <span className="flex items-center gap-1">
-                        <Badge color={s.rank <= 3 ? "primary" : "secondary"} className="text-xs font-bold">{s.rank}</Badge>
+                        <Badge color={s.rank <= 3 ? "primary" : "secondary"}  size="sm" className="font-bold">{s.rank}</Badge>
                         {s.rank <= 3 && <Trophy size={14} className="text-amber-500" />}
                       </span>
                     </TableCell>

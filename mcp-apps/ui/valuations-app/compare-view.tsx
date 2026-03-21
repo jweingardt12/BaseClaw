@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@plexui/ui/components/Badge";
 import { Button } from "@plexui/ui/components/Button";
-import { Subheading } from "../catalyst/heading";
+import { Subheading } from "../components/heading";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend } from "recharts";
 import { ArrowRightLeft, TrendingUp, TrendingDown, Users, Loader2, Check } from "@/shared/icons";
 import { useCallTool } from "../shared/use-call-tool";
@@ -142,7 +142,7 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
                       >
                         {isSelected && <Check size={12} />}
                         <span className="font-medium">{p.name}</span>
-                        {p.position && <Badge color="secondary" className="text-xs ml-auto">{p.position}</Badge>}
+                        {p.position && <Badge color="secondary" size="sm" className="ml-auto">{p.position}</Badge>}
                       </button>
                     );
                   })}
@@ -164,7 +164,7 @@ export function CompareView({ data, app, navigate }: { data: CompareData; app?: 
                       >
                         {isSelected && <Check size={12} />}
                         <span className="font-medium">{p.name}</span>
-                        {p.position && <Badge color="secondary" className="text-xs ml-auto">{p.position}</Badge>}
+                        {p.position && <Badge color="secondary" size="sm" className="ml-auto">{p.position}</Badge>}
                       </button>
                     );
                   })}

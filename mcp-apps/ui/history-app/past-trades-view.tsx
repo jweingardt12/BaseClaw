@@ -61,7 +61,7 @@ export function PastTradesView({ data, app, navigate }: { data: PastTradesData; 
                       <p className="text-sm font-bold mb-2">{t.team1 + " sends:"}</p>
                       <div className="flex flex-wrap gap-1">
                         {(t.players1 || []).map(function (p) {
-                          return <Badge key={p} color="secondary" className="text-xs font-semibold">{p}</Badge>;
+                          return <Badge key={p} color="secondary" size="sm" className="font-semibold">{p}</Badge>;
                         })}
                       </div>
                     </div>
@@ -72,7 +72,7 @@ export function PastTradesView({ data, app, navigate }: { data: PastTradesData; 
                       <p className="text-sm font-bold mb-2">{t.team2 + " sends:"}</p>
                       <div className="flex flex-wrap gap-1">
                         {(t.players2 || []).map(function (p) {
-                          return <Badge key={p} color="secondary" className="text-xs font-semibold">{p}</Badge>;
+                          return <Badge key={p} color="secondary" size="sm" className="font-semibold">{p}</Badge>;
                         })}
                       </div>
                     </div>

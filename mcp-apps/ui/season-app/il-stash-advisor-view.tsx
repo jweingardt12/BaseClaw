@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { AiInsight } from "../shared/ai-insight";
 import { EmptyState } from "../shared/empty-state";
@@ -106,15 +106,15 @@ export function ILStashAdvisorView({ data, app, navigate }: { data: ILStashAdvis
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge color="secondary" className="text-xs">{p.position}</Badge>
+                        <Badge color="secondary" size="sm">{p.position}</Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <Badge color="danger" className="text-xs">{p.status}</Badge>
+                        <Badge color="danger" size="sm">{p.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatFixed(p.z_score, 2, "0.00")}</TableCell>
                       <TableCell className={"hidden sm:table-cell text-xs font-medium " + tierColor(p.tier)}>{p.tier}</TableCell>
                       <TableCell className="text-center">
-                        <Badge color={recColor(p.recommendation)} className="text-xs">{p.recommendation}</Badge>
+                        <Badge color={recColor(p.recommendation)} size="sm">{p.recommendation}</Badge>
                       </TableCell>
                     </TableRow>
                   );
@@ -157,16 +157,16 @@ export function ILStashAdvisorView({ data, app, navigate }: { data: ILStashAdvis
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge color="secondary" className="text-xs">{p.position}</Badge>
+                        <Badge color="secondary" size="sm">{p.position}</Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <Badge color="danger" className="text-xs">{p.status}</Badge>
+                        <Badge color="danger" size="sm">{p.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatFixed(p.z_score, 2, "0.00")}</TableCell>
                       <TableCell className={"hidden sm:table-cell text-xs font-medium " + tierColor(p.tier)}>{p.tier}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{p.percent_owned != null ? p.percent_owned + "%" : "-"}</TableCell>
                       <TableCell className="text-center">
-                        <Badge color={recColor(p.recommendation)} className="text-xs">{p.recommendation}</Badge>
+                        <Badge color={recColor(p.recommendation)} size="sm">{p.recommendation}</Badge>
                       </TableCell>
                     </TableRow>
                   );

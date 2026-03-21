@@ -1,6 +1,6 @@
 import { Badge } from "@plexui/ui/components/Badge";
-import { Card, CardContent } from "../catalyst/card";
-import { Subheading } from "../catalyst/heading";
+import { Card, CardContent } from "../components/card";
+import { Subheading } from "../components/heading";
 import { EmptyState } from "../shared/empty-state";
 import { KpiTile } from "../shared/kpi-tile";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -58,7 +58,7 @@ export function OwnershipTrendsView({ data }: { data: OwnershipTrendsData; app?:
       <Subheading>{data.player_name} - Ownership Trend</Subheading>
 
       <div className="flex items-center gap-2">
-        <Badge color={directionColor(data.direction)} className="text-xs">
+        <Badge color={directionColor(data.direction)} size="sm">
           {directionLabel(data.direction)}
         </Badge>
       </div>
