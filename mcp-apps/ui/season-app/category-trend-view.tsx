@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../catalyst/tabs";
+import { Tabs } from "@plexui/ui/components/Tabs";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -72,8 +72,8 @@ function getColor(name: string): string {
 
 function trendBadge(trend: string) {
   if (trend === "improving") return <Badge className="text-xs bg-green-600">Improving</Badge>;
-  if (trend === "declining") return <Badge color="red" className="text-xs">Declining</Badge>;
-  return <Badge color="zinc" className="text-xs">Stable</Badge>;
+  if (trend === "declining") return <Badge color="danger" className="text-xs">Declining</Badge>;
+  return <Badge color="secondary" className="text-xs">Stable</Badge>;
 }
 
 export function CategoryTrendView({ data }: { data: CategoryTrendData }) {
@@ -191,7 +191,7 @@ export function CategoryTrendView({ data }: { data: CategoryTrendData }) {
               <p className="text-xs text-muted-foreground mb-1.5">Declining</p>
               <div className="flex flex-wrap gap-1">
                 {declining.map(function (c) {
-                  return <Badge key={c.name} color="red" className="text-xs">{c.name}</Badge>;
+                  return <Badge key={c.name} color="danger" className="text-xs">{c.name}</Badge>;
                 })}
               </div>
             </CardContent>
@@ -200,12 +200,10 @@ export function CategoryTrendView({ data }: { data: CategoryTrendData }) {
       </div>
 
       {/* Batting / Pitching filter */}
-      <Tabs value={catFilter} onValueChange={setCatFilter}>
-        <TabsList>
-          <TabsTrigger value="all">All ({categories.length})</TabsTrigger>
-          <TabsTrigger value="batting">Batting ({batting.length})</TabsTrigger>
-          <TabsTrigger value="pitching">Pitching ({pitching.length})</TabsTrigger>
-        </TabsList>
+      <Tabs value={catFilter} onChange={setCatFilter} aria-label="Category filter">
+        <Tabs.Tab value="all">{"All (" + categories.length + ")"}</Tabs.Tab>
+        <Tabs.Tab value="batting">{"Batting (" + batting.length + ")"}</Tabs.Tab>
+        <Tabs.Tab value="pitching">{"Pitching (" + pitching.length + ")"}</Tabs.Tab>
       </Tabs>
 
       {/* Line Chart */}

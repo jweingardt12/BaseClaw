@@ -1,5 +1,5 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { formatFixed } from "../shared/number-format";
 import { AiInsight } from "../shared/ai-insight";
@@ -22,7 +22,7 @@ function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) return <Badge className="text-xs bg-sem-warning">{rank}</Badge>;
   if (rank === 2) return <Badge className="text-xs bg-sem-neutral">{rank}</Badge>;
   if (rank === 3) return <Badge className="text-xs bg-sem-info">{rank}</Badge>;
-  return <Badge color="zinc" className="text-xs">{rank}</Badge>;
+  return <Badge color="secondary" className="text-xs">{rank}</Badge>;
 }
 
 function OwnershipBar({ pct }: { pct: number }) {
@@ -46,15 +46,15 @@ export function PowerRankingsView({ data }: { data: { rankings: PowerRankingTeam
       <AiInsight recommendation={data.ai_recommendation} />
 
       <Table>
-        <TableHead>
+        <TableHeader>
           <TableRow>
-            <TableHeader className="w-12">#</TableHeader>
-            <TableHeader>Team</TableHeader>
-            <TableHeader className="text-right hidden sm:table-cell">Hitters</TableHeader>
-            <TableHeader className="text-right hidden sm:table-cell">Pitchers</TableHeader>
-            <TableHeader>Avg Own%</TableHeader>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Team</TableHead>
+            <TableHead className="text-right hidden sm:table-cell">Hitters</TableHead>
+            <TableHead className="text-right hidden sm:table-cell">Pitchers</TableHead>
+            <TableHead>Avg Own%</TableHead>
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {rankings.map((t) => (
             <TableRow

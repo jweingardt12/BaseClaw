@@ -1,4 +1,4 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { Trophy, TrendingUp } from "@/shared/icons";
@@ -40,12 +40,12 @@ function parseFinish(finish: string): number | null {
   return isNaN(num) ? null : num;
 }
 
-function getFinishBadgeColor(finish: string | undefined): "zinc" | undefined {
+function getFinishBadgeColor(finish: string | undefined): "primary" | "secondary" {
   var rank = parseFinish(finish || "");
   if (rank === 1) {
-    return undefined;
+    return "primary";
   }
-  return "zinc";
+  return "secondary";
 }
 
 export function LeagueHistoryView({ data }: { data: { seasons: SeasonResult[] } }) {

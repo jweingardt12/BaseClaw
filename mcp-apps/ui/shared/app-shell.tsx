@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
-import { Skeleton } from "../catalyst/skeleton";
-import { Button } from "../catalyst/button";
+import { Skeleton } from "@plexui/ui/components/Skeleton";
+import { Button } from "@plexui/ui/components/Button";
+import { Alert } from "@plexui/ui/components/Alert";
+import { LoadingIndicator } from "@plexui/ui/components/Indicator";
 import { Maximize2, Minimize2 } from "@/shared/icons";
 import { useHostLayout } from "./use-host-layout";
 
@@ -193,13 +195,17 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
   if (error) {
     return (
       <div className="mcp-app-root mcp-app-content">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
-          <h3 className="text-sm font-medium text-destructive">Connection Error</h3>
-          <p className="text-xs text-muted-foreground mt-1">{String(error)}</p>
-        </div>
-        <Button outline onClick={function () { window.location.reload(); }}>
-          Retry
-        </Button>
+        <Alert
+          color="danger"
+          variant="soft"
+          title="Connection Error"
+          description={String(error)}
+          actions={
+            <Button variant="outline" color="secondary" onClick={function () { window.location.reload(); }}>
+              Retry
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -236,14 +242,14 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
 
     if (errorMsg) {
       return (
-        <div className="mcp-app-root">
-          <div className="flex flex-col items-center justify-center p-6 text-center">
-            <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 max-w-md">
-              <h3 className="text-sm font-medium text-destructive">Something went wrong</h3>
-              <p className="text-xs text-muted-foreground mt-1">{errorMsg}</p>
-            </div>
-            <p className="text-xs text-muted-foreground mt-3">Ask Claude to try again.</p>
-          </div>
+        <div className="mcp-app-root mcp-app-content p-4">
+          <Alert
+            color="danger"
+            variant="soft"
+            title="Something went wrong"
+            description={errorMsg}
+          />
+          <p className="text-xs text-muted-foreground text-center">Ask Claude to try again.</p>
         </div>
       );
     }
@@ -251,13 +257,13 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
     var label = toolName ? toolLabel(toolName) : null;
     return (
       <div className="mcp-app-root">
-        <div className="flex flex-col items-center justify-center p-6 text-center">
+        <div className="flex flex-col items-center justify-center p-6 text-center gap-3">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <LoadingIndicator size={16} />
             <span className="text-sm uppercase tracking-wide">{label ? "Loading " + label + "..." : "Waiting for data..."}</span>
           </div>
           {timedOut && (
-            <p className="text-xs text-muted-foreground mt-3">
+            <p className="text-xs text-muted-foreground">
               Taking longer than expected. Make sure a tool has been called.
             </p>
           )}
@@ -285,7 +291,8 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
       {layout.canFullscreen && app.requestDisplayMode && (
         <div className="mcp-app-shell-controls">
           <Button
-            plain
+            variant="ghost"
+            color="secondary"
             className="h-8 w-8 p-0"
             onClick={function () {
               var newMode = displayMode === "fullscreen" ? "inline" : "fullscreen";

@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
@@ -24,7 +24,7 @@ function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) return <Badge className="text-xs bg-sem-warning">{rank}</Badge>;
   if (rank === 2) return <Badge className="text-xs bg-sem-neutral">{rank}</Badge>;
   if (rank === 3) return <Badge className="text-xs bg-sem-info">{rank}</Badge>;
-  return <Badge color="zinc" className="text-xs">{rank}</Badge>;
+  return <Badge color="secondary" className="text-xs">{rank}</Badge>;
 }
 
 function WinLossBar({ wins, losses }: { wins: number; losses: number }) {
@@ -137,15 +137,15 @@ export function StandingsView({ data }: { data: { standings: StandingsEntry[]; p
       <div>
         <Subheading className="mb-2">League Standings</Subheading>
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader className="w-12">#</TableHeader>
-              <TableHeader>Team</TableHeader>
-              <TableHeader className="text-center">Record</TableHeader>
-              <TableHeader className="hidden sm:table-cell w-20"></TableHeader>
-              {hasPoints && <TableHeader className="text-right">Points</TableHeader>}
+              <TableHead className="w-12">#</TableHead>
+              <TableHead>Team</TableHead>
+              <TableHead className="text-center">Record</TableHead>
+              <TableHead className="hidden sm:table-cell w-20"></TableHead>
+              {hasPoints && <TableHead className="text-right">Points</TableHead>}
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {(data.standings || []).map((s, idx) => {
               var isMyTeam = s.name === MY_TEAM;

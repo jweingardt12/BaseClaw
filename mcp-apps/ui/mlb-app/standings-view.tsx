@@ -1,4 +1,4 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Subheading } from "../catalyst/heading";
 
 import { TeamLogo } from "../shared/team-logo";
@@ -26,14 +26,14 @@ export function StandingsView({ data }: { data: { divisions: MlbDivision[] } }) 
               <Subheading>{div.division}</Subheading>
             </div>
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader className="font-bold">Team</TableHeader>
-                  <TableHeader className="text-center w-12 font-bold">W</TableHeader>
-                  <TableHeader className="hidden sm:table-cell text-center w-12 font-bold">L</TableHeader>
-                  <TableHeader className="hidden sm:table-cell text-center w-14 font-bold">GB</TableHeader>
+                  <TableHead className="font-bold">Team</TableHead>
+                  <TableHead className="text-center w-12 font-bold">W</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center w-12 font-bold">L</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center w-14 font-bold">GB</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(div.teams || []).map(function (t) {
                   return (

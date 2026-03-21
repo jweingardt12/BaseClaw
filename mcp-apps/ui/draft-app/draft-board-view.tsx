@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Text } from "../catalyst/text";
 import { KpiTile } from "../shared/kpi-tile";
 import type { DraftPick, DraftStatusResponse } from "../../src/api/types";
@@ -165,7 +165,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
                 return (
                   <Badge
                     key={pos}
-                    color={count > 0 ? undefined : "zinc"}
+                    color={count > 0 ? "primary" : "secondary"}
                     className={
                       "text-xs font-mono " +
                       (count > 0
@@ -185,14 +185,14 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
       {/* View Toggle */}
       <div className="flex gap-1">
         <Badge
-          color={view === "grid" ? undefined : "zinc"}
+          color={view === "grid" ? "primary" : "secondary"}
           className="text-xs cursor-pointer"
           onClick={function () { setView("grid"); }}
         >
           Grid
         </Badge>
         <Badge
-          color={view === "list" ? undefined : "zinc"}
+          color={view === "list" ? "primary" : "secondary"}
           className="text-xs cursor-pointer"
           onClick={function () { setView("list"); }}
         >
@@ -206,7 +206,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Draft Board</CardTitle>
-              <Badge color="zinc" className="text-xs font-mono">
+              <Badge color="secondary" className="text-xs font-mono">
                 {draftResults.length + " / " + (numTeams * totalRounds) + " picks"}
               </Badge>
             </div>
@@ -319,7 +319,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Pick-by-Pick</CardTitle>
-              <Badge color="zinc" className="text-xs font-mono">
+              <Badge color="secondary" className="text-xs font-mono">
                 {draftResults.length + " picks"}
               </Badge>
             </div>
@@ -333,7 +333,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
                 return (
                   <div key={round}>
                     <div className="flex items-center gap-2 py-1">
-                      <Badge color="zinc" className="text-xs font-mono shrink-0">
+                      <Badge color="secondary" className="text-xs font-mono shrink-0">
                         {"Rd " + round}
                       </Badge>
                       <div className="flex-1 h-px bg-border" />
@@ -360,7 +360,7 @@ export function DraftBoardView({ data }: { data: DraftBoardData }) {
                             </span>
                             {posLabel && (
                               <Badge
-                                color="zinc"
+                                color="secondary"
                                 className={
                                   "text-xs shrink-0 " +
                                   (pitcher

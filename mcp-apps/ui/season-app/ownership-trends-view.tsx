@@ -1,4 +1,4 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
 import { EmptyState } from "../shared/empty-state";
@@ -22,11 +22,11 @@ interface OwnershipTrendsData {
   message?: string;
 }
 
-function directionColor(direction: string): "green" | "red" | "amber" | "zinc" {
-  if (direction === "rising") return "green";
-  if (direction === "falling") return "red";
-  if (direction === "stable") return "amber";
-  return "zinc";
+function directionColor(direction: string): "success" | "danger" | "warning" | "secondary" {
+  if (direction === "rising") return "success";
+  if (direction === "falling") return "danger";
+  if (direction === "stable") return "warning";
+  return "secondary";
 }
 
 function directionLabel(direction: string): string {

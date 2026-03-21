@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Badge } from "../catalyst/badge";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../catalyst/tabs";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Tabs } from "@plexui/ui/components/Tabs";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { Trophy, TrendingUp, Target, Award } from "@/shared/icons";
@@ -73,23 +73,14 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
 
   return (
     <div className="space-y-3">
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList behavior="wrap">
-          <TabsTrigger value="champions">
-            <span className="flex items-center gap-1"><Trophy className="h-3.5 w-3.5" />Champions</span>
-          </TabsTrigger>
-          <TabsTrigger value="careers">
-            <span className="flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" />Career Leaders</span>
-          </TabsTrigger>
-          <TabsTrigger value="first_picks">
-            <span className="flex items-center gap-1"><Target className="h-3.5 w-3.5" />First Picks</span>
-          </TabsTrigger>
-          <TabsTrigger value="playoffs">
-            <span className="flex items-center gap-1"><Award className="h-3.5 w-3.5" />Playoffs</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={setTab} aria-label="Record book sections">
+        <Tabs.Tab value="champions">Champions</Tabs.Tab>
+        <Tabs.Tab value="careers">Career Leaders</Tabs.Tab>
+        <Tabs.Tab value="first_picks">First Picks</Tabs.Tab>
+        <Tabs.Tab value="playoffs">Playoffs</Tabs.Tab>
+      </Tabs>
 
-        <TabsContent value="champions">
+        {tab === "champions" && (<div>
           {champChartData.length > 1 && (
             <div className="surface-card p-4 mb-3">
               <div className="flex items-center gap-2 mb-3">
@@ -153,9 +144,9 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
               );
             })}
           </div>
-        </TabsContent>
+        </div>)}
 
-        <TabsContent value="careers">
+        {tab === "careers" && (<div>
           {careerChartData.length > 1 && (
             <div className="surface-card p-4 mb-3">
               <div className="flex items-center gap-2 mb-3">
@@ -212,18 +203,18 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
           )}
           <div className="surface-card overflow-hidden">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader className="font-bold">Manager</TableHeader>
-                  <TableHeader className="text-center font-bold">Seasons</TableHeader>
-                  <TableHeader className="text-center font-bold">W</TableHeader>
-                  <TableHeader className="text-center font-bold">L</TableHeader>
-                  <TableHeader className="hidden sm:table-cell text-center font-bold">T</TableHeader>
-                  <TableHeader className="text-right font-bold">Win%</TableHeader>
-                  <TableHeader className="hidden sm:table-cell text-center font-bold">Playoffs</TableHeader>
-                  <TableHeader className="hidden sm:table-cell text-center font-bold">Best</TableHeader>
+                  <TableHead className="font-bold">Manager</TableHead>
+                  <TableHead className="text-center font-bold">Seasons</TableHead>
+                  <TableHead className="text-center font-bold">W</TableHead>
+                  <TableHead className="text-center font-bold">L</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center font-bold">T</TableHead>
+                  <TableHead className="text-right font-bold">Win%</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center font-bold">Playoffs</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center font-bold">Best</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(data.careers || []).map(function (c) {
                   return (
@@ -236,7 +227,7 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
                       <TableCell className="text-right font-mono font-semibold">{formatFixed(c.win_pct, 1, "0.0")}%</TableCell>
                       <TableCell className="hidden sm:table-cell text-center font-mono">{c.playoffs}</TableCell>
                       <TableCell className="hidden sm:table-cell text-center">
-                        <Badge color="zinc" className="text-xs font-bold">{"#" + c.best_finish + " (" + c.best_year + ")"}</Badge>
+                        <Badge color="secondary" className="text-xs font-bold">{"#" + c.best_finish + " (" + c.best_year + ")"}</Badge>
                       </TableCell>
                     </TableRow>
                   );
@@ -244,9 +235,9 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
               </TableBody>
             </Table>
           </div>
-        </TabsContent>
+        </div>)}
 
-        <TabsContent value="first_picks">
+        {tab === "first_picks" && (<div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(data.first_picks || []).map(function (fp) {
               return (
@@ -257,9 +248,9 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
               );
             })}
           </div>
-        </TabsContent>
+        </div>)}
 
-        <TabsContent value="playoffs">
+        {tab === "playoffs" && (<div>
           {playoffChartData.length > 1 && (
             <div className="surface-card p-4 mb-3">
               <div className="flex items-center gap-2 mb-3">
@@ -303,12 +294,12 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
           )}
           <div className="surface-card overflow-hidden">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader className="font-bold">Manager</TableHeader>
-                  <TableHeader className="text-right font-bold">Appearances</TableHeader>
+                  <TableHead className="font-bold">Manager</TableHead>
+                  <TableHead className="text-right font-bold">Appearances</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(data.playoff_appearances || []).map(function (pa) {
                   return (
@@ -321,8 +312,7 @@ export function RecordBookView({ data }: { data: RecordBookData }) {
               </TableBody>
             </Table>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>)}
     </div>
   );
 }

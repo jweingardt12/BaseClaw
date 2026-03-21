@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { KpiTile } from "../shared/kpi-tile";
 import { AiInsight } from "../shared/ai-insight";
 import { TrendingUp, TrendingDown, Trophy, Target, BarChart3 } from "@/shared/icons";
@@ -56,7 +56,7 @@ function standingsDirectionBadge(direction: string, from: string | number, to: s
   if (d === "down") {
     return <Badge className="bg-sem-risk text-xs">{from + " -> " + to + " (down)"}</Badge>;
   }
-  return <Badge color="zinc" className="text-xs">{from + " -> " + to + " (hold)"}</Badge>;
+  return <Badge color="secondary" className="text-xs">{from + " -> " + to + " (hold)"}</Badge>;
 }
 
 export function WeeklyNarrativeView({ data, app, navigate }: { data: WeeklyNarrativeResponse; app?: any; navigate?: (data: any) => void }) {
@@ -147,14 +147,14 @@ export function WeeklyNarrativeView({ data, app, navigate }: { data: WeeklyNarra
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Category</TableHeader>
-                  <TableHeader className="text-right">You</TableHeader>
-                  <TableHeader className="hidden sm:table-cell text-right">Opp</TableHeader>
-                  <TableHeader className="text-center">Result</TableHeader>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">You</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Opp</TableHead>
+                  <TableHead className="text-center">Result</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {cats.map(function (c, idx) {
                   return (

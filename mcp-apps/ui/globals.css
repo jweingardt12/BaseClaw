@@ -1,6 +1,7 @@
 @import "tailwindcss";
+@import "@plexui/ui/css";
+@source "../node_modules/@plexui/ui";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));

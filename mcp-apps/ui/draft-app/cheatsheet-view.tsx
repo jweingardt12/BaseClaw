@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { PlayerName } from "../shared/player-name";
 import { AlertTriangle } from "@/shared/icons";

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../catalyst/tabs";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Tabs } from "@plexui/ui/components/Tabs";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, ReferenceLine } from "recharts";
@@ -110,7 +110,7 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
               <p className="text-xs text-muted-foreground mb-1.5">Weakest</p>
               <div className="flex flex-wrap gap-1">
                 {(data.weakest || []).map((s) => (
-                  <Badge key={s} color="red" className="text-xs">{s}</Badge>
+                  <Badge key={s} color="danger" className="text-xs">{s}</Badge>
                 ))}
               </div>
             </CardContent>
@@ -119,22 +119,20 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
       </div>
 
       {/* Batting / Pitching filter */}
-      <Tabs value={catFilter} onValueChange={setCatFilter}>
-        <TabsList>
-          <TabsTrigger value="all">All ({(data.categories || []).length})</TabsTrigger>
-          <TabsTrigger value="batting">Batting ({batting.length})</TabsTrigger>
-          <TabsTrigger value="pitching">Pitching ({pitching.length})</TabsTrigger>
-        </TabsList>
+      <Tabs value={catFilter} onChange={setCatFilter} aria-label="Category filter">
+        <Tabs.Tab value="all">{"All (" + (data.categories || []).length + ")"}</Tabs.Tab>
+        <Tabs.Tab value="batting">{"Batting (" + batting.length + ")"}</Tabs.Tab>
+        <Tabs.Tab value="pitching">{"Pitching (" + pitching.length + ")"}</Tabs.Tab>
       </Tabs>
 
       {/* Chart Tabs */}
       {chartData.length > 0 && (
-        <Tabs value={chartMode} onValueChange={setChartMode}>
-          <TabsList>
-            <TabsTrigger value="radar">Radar</TabsTrigger>
-            <TabsTrigger value="bars">Bars</TabsTrigger>
-          </TabsList>
-          <TabsContent value="radar">
+        <>
+          <Tabs value={chartMode} onChange={setChartMode} aria-label="Chart mode">
+            <Tabs.Tab value="radar">Radar</Tabs.Tab>
+            <Tabs.Tab value="bars">Bars</Tabs.Tab>
+          </Tabs>
+          {chartMode === "radar" && (
             <div className="h-48 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={chartData}>
@@ -145,8 +143,8 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
                 </RadarChart>
               </ResponsiveContainer>
             </div>
-          </TabsContent>
-          <TabsContent value="bars">
+          )}
+          {chartMode === "bars" && (
             <div className="h-48 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData} layout="vertical" margin={{ left: 40, right: 10, top: 5, bottom: 5 }}>
@@ -162,21 +160,21 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </>
       )}
 
       {/* Category Table */}
       <Table>
-        <TableHead>
+        <TableHeader>
           <TableRow>
-            <TableHeader>Category</TableHeader>
-            <TableHeader className="text-right">Value</TableHeader>
-            <TableHeader className="text-center">Rank</TableHeader>
-            <TableHeader className="w-24">Rank Bar</TableHeader>
-            <TableHeader className="hidden sm:table-cell w-20">Strength</TableHeader>
+            <TableHead>Category</TableHead>
+            <TableHead className="text-right">Value</TableHead>
+            <TableHead className="text-center">Rank</TableHead>
+            <TableHead className="w-24">Rank Bar</TableHead>
+            <TableHead className="hidden sm:table-cell w-20">Strength</TableHead>
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {filtered.map((c, i) => (
             <TableRow key={i + "-" + getCatName(c)} className={rankBg(c.rank, c.total)}>
@@ -196,7 +194,7 @@ export function CategoryCheckView({ data }: { data: CategoryCheckData }) {
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 {c.strength === "strong" && <Badge className="text-xs bg-green-600">Strong</Badge>}
-                {c.strength === "weak" && <Badge color="red" className="text-xs">Weak</Badge>}
+                {c.strength === "weak" && <Badge color="danger" className="text-xs">Weak</Badge>}
               </TableCell>
             </TableRow>
           ))}

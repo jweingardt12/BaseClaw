@@ -1,7 +1,7 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { AlertTriangle } from "@/shared/icons";
@@ -28,11 +28,11 @@ interface PuntAdvisorResponse {
   strategy_summary: string;
 }
 
-function recommendationColor(rec: string): "red" | "green" | "zinc" {
+function recommendationColor(rec: string): "danger" | "success" | "secondary" {
   var lower = rec.toLowerCase();
-  if (lower === "punt") return "red";
-  if (lower === "target") return "green";
-  return "zinc";
+  if (lower === "punt") return "danger";
+  if (lower === "target") return "success";
+  return "secondary";
 }
 
 function rankBg(rank: number, total: number): string {
@@ -69,7 +69,7 @@ export function PuntAdvisorView({ data }: { data: PuntAdvisorResponse; app?: any
               <p className="text-xs text-muted-foreground mb-1.5">Punt Candidates</p>
               <div className="flex flex-wrap gap-1">
                 {puntCandidates.map(function (cat) {
-                  return <Badge key={cat} color="red" className="text-xs">{cat}</Badge>;
+                  return <Badge key={cat} color="danger" className="text-xs">{cat}</Badge>;
                 })}
               </div>
             </CardContent>
@@ -91,16 +91,16 @@ export function PuntAdvisorView({ data }: { data: PuntAdvisorResponse; app?: any
 
       {/* Category table */}
       <Table>
-        <TableHead>
+        <TableHeader>
           <TableRow>
-            <TableHeader>Category</TableHeader>
-            <TableHeader className="text-right">Value</TableHeader>
-            <TableHeader className="text-center">Rank</TableHeader>
-            <TableHeader className="text-center">Rec</TableHeader>
-            <TableHeader className="hidden sm:table-cell">Cost</TableHeader>
-            <TableHeader className="hidden sm:table-cell">Reasoning</TableHeader>
+            <TableHead>Category</TableHead>
+            <TableHead className="text-right">Value</TableHead>
+            <TableHead className="text-center">Rank</TableHead>
+            <TableHead className="text-center">Rec</TableHead>
+            <TableHead className="hidden sm:table-cell">Cost</TableHead>
+            <TableHead className="hidden sm:table-cell">Reasoning</TableHead>
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {categories.map(function (c, i) {
             return (

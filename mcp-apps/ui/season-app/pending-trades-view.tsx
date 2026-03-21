@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
-import { AlertDialog } from "../catalyst/alert-dialog";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
+import { Dialog } from "@plexui/ui/components/Dialog";
 import { Subheading } from "../catalyst/heading";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerName } from "../shared/player-name";
@@ -70,7 +70,7 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
         <Subheading className="flex items-center gap-2">
           <ArrowRightLeft size={18} />
           Pending Trades
-          <Badge color="zinc" className="text-xs">{trades.length}</Badge>
+          <Badge color="secondary" className="text-xs">{trades.length}</Badge>
         </Subheading>
         <RefreshButton app={app} toolName="yahoo_pending_trades" navigate={navigate} />
       </div>
@@ -90,7 +90,7 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
                 <span className="text-muted-foreground mx-2">vs</span>
                 {trade.tradee_team_name || trade.tradee_team_key}
               </CardTitle>
-              <Badge color="zinc" className="text-xs">{trade.status}</Badge>
+              <Badge color="secondary" className="text-xs">{trade.status}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -120,11 +120,11 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
             <div className="flex items-center justify-between pt-1">
               <span className="text-xs text-muted-foreground font-mono">{trade.transaction_key}</span>
               <div className="flex gap-2">
-                <Button onClick={() => setConfirmAction({ type: "accept", trade })} disabled={loading}>
+                <Button color="secondary" onClick={() => setConfirmAction({ type: "accept", trade })} disabled={loading}>
                   <Check size={14} className="mr-1" />
                   Accept
                 </Button>
-                <Button color="red" onClick={() => setConfirmAction({ type: "reject", trade })} disabled={loading}>
+                <Button color="danger" onClick={() => setConfirmAction({ type: "reject", trade })} disabled={loading}>
                   <X size={14} className="mr-1" />
                   Reject
                 </Button>
@@ -134,18 +134,22 @@ export function PendingTradesView({ data, app, navigate }: { data: PendingTrades
         </Card>
       ))}
 
-      <AlertDialog
-        open={confirmAction !== null}
-        onClose={() => setConfirmAction(null)}
-        onConfirm={handleAction}
-        title={confirmAction ? (confirmAction.type === "accept" ? "Accept Trade?" : "Reject Trade?") : ""}
-        description={confirmAction ? (
-          confirmAction.type === "accept"
-            ? "Are you sure you want to accept this trade with " + (confirmAction.trade.trader_team_name || "this team") + "?"
-            : "Are you sure you want to reject this trade from " + (confirmAction.trade.trader_team_name || "this team") + "?"
-        ) : ""}
-        confirmLabel={confirmAction ? (confirmAction.type === "accept" ? "Accept" : "Reject") : "Confirm"}
-      />
+      <Dialog open={confirmAction !== null} onOpenChange={function (open) { if (!open) setConfirmAction(null); }}>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>{confirmAction ? (confirmAction.type === "accept" ? "Accept Trade?" : "Reject Trade?") : ""}</Dialog.Title>
+            <Dialog.Description>{confirmAction ? (
+              confirmAction.type === "accept"
+                ? "Are you sure you want to accept this trade with " + (confirmAction.trade.trader_team_name || "this team") + "?"
+                : "Are you sure you want to reject this trade from " + (confirmAction.trade.trader_team_name || "this team") + "?"
+            ) : ""}</Dialog.Description>
+          </Dialog.Header>
+          <Dialog.Footer>
+            <Button variant="ghost" color="secondary" onClick={() => setConfirmAction(null)}>Cancel</Button>
+            <Button color={confirmAction && confirmAction.type === "reject" ? "danger" : "secondary"} onClick={handleAction}>{confirmAction ? (confirmAction.type === "accept" ? "Accept" : "Reject") : "Confirm"}</Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog>
     </div>
   );
 }

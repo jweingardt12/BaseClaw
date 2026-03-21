@@ -1,4 +1,4 @@
-import { Button } from "../catalyst/button";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -50,7 +50,7 @@ export function ActionView({ data, app, navigate }: { data: ActionData; app: any
       <AiInsight recommendation={data.ai_recommendation} />
 
       <div className="flex items-center gap-2">
-        <Button outline onClick={handleBackToRoster}>
+        <Button variant="outline" color="secondary" onClick={handleBackToRoster}>
           <ArrowLeft size={14} className="mr-1" />
           Back to Roster
         </Button>

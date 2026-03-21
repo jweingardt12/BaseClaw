@@ -1,5 +1,5 @@
-import { Badge } from "../catalyst/badge";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 
 import { PlayerName } from "../shared/player-name";
 
@@ -19,13 +19,13 @@ export function RosterView({ data, app, navigate }: { data: MlbRosterData; app?:
     <div className="space-y-3">
       <div className="surface-card overflow-hidden">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader className="w-14 font-bold">#</TableHeader>
-              <TableHeader className="font-bold">Player</TableHeader>
-              <TableHeader className="hidden sm:table-cell font-bold">Position</TableHeader>
+              <TableHead className="w-14 font-bold">#</TableHead>
+              <TableHead className="font-bold">Player</TableHead>
+              <TableHead className="hidden sm:table-cell font-bold">Position</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {(data.players || []).map(function (p) {
               return (
@@ -33,7 +33,7 @@ export function RosterView({ data, app, navigate }: { data: MlbRosterData; app?:
                   <TableCell className="font-mono font-semibold">{p.jersey_number}</TableCell>
                   <TableCell className="font-semibold"><PlayerName name={p.name} app={app} navigate={navigate} context="default" /></TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Badge color="zinc" className="text-xs font-bold">{p.position}</Badge>
+                    <Badge color="secondary" className="text-xs font-bold">{p.position}</Badge>
                   </TableCell>
                 </TableRow>
               );

@@ -1,6 +1,6 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Subheading } from "../catalyst/heading";
 import { mlbHeadshotUrl } from "../shared/mlb-images";
 import { TeamLogo } from "../shared/team-logo";
@@ -32,9 +32,9 @@ function TypeIcon({ type }: { type: string }) {
 }
 
 var typeColors: Record<string, string> = {
-  add: "green",
-  drop: "red",
-  trade: "zinc",
+  add: "success",
+  drop: "danger",
+  trade: "secondary",
 };
 
 function formatDate(dateStr: string): string {
@@ -100,7 +100,7 @@ export function TransactionsView({ data }: { data: TransactionsData }) {
         <div className="flex flex-wrap gap-2 mb-2">
           {typeKeys.map(function (type) {
             return (
-              <Badge key={type} color={typeColors[type] || "zinc"} className="text-xs font-bold">
+              <Badge key={type} color={typeColors[type] || "secondary"} className="text-xs font-bold">
                 {typeCounts[type] + " " + type + (typeCounts[type] === 1 ? "" : "s")}
               </Badge>
             );
@@ -121,13 +121,13 @@ export function TransactionsView({ data }: { data: TransactionsData }) {
               <CardContent className="p-0">
                 <Table>
                   {!hasDateField && (
-                    <TableHead>
+                    <TableHeader>
                       <TableRow>
-                        <TableHeader className="w-24">Type</TableHeader>
-                        <TableHeader>Player</TableHeader>
-                        <TableHeader className="hidden sm:table-cell">Team</TableHeader>
+                        <TableHead className="w-24">Type</TableHead>
+                        <TableHead>Player</TableHead>
+                        <TableHead className="hidden sm:table-cell">Team</TableHead>
                       </TableRow>
-                    </TableHead>
+                    </TableHeader>
                   )}
                   <TableBody>
                     {group.map(function (t, i) {
@@ -136,7 +136,7 @@ export function TransactionsView({ data }: { data: TransactionsData }) {
                           <TableCell className="w-24">
                             <div className="flex items-center gap-1.5">
                               <TypeIcon type={t.type} />
-                              <Badge color={typeColors[t.type] || "zinc"} className="text-xs font-bold">{t.type}</Badge>
+                              <Badge color={typeColors[t.type] || "secondary"} className="text-xs font-bold">{t.type}</Badge>
                             </div>
                           </TableCell>
                           <TableCell>

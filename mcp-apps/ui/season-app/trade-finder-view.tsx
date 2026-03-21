@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { AlertDialog } from "../catalyst/alert-dialog";
+import { Dialog } from "@plexui/ui/components/Dialog";
 import { Subheading } from "../catalyst/heading";
 import { useCallTool } from "../shared/use-call-tool";
 import { RefreshButton } from "../shared/refresh-button";
@@ -100,7 +100,7 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">Weak:</span>
             {data.weak_categories.map((c) => (
-              <Badge key={c} color="red" className="text-xs">{c}</Badge>
+              <Badge key={c} color="danger" className="text-xs">{c}</Badge>
             ))}
           </div>
         )}
@@ -128,14 +128,14 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               {partner.team_name}
-              <Badge color="zinc" className="text-xs">
+              <Badge color="secondary" className="text-xs">
                 Score: {formatFixed(partner.score, 1, "0.0")}
               </Badge>
             </CardTitle>
             <div className="flex items-center gap-1 flex-wrap mt-1">
               <span className="text-xs text-muted-foreground">Complementary:</span>
               {(partner.complementary_categories || []).map((c) => (
-                <Badge key={c} color="zinc" className="text-xs">{c}</Badge>
+                <Badge key={c} color="secondary" className="text-xs">{c}</Badge>
               ))}
             </div>
           </CardHeader>
@@ -164,11 +164,11 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
                   <p className="text-xs text-muted-foreground italic">{pkg.rationale}</p>
                 )}
                 <div className="flex gap-2 pt-1">
-                  <Button outline onClick={() => handleEvaluate(pkg)} disabled={loading}>
+                  <Button variant="outline" color="secondary" onClick={() => handleEvaluate(pkg)} disabled={loading}>
                     <BarChart3 size={14} className="mr-1" />
                     Evaluate
                   </Button>
-                  <Button onClick={() => setProposePkg({ partner, pkg })} disabled={loading}>
+                  <Button color="secondary" onClick={() => setProposePkg({ partner, pkg })} disabled={loading}>
                     <Send size={14} className="mr-1" />
                     Propose
                   </Button>
@@ -179,18 +179,22 @@ export function TradeFinderView({ data, app, navigate }: { data: TradeFinderData
         </Card>
       ))}
 
-      <AlertDialog
-        open={proposePkg !== null}
-        onClose={() => setProposePkg(null)}
-        onConfirm={handlePropose}
-        title="Propose Trade?"
-        description={proposePkg ? (
-          "Send trade proposal to " + proposePkg.partner.team_name + "? "
-          + "Give: " + (proposePkg.pkg.give || []).map((p) => p.name).join(", ")
-          + " — Get: " + (proposePkg.pkg.get || []).map((p) => p.name).join(", ")
-        ) : ""}
-        confirmLabel="Send Proposal"
-      />
+      <Dialog open={proposePkg !== null} onOpenChange={function (open) { if (!open) setProposePkg(null); }}>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>Propose Trade?</Dialog.Title>
+            <Dialog.Description>{proposePkg ? (
+              "Send trade proposal to " + proposePkg.partner.team_name + "? "
+              + "Give: " + (proposePkg.pkg.give || []).map((p) => p.name).join(", ")
+              + " — Get: " + (proposePkg.pkg.get || []).map((p) => p.name).join(", ")
+            ) : ""}</Dialog.Description>
+          </Dialog.Header>
+          <Dialog.Footer>
+            <Button variant="ghost" color="secondary" onClick={() => setProposePkg(null)}>Cancel</Button>
+            <Button color="secondary" onClick={handlePropose}>Send Proposal</Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog>
     </div>
   );
 }

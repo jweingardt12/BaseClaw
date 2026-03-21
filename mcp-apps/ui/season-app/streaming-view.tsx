@@ -1,6 +1,6 @@
-import { Button } from "../catalyst/button";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerCell, OwnershipCell } from "../shared/player-row";
 import { AiInsight } from "../shared/ai-insight";
@@ -59,16 +59,16 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
           </div>
         )}
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader>Pitcher</TableHeader>
-              <TableHeader className="text-center">Games</TableHeader>
-              <TableHeader className="hidden sm:table-cell text-right">Own%</TableHeader>
-              <TableHeader className="text-right">Rec</TableHeader>
-              <TableHeader className="w-16">2-Start</TableHeader>
-              <TableHeader className="w-16"></TableHeader>
+              <TableHead>Pitcher</TableHead>
+              <TableHead className="text-center">Games</TableHead>
+              <TableHead className="hidden sm:table-cell text-right">Own%</TableHead>
+              <TableHead className="text-right">Rec</TableHead>
+              <TableHead className="w-16">2-Start</TableHead>
+              <TableHead className="w-16"></TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {(data.pitchers || []).map((p, i) => (
               <TableRow key={p.player_id} className={i === 0 ? "bg-primary/5" : ""}>
@@ -84,7 +84,7 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
                   {p.two_start && <Zap size={14} className="text-amber-500" />}
                 </TableCell>
                 <TableCell>
-                  <Button onClick={() => handleAdd(p.player_id)}>
+                  <Button color="secondary" onClick={() => handleAdd(p.player_id)}>
                     <UserPlus size={14} />
                   </Button>
                 </TableCell>

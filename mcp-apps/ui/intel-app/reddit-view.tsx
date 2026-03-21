@@ -1,9 +1,9 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
 import { Loader2, MessageSquare, ArrowUp } from "@/shared/icons";
-import { Button } from "../catalyst/button";
+import { Button } from "@plexui/ui/components/Button";
 
 interface RedditPost {
   title: string;
@@ -60,10 +60,10 @@ export function RedditView({ data, app, navigate }: { data: RedditData; app: any
       <div className="flex items-center justify-between">
         <Subheading>{title}</Subheading>
         <div className="flex gap-2">
-          <Button outline onClick={handleRefreshBuzz} disabled={loading}>
+          <Button variant="outline" color="secondary" onClick={handleRefreshBuzz} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buzz"}
           </Button>
-          <Button outline onClick={handleRefreshTrending} disabled={loading}>
+          <Button variant="outline" color="secondary" onClick={handleRefreshTrending} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Trending"}
           </Button>
         </div>
@@ -84,7 +84,7 @@ export function RedditView({ data, app, navigate }: { data: RedditData; app: any
                 </div>
                 <div className="flex-1 min-w-0">
                   {post.flair && (
-                    <Badge color="zinc" className={"text-xs mb-1 " + flairColor(post.flair)}>{post.flair}</Badge>
+                    <Badge color="secondary" className={"text-xs mb-1 " + flairColor(post.flair)}>{post.flair}</Badge>
                   )}
                   <p className="text-sm font-semibold leading-tight">{post.title}</p>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5">

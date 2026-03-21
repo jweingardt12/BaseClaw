@@ -1,5 +1,5 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
@@ -69,19 +69,19 @@ export function LeaguePulseView({ data }: { data: { teams: LeaguePulseTeam[]; ai
 
       <div className="flex gap-2 flex-wrap">
         {mostActive && <Badge className="text-xs bg-sem-success">Most Active: {mostActive.name} ({mostActive.total})</Badge>}
-        {leastActive && <Badge color="zinc" className="text-xs">Least Active: {leastActive.name} ({leastActive.total})</Badge>}
+        {leastActive && <Badge color="secondary" className="text-xs">Least Active: {leastActive.name} ({leastActive.total})</Badge>}
       </div>
 
       <Table>
-        <TableHead>
+        <TableHeader>
           <TableRow>
-            <TableHeader>Team</TableHeader>
-            <TableHeader className="text-right">Moves</TableHeader>
-            <TableHeader className="text-right">Trades</TableHeader>
-            <TableHeader className="text-right">Total</TableHeader>
-            <TableHeader className="hidden sm:table-cell w-24"></TableHeader>
+            <TableHead>Team</TableHead>
+            <TableHead className="text-right">Moves</TableHead>
+            <TableHead className="text-right">Trades</TableHead>
+            <TableHead className="text-right">Total</TableHead>
+            <TableHead className="hidden sm:table-cell w-24"></TableHead>
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {teams.map((t) => {
             var isMyTeam = t.name === MY_TEAM;

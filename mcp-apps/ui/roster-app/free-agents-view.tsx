@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Button } from "../catalyst/button";
-import { Input } from "../catalyst/input";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Tabs, TabsList, TabsTrigger } from "../catalyst/tabs";
-import { AlertDialog } from "../catalyst/alert-dialog";
+import { Button } from "@plexui/ui/components/Button";
+import { Input } from "@plexui/ui/components/Input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Tabs } from "@plexui/ui/components/Tabs";
+import { Dialog } from "@plexui/ui/components/Dialog";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -25,12 +25,14 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
   const { callTool, loading } = useCallTool(app);
   const [searchQuery, setSearchQuery] = useState("");
   const [addTarget, setAddTarget] = useState<PlayerRowData | null>(null);
+  const [activeTab, setActiveTab] = useState(data.pos_type || "B");
   const players = data.players || data.results || [];
   const title = data.type === "search"
     ? "Search Results: " + (data.query || "")
     : "Free Agents (" + (data.pos_type === "P" ? "Pitchers" : "Batters") + ")";
 
   const handleTabChange = async (value: string) => {
+    setActiveTab(value);
     const result = await callTool("yahoo_free_agents", { pos_type: value, count: 20 });
     if (result) {
       navigate(result.structuredContent);
@@ -62,11 +64,9 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
       <AiInsight recommendation={data.ai_recommendation} />
 
       {data.type !== "search" && (
-        <Tabs defaultValue={data.pos_type || "B"} onValueChange={handleTabChange} className="mb-2">
-          <TabsList>
-            <TabsTrigger value="B">Batters</TabsTrigger>
-            <TabsTrigger value="P">Pitchers</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onChange={handleTabChange} aria-label="Player type" className="mb-2">
+          <Tabs.Tab value="B">Batters</Tabs.Tab>
+          <Tabs.Tab value="P">Pitchers</Tabs.Tab>
         </Tabs>
       )}
       <form onSubmit={handleSearch} className="flex gap-2 mb-2">
@@ -75,7 +75,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
           value={searchQuery}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
         />
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" color="secondary" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </form>
@@ -89,16 +89,16 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
           <Text>No players found.</Text>
         ) : (
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader>Player</TableHeader>
-                <TableHeader className="hidden sm:table-cell">Positions</TableHeader>
-                <TableHeader className="hidden md:table-cell text-right">%Start</TableHeader>
-                <TableHeader className="text-right">%Own</TableHeader>
-                <TableHeader className="w-24">Status</TableHeader>
-                <TableHeader className="w-20"></TableHeader>
+                <TableHead>Player</TableHead>
+                <TableHead className="hidden sm:table-cell">Positions</TableHead>
+                <TableHead className="hidden md:table-cell text-right">%Start</TableHead>
+                <TableHead className="text-right">%Own</TableHead>
+                <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {players.map((p) => (
                 <PlayerRow
@@ -110,7 +110,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                   context="free-agents"
                   colSpan={6}
                   actions={
-                    <Button onClick={() => setAddTarget(p)} className="font-bold px-3">
+                    <Button color="secondary" onClick={() => setAddTarget(p)} className="font-bold px-3">
                       <UserPlus size={14} className="mr-1" />
                       ADD
                     </Button>
@@ -122,15 +122,21 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
         )}
       </div>
       <Text className="mt-2">{players.length + " players"}</Text>
-      <AlertDialog
-        open={addTarget !== null}
-        onClose={() => setAddTarget(null)}
-        onConfirm={handleAdd}
-        title="Add Player"
-        description={"Add " + (addTarget ? addTarget.name : "") + " to your roster?"}
-        confirmLabel="Add"
-        loading={loading}
-      />
+      <Dialog open={addTarget !== null} onOpenChange={(open) => { if (!open) setAddTarget(null); }}>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>Add Player</Dialog.Title>
+            <Dialog.Description>{"Add " + (addTarget ? addTarget.name : "") + " to your roster?"}</Dialog.Description>
+          </Dialog.Header>
+          <Dialog.Footer>
+            <Button variant="ghost" color="secondary" onClick={() => setAddTarget(null)} disabled={loading}>Cancel</Button>
+            <Button color="secondary" onClick={handleAdd} disabled={loading}>
+              {loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Add
+            </Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog>
     </div>
   );
 }

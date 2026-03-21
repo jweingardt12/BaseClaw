@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -85,7 +85,7 @@ export function ScoutView({ data, app, navigate }: { data: ScoutOpponentData; ap
           <Subheading>Opponent Scout Report</Subheading>
         </div>
         {app && (
-          <Button outline onClick={handleRefresh} disabled={loading} className="h-8 text-xs gap-1">
+          <Button variant="outline" color="secondary" onClick={handleRefresh} disabled={loading} className="h-8 text-xs gap-1">
             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Refresh
           </Button>
@@ -131,15 +131,15 @@ export function ScoutView({ data, app, navigate }: { data: ScoutOpponentData; ap
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader>Category</TableHeader>
-                <TableHeader className="text-right">You</TableHeader>
-                <TableHeader className="text-right">Opp</TableHeader>
-                <TableHeader className="text-center">Status</TableHeader>
-                <TableHeader className="text-center hidden sm:table-cell">Margin</TableHeader>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">You</TableHead>
+                <TableHead className="text-right">Opp</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center hidden sm:table-cell">Margin</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {(d.categories || []).map((c, i) => (
                 <TableRow key={i + "-" + c.name} className={rowBg(c.result, c.margin)}>
@@ -152,9 +152,9 @@ export function ScoutView({ data, app, navigate }: { data: ScoutOpponentData; ap
                     {c.result === "tie" && <span className="text-xs text-sem-warning font-medium">TIE</span>}
                   </TableCell>
                   <TableCell className="text-center hidden sm:table-cell">
-                    {c.margin === "close" && <Badge color="zinc" className="text-xs border-yellow-500 text-sem-warning">Close</Badge>}
-                    {c.margin === "comfortable" && <Badge color="zinc" className="text-xs">Comf.</Badge>}
-                    {c.margin === "dominant" && <Badge color="zinc" className="text-xs border-red-500 text-sem-risk">Dom.</Badge>}
+                    {c.margin === "close" && <Badge color="secondary" className="text-xs border-yellow-500 text-sem-warning">Close</Badge>}
+                    {c.margin === "comfortable" && <Badge color="secondary" className="text-xs">Comf.</Badge>}
+                    {c.margin === "dominant" && <Badge color="secondary" className="text-xs border-red-500 text-sem-risk">Dom.</Badge>}
                   </TableCell>
                 </TableRow>
               ))}
@@ -174,7 +174,7 @@ export function ScoutView({ data, app, navigate }: { data: ScoutOpponentData; ap
               </div>
               <div className="flex flex-wrap gap-1">
                 {(d.opp_strengths || []).map((s) => (
-                  <Badge key={s} color="red" className="text-xs">{s}</Badge>
+                  <Badge key={s} color="danger" className="text-xs">{s}</Badge>
                 ))}
               </div>
             </CardContent>

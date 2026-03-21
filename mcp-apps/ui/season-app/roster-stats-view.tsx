@@ -1,6 +1,6 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { cn } from "../lib/utils";
 import { EmptyState } from "../shared/empty-state";
 import { formatFixed } from "../shared/number-format";
@@ -55,15 +55,15 @@ function formatStat(value: string | number | undefined): string {
 function StatsTable({ players, statColumns, app, navigate }: { players: RosterStatsPlayer[]; statColumns: string[]; app?: any; navigate?: (data: any) => void }) {
   return (
     <Table>
-      <TableHead>
+      <TableHeader>
         <TableRow>
-          <TableHeader>Name</TableHeader>
-          <TableHeader>Pos</TableHeader>
+          <TableHead>Name</TableHead>
+          <TableHead>Pos</TableHead>
           {statColumns.map(function (stat) {
-            return <TableHeader key={stat} className={cn("text-right", HIDE_ON_MOBILE[stat] && "hidden sm:table-cell")}>{stat}</TableHeader>;
+            return <TableHead key={stat} className={cn("text-right", HIDE_ON_MOBILE[stat] && "hidden sm:table-cell")}>{stat}</TableHead>;
           })}
         </TableRow>
-      </TableHead>
+      </TableHeader>
       <TableBody>
         {players.map(function (p, i) {
           return (
@@ -72,7 +72,7 @@ function StatsTable({ players, statColumns, app, navigate }: { players: RosterSt
                 <PlayerName name={p.name} playerId={p.player_id} mlbId={p.mlb_id} app={app} navigate={navigate} context="roster" />
               </TableCell>
               <TableCell>
-                <Badge color="zinc" className="text-xs">{p.position}</Badge>
+                <Badge color="secondary" className="text-xs">{p.position}</Badge>
               </TableCell>
               {statColumns.map(function (stat) {
                 return (

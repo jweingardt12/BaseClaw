@@ -1,9 +1,9 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
 import { TeamLogo } from "../shared/team-logo";
-import { Button } from "../catalyst/button";
+import { Button } from "@plexui/ui/components/Button";
 import { Loader2 } from "@/shared/icons";
 
 interface Transaction {
@@ -59,9 +59,9 @@ export function TransactionsView({ data, app, navigate }: { data: TransactionsDa
           <Text>{"Last " + (data.days || 7) + " days"}</Text>
         </div>
         <div className="flex gap-1">
-          <Button outline onClick={function() { handleRefresh(3); }} disabled={loading}>3d</Button>
-          <Button outline onClick={function() { handleRefresh(7); }} disabled={loading}>7d</Button>
-          <Button outline onClick={function() { handleRefresh(14); }} disabled={loading}>14d</Button>
+          <Button variant="outline" color="secondary" onClick={function() { handleRefresh(3); }} disabled={loading}>3d</Button>
+          <Button variant="outline" color="secondary" onClick={function() { handleRefresh(7); }} disabled={loading}>7d</Button>
+          <Button variant="outline" color="secondary" onClick={function() { handleRefresh(14); }} disabled={loading}>14d</Button>
         </div>
       </div>
 
@@ -83,7 +83,7 @@ export function TransactionsView({ data, app, navigate }: { data: TransactionsDa
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <Badge color="zinc" className={"text-xs " + typeColor(t.type)}>{t.type}</Badge>
+                      <Badge color="secondary" className={"text-xs " + typeColor(t.type)}>{t.type}</Badge>
                       <span className="text-xs text-muted-foreground">{t.team || ""}</span>
                     </div>
                     <p className="text-sm font-semibold truncate">{t.player}</p>

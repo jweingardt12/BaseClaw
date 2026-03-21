@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Button } from "../catalyst/button";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { AlertDialog } from "../catalyst/alert-dialog";
+import { Button } from "@plexui/ui/components/Button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Dialog } from "@plexui/ui/components/Dialog";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -49,19 +49,19 @@ export function RosterView({ data, app, navigate }: { data: { players: PlayerRow
           </div>
         )}
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader className="w-14">Pos</TableHeader>
-              <TableHeader>Player</TableHeader>
-              <TableHeader className="hidden sm:table-cell">Opp</TableHeader>
-              <TableHeader className="hidden sm:table-cell text-right">Pre ADP</TableHeader>
-              <TableHeader className="hidden md:table-cell text-right">Cur ADP</TableHeader>
-              <TableHeader className="hidden md:table-cell text-right">%Start</TableHeader>
-              <TableHeader className="text-right">%Own</TableHeader>
-              <TableHeader className="w-24">Status</TableHeader>
-              <TableHeader className="w-16"></TableHeader>
+              <TableHead className="w-14">Pos</TableHead>
+              <TableHead>Player</TableHead>
+              <TableHead className="hidden sm:table-cell">Opp</TableHead>
+              <TableHead className="hidden sm:table-cell text-right">Pre ADP</TableHead>
+              <TableHead className="hidden md:table-cell text-right">Cur ADP</TableHead>
+              <TableHead className="hidden md:table-cell text-right">%Start</TableHead>
+              <TableHead className="text-right">%Own</TableHead>
+              <TableHead className="w-24">Status</TableHead>
+              <TableHead className="w-16"></TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {players.map((p) => (
               <PlayerRow
@@ -74,7 +74,7 @@ export function RosterView({ data, app, navigate }: { data: { players: PlayerRow
                 colSpan={9}
                 actions={
                   p.player_id ? (
-                    <Button color="red" onClick={() => setDropTarget(p)}>
+                    <Button color="danger" onClick={() => setDropTarget(p)}>
                       <UserMinus size={14} />
                     </Button>
                   ) : undefined
@@ -85,16 +85,21 @@ export function RosterView({ data, app, navigate }: { data: { players: PlayerRow
         </Table>
       </div>
       <Text className="mt-2">{players.length + " players"}</Text>
-      <AlertDialog
-        open={dropTarget !== null}
-        onClose={() => setDropTarget(null)}
-        onConfirm={handleDrop}
-        title="Drop Player"
-        description={"Are you sure you want to drop " + (dropTarget ? dropTarget.name : "") + "?"}
-        variant="destructive"
-        confirmLabel="Drop"
-        loading={loading}
-      />
+      <Dialog open={dropTarget !== null} onOpenChange={(open) => { if (!open) setDropTarget(null); }}>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>Drop Player</Dialog.Title>
+            <Dialog.Description>{"Are you sure you want to drop " + (dropTarget ? dropTarget.name : "") + "?"}</Dialog.Description>
+          </Dialog.Header>
+          <Dialog.Footer>
+            <Button variant="ghost" color="secondary" onClick={() => setDropTarget(null)} disabled={loading}>Cancel</Button>
+            <Button color="danger" onClick={handleDrop} disabled={loading}>
+              {loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Drop
+            </Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog>
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { RefreshButton } from "../shared/refresh-button";
 import { PlayerName } from "../shared/player-name";
@@ -105,19 +105,19 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <AlertTriangle size={14} className="text-destructive" />
               Injuries
-              <Badge color="red" className="text-xs">{data.injuries.length}</Badge>
+              <Badge color="danger" className="text-xs">{data.injuries.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader>Pos</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Section</TableHeader>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Pos</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Section</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(data.injuries || []).map((p, i) => (
                   <TableRow key={i}>
@@ -125,10 +125,10 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
                       <PlayerName name={p.name} app={app} navigate={navigate} context="roster" />
                     </TableCell>
                     <TableCell>
-                      <Badge color="zinc" className="text-xs">{p.position}</Badge>
+                      <Badge color="secondary" className="text-xs">{p.position}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge color="red" className="text-xs">{p.status}</Badge>
+                      <Badge color="danger" className="text-xs">{p.status}</Badge>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{p.section}</TableCell>
                   </TableRow>
@@ -146,14 +146,14 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <ArrowRightLeft size={14} />
               Pending Trades
-              <Badge color="zinc" className="text-xs">{data.pending_trades.length}</Badge>
+              <Badge color="secondary" className="text-xs">{data.pending_trades.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-2">
               {data.pending_trades.length + " trade proposal" + (data.pending_trades.length > 1 ? "s" : "") + " pending"}
             </p>
-            <Button outline onClick={handleViewTrades} disabled={loading}>
+            <Button variant="outline" color="secondary" onClick={handleViewTrades} disabled={loading}>
               Review Trades
             </Button>
           </CardContent>
@@ -167,18 +167,18 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <Activity size={14} />
               League Activity
-              <Badge color="zinc" className="text-xs">{data.league_activity.length}</Badge>
+              <Badge color="secondary" className="text-xs">{data.league_activity.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader className="w-16">Type</TableHeader>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader>Team</TableHeader>
+                  <TableHead className="w-16">Type</TableHead>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Team</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {data.league_activity.slice(0, 10).map((a, i) => (
                   <TableRow key={i}>
@@ -204,19 +204,19 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp size={14} />
               Trending Pickups
-              <Badge color="zinc" className="text-xs">{data.trending.length}</Badge>
+              <Badge color="secondary" className="text-xs">{data.trending.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader className="text-right">Own%</TableHeader>
-                  <TableHeader className="text-right">Trend</TableHeader>
-                  <TableHeader className="w-12"></TableHeader>
+                  <TableHead>Player</TableHead>
+                  <TableHead className="text-right">Own%</TableHead>
+                  <TableHead className="text-right">Trend</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {data.trending.slice(0, 10).map((t, i) => (
                   <TableRow key={i} className={i < 3 ? "bg-sem-success-subtle" : ""}>
@@ -228,7 +228,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
                       <TrendIndicator trend={{ direction: t.direction || "added", delta: t.delta }} />
                     </TableCell>
                     <TableCell>
-                      <Button plain onClick={() => handleAdd(t.name)} disabled={loading} title="Add player">
+                      <Button variant="ghost" color="secondary" onClick={() => handleAdd(t.name)} disabled={loading} title="Add player">
                         <UserPlus size={14} />
                       </Button>
                     </TableCell>
@@ -247,18 +247,18 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
             <CardTitle className="text-sm flex items-center gap-2">
               <Star size={14} />
               Prospect Call-Ups
-              <Badge color="zinc" className="text-xs">{data.prospects.length}</Badge>
+              <Badge color="secondary" className="text-xs">{data.prospects.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader>Type</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Team</TableHeader>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="hidden sm:table-cell">Team</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(data.prospects || []).map((p, i) => (
                   <TableRow key={i}>
@@ -266,7 +266,7 @@ export function WhatsNewView({ data, app, navigate }: { data: WhatsNewData; app:
                       <PlayerName name={p.player} app={app} navigate={navigate} context="waivers" />
                     </TableCell>
                     <TableCell>
-                      <Badge color="zinc" className="text-xs">{p.type}</Badge>
+                      <Badge color="secondary" className="text-xs">{p.type}</Badge>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">

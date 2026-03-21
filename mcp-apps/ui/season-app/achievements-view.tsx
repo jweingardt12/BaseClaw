@@ -1,5 +1,5 @@
 import { Card, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { EmptyState } from "../shared/empty-state";
@@ -47,7 +47,7 @@ export function AchievementsView({ data, app, navigate }: { data: AchievementsRe
       {/* Team Info */}
       <div className="flex items-center justify-between">
         <p className="font-semibold">{data.team_name}</p>
-        {data.record && <Badge color="zinc" className="text-xs">{data.record}</Badge>}
+        {data.record && <Badge color="secondary" className="text-xs">{data.record}</Badge>}
       </div>
 
       {/* Earned Achievements */}

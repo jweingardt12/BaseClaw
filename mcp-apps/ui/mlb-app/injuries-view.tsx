@@ -1,5 +1,5 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
 
 import { TeamLogo } from "../shared/team-logo";
 
@@ -24,13 +24,13 @@ export function InjuriesView({ data }: { data: { injuries: MlbInjury[] } }) {
     <div className="space-y-3">
       <div className="surface-card overflow-hidden">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader className="font-bold">Player</TableHeader>
-              <TableHeader className="font-bold">Team</TableHeader>
-              <TableHeader className="hidden sm:table-cell font-bold">Description</TableHeader>
+              <TableHead className="font-bold">Player</TableHead>
+              <TableHead className="font-bold">Team</TableHead>
+              <TableHead className="hidden sm:table-cell font-bold">Description</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {(data.injuries || []).map(function (inj, i) {
               return (
@@ -39,7 +39,7 @@ export function InjuriesView({ data }: { data: { injuries: MlbInjury[] } }) {
                   <TableCell>
                     <span className="flex items-center gap-1">
                       <TeamLogo name={inj.team} />
-                      <Badge color="zinc" className="text-xs font-bold">{inj.team}</Badge>
+                      <Badge color="secondary" className="text-xs font-bold">{inj.team}</Badge>
                     </span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{inj.description}</TableCell>

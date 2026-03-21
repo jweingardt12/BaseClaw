@@ -1,7 +1,7 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { AiInsight } from "../shared/ai-insight";
 import { EmptyState } from "../shared/empty-state";
 import { KpiTile } from "../shared/kpi-tile";
@@ -42,12 +42,12 @@ interface ILStashAdvisorResponse {
   summary: string;
 }
 
-function recColor(rec: string): "green" | "amber" | "red" | "zinc" {
+function recColor(rec: string): "success" | "warning" | "danger" | "secondary" {
   var lower = rec.toLowerCase();
-  if (lower === "stash" || lower === "hold" || lower === "keep") return "green";
-  if (lower === "monitor" || lower === "watch") return "amber";
-  if (lower === "drop" || lower === "cut") return "red";
-  return "zinc";
+  if (lower === "stash" || lower === "hold" || lower === "keep") return "success";
+  if (lower === "monitor" || lower === "watch") return "warning";
+  if (lower === "drop" || lower === "cut") return "danger";
+  return "secondary";
 }
 
 function tierColor(tier: string): string {
@@ -83,16 +83,16 @@ export function ILStashAdvisorView({ data, app, navigate }: { data: ILStashAdvis
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader className="w-14">Pos</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Status</TableHeader>
-                  <TableHeader className="text-right">Z-Score</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Tier</TableHeader>
-                  <TableHeader className="text-center">Rec</TableHeader>
+                  <TableHead>Player</TableHead>
+                  <TableHead className="w-14">Pos</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="text-right">Z-Score</TableHead>
+                  <TableHead className="hidden sm:table-cell">Tier</TableHead>
+                  <TableHead className="text-center">Rec</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {yourPlayers.map(function (p, i) {
                   return (
@@ -106,10 +106,10 @@ export function ILStashAdvisorView({ data, app, navigate }: { data: ILStashAdvis
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge color="zinc" className="text-xs">{p.position}</Badge>
+                        <Badge color="secondary" className="text-xs">{p.position}</Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <Badge color="red" className="text-xs">{p.status}</Badge>
+                        <Badge color="danger" className="text-xs">{p.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatFixed(p.z_score, 2, "0.00")}</TableCell>
                       <TableCell className={"hidden sm:table-cell text-xs font-medium " + tierColor(p.tier)}>{p.tier}</TableCell>
@@ -133,17 +133,17 @@ export function ILStashAdvisorView({ data, app, navigate }: { data: ILStashAdvis
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader className="w-14">Pos</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Status</TableHeader>
-                  <TableHeader className="text-right">Z-Score</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Tier</TableHeader>
-                  <TableHeader className="text-right">Own%</TableHeader>
-                  <TableHeader className="text-center">Rec</TableHeader>
+                  <TableHead>Player</TableHead>
+                  <TableHead className="w-14">Pos</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="text-right">Z-Score</TableHead>
+                  <TableHead className="hidden sm:table-cell">Tier</TableHead>
+                  <TableHead className="text-right">Own%</TableHead>
+                  <TableHead className="text-center">Rec</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {candidates.map(function (p, i) {
                   return (
@@ -157,10 +157,10 @@ export function ILStashAdvisorView({ data, app, navigate }: { data: ILStashAdvis
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge color="zinc" className="text-xs">{p.position}</Badge>
+                        <Badge color="secondary" className="text-xs">{p.position}</Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <Badge color="red" className="text-xs">{p.status}</Badge>
+                        <Badge color="danger" className="text-xs">{p.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatFixed(p.z_score, 2, "0.00")}</TableCell>
                       <TableCell className={"hidden sm:table-cell text-xs font-medium " + tierColor(p.tier)}>{p.tier}</TableCell>

@@ -1,4 +1,4 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
 import { AiInsight } from "../shared/ai-insight";
@@ -70,7 +70,7 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
           <Card key={i} className={improvement > 0 ? "border-green-500/20" : ""}>
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-2">
-                <Badge color="zinc" className="text-xs">Move #{move.rank || i + 1}</Badge>
+                <Badge color="secondary" className="text-xs">Move #{move.rank || i + 1}</Badge>
                 <Badge className={improvement > 0 ? "bg-sem-success text-xs" : "bg-sem-risk text-xs"}>
                   {signedZ(improvement)} Z
                 </Badge>
@@ -83,7 +83,7 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
                   <p className="text-xs text-muted-foreground mb-0.5">Drop</p>
                   <div className="flex items-center gap-1.5">
                     <PlayerName name={move.drop.name} playerId={move.drop.player_id} app={app} navigate={navigate} context="optimal-moves" />
-                    <Badge color="zinc" className="text-xs shrink-0">{move.drop.pos}</Badge>
+                    <Badge color="secondary" className="text-xs shrink-0">{move.drop.pos}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono">
                     z={formatFixed(move.drop.z_score, 2, "0.00")}
@@ -98,7 +98,7 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
                   <p className="text-xs text-muted-foreground mb-0.5">Add</p>
                   <div className="flex items-center gap-1.5">
                     <PlayerName name={move.add.name} playerId={move.add.player_id} app={app} navigate={navigate} context="optimal-moves" />
-                    <Badge color="zinc" className="text-xs shrink-0">{move.add.pos}</Badge>
+                    <Badge color="secondary" className="text-xs shrink-0">{move.add.pos}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono">
                     z={formatFixed(move.add.z_score, 2, "0.00")}
@@ -111,10 +111,10 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
               {(gained.length > 0 || lost.length > 0) && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {gained.map(function (cat) {
-                    return <Badge key={"g-" + cat} color="green" className="text-xs">{cat}</Badge>;
+                    return <Badge key={"g-" + cat} color="success" className="text-xs">{cat}</Badge>;
                   })}
                   {lost.map(function (cat) {
-                    return <Badge key={"l-" + cat} color="red" className="text-xs">{cat}</Badge>;
+                    return <Badge key={"l-" + cat} color="danger" className="text-xs">{cat}</Badge>;
                   })}
                 </div>
               )}

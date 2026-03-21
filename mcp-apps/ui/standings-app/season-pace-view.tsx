@@ -1,5 +1,5 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Progress } from "../catalyst/progress";
 import { Info } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
@@ -35,8 +35,8 @@ interface SeasonPaceData {
 function StatusBadge({ status }: { status: string }) {
   if (status === "in") return <Badge className="text-xs bg-sem-success">In</Badge>;
   if (status === "bubble") return <Badge className="text-xs bg-sem-warning">Bubble</Badge>;
-  if (status === "out") return <Badge color="red" className="text-xs">Out</Badge>;
-  return <Badge color="zinc" className="text-xs">{status}</Badge>;
+  if (status === "out") return <Badge color="danger" className="text-xs">Out</Badge>;
+  return <Badge color="secondary" className="text-xs">{status}</Badge>;
 }
 
 export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
@@ -59,8 +59,8 @@ export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
       </div>
 
       <div className="flex items-center gap-2">
-        <Badge color="zinc" className="text-xs">Week {data.current_week}/{data.end_week}</Badge>
-        <Badge color="zinc" className="text-xs">{data.playoff_teams} playoff spots</Badge>
+        <Badge color="secondary" className="text-xs">Week {data.current_week}/{data.end_week}</Badge>
+        <Badge color="secondary" className="text-xs">{data.playoff_teams} playoff spots</Badge>
       </div>
 
       <div className="space-y-1">
@@ -72,22 +72,22 @@ export function SeasonPaceView({ data }: { data: SeasonPaceData }) {
       </div>
 
       <Table>
-        <TableHead>
+        <TableHeader>
           <TableRow>
-            <TableHeader className="w-10">#</TableHeader>
-            <TableHeader>Team</TableHeader>
-            <TableHeader className="text-center">Record</TableHeader>
-            <TableHeader className="text-right hidden sm:table-cell">Win%</TableHeader>
-            <TableHeader className="text-right">Proj W</TableHeader>
-            <TableHeader className="text-right hidden sm:table-cell">
+            <TableHead className="w-10">#</TableHead>
+            <TableHead>Team</TableHead>
+            <TableHead className="text-center">Record</TableHead>
+            <TableHead className="text-right hidden sm:table-cell">Win%</TableHead>
+            <TableHead className="text-right">Proj W</TableHead>
+            <TableHead className="text-right hidden sm:table-cell">
               <span className="flex items-center gap-1 justify-end cursor-help" title="Wins needed to clinch a playoff spot, assuming the team on the bubble wins out.">
                 Magic#
                 <Info size={12} />
               </span>
-            </TableHeader>
-            <TableHeader className="text-center">Status</TableHeader>
+            </TableHead>
+            <TableHead className="text-center">Status</TableHead>
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {teams.map((t, idx) => {
             var showPlayoffLine = t.rank === data.playoff_teams && idx < teams.length - 1;

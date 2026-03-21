@@ -6,7 +6,7 @@ import { PlayerName } from "../shared/player-name";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { VerdictBadge } from "../shared/verdict-badge";
-import { Button } from "../catalyst/button";
+import { Button } from "@plexui/ui/components/Button";
 import { Copy, Check } from "@/shared/icons";
 import { Subheading } from "../catalyst/heading";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
@@ -57,7 +57,7 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
               </p>
               <div className="flex items-center gap-2 mt-1">
                 <IntelBadge intel={data} size="md" />
-                <Button plain className="h-8 w-8 p-0" onClick={handleCopy}>
+                <Button variant="ghost" color="secondary" className="h-8 w-8 p-0" onClick={handleCopy}>
                   {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                 </Button>
               </div>

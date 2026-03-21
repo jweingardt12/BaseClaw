@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [preact()],
   resolve: {
+    extensions: [".mjs", ".js", ".mts", ".ts", ".jsx", ".tsx", ".json"],
     alias: {
       "@": path.resolve(__dirname, "ui"),
       react: "preact/compat",

@@ -1,4 +1,4 @@
-import clsx from 'clsx'
+import { cn } from '../lib/utils'
 import { forwardRef } from 'react'
 
 interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -13,11 +13,11 @@ export var Progress = forwardRef<HTMLDivElement, ProgressProps>(
     return (
       <div
         ref={ref}
-        className={clsx('relative h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800', className)}
+        className={cn('relative h-2 w-full overflow-hidden rounded-full bg-muted', className)}
         {...props}
       >
         <div
-          className={clsx('h-full rounded-full bg-blue-500 transition-all duration-500 ease-out', indicatorClassName)}
+          className={cn('h-full rounded-full bg-primary transition-all duration-500 ease-out', indicatorClassName)}
           style={{ width: pct + '%' }}
         />
       </div>

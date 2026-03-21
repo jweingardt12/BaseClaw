@@ -1,7 +1,7 @@
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
@@ -75,11 +75,11 @@ export function PastStandingsView({ data, app, navigate }: { data: PastStandings
   return (
     <div className="space-y-3 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
-        <Button outline disabled={data.year <= 2011 || loading} onClick={() => changeYear(data.year - 1)}>
+        <Button variant="outline" color="secondary" disabled={data.year <= 2011 || loading} onClick={() => changeYear(data.year - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="flex-1 text-center text-sm font-bold">{"Standings - " + data.year}</span>
-        <Button outline disabled={data.year >= 2026 || loading} onClick={() => changeYear(data.year + 1)}>
+        <Button variant="outline" color="secondary" disabled={data.year >= 2026 || loading} onClick={() => changeYear(data.year + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -91,21 +91,21 @@ export function PastStandingsView({ data, app, navigate }: { data: PastStandings
         )}
         <div className="surface-card overflow-hidden">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader className="w-12 font-bold">#</TableHeader>
-                <TableHeader className="font-bold">Team</TableHeader>
-                <TableHeader className="hidden sm:table-cell font-bold">Manager</TableHeader>
-                <TableHeader className="text-center font-bold">Record</TableHeader>
+                <TableHead className="w-12 font-bold">#</TableHead>
+                <TableHead className="font-bold">Team</TableHead>
+                <TableHead className="hidden sm:table-cell font-bold">Manager</TableHead>
+                <TableHead className="text-center font-bold">Record</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {(data.standings || []).map(function (s) {
                 return (
                   <TableRow key={s.rank}>
                     <TableCell>
                       <span className="flex items-center gap-1">
-                        <Badge color={s.rank <= 3 ? undefined : "zinc"} className="text-xs font-bold">{s.rank}</Badge>
+                        <Badge color={s.rank <= 3 ? "primary" : "secondary"} className="text-xs font-bold">{s.rank}</Badge>
                         {s.rank <= 3 && <Trophy size={14} className="text-amber-500" />}
                       </span>
                     </TableCell>

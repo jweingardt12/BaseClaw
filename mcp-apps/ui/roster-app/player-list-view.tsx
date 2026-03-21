@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from "react";
-import { Button } from "../catalyst/button";
-import { Input } from "../catalyst/input";
-import { Badge } from "../catalyst/badge";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { AlertDialog } from "../catalyst/alert-dialog";
+import { Button } from "@plexui/ui/components/Button";
+import { Input } from "@plexui/ui/components/Input";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Dialog } from "@plexui/ui/components/Dialog";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -125,7 +125,8 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
           return (
             <Button
               key={pos}
-              outline={!isActive}
+              variant={isActive ? "solid" : "outline"}
+              color="secondary"
               className={"text-xs px-2 py-1 h-7" + (isActive ? "" : " text-muted-foreground")}
               onClick={function () { handlePositionChange(pos); }}
               disabled={loading}
@@ -143,7 +144,7 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
           value={searchQuery}
           onChange={function (e: React.ChangeEvent<HTMLInputElement>) { setSearchQuery(e.target.value); }}
         />
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" color="secondary" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </form>
@@ -160,36 +161,36 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
         ) : (
           <div className="overflow-x-auto">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
                   <SortableHead col="name" label="Player" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                  <TableHeader className="hidden sm:table-cell">Pos</TableHeader>
+                  <TableHead className="hidden sm:table-cell">Pos</TableHead>
                   <SortableHead col="opponent" label="Opp" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
-                  <TableHeader className="hidden lg:table-cell text-right">
+                  <TableHead className="hidden lg:table-cell text-right">
                     <span className="cursor-pointer select-none" onClick={function () { handleSort("preseason_pick"); }}>
                       Pre ADP{sortCol === "preseason_pick" ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
                     </span>
-                  </TableHeader>
-                  <TableHeader className="hidden lg:table-cell text-right">
+                  </TableHead>
+                  <TableHead className="hidden lg:table-cell text-right">
                     <span className="cursor-pointer select-none" onClick={function () { handleSort("current_pick"); }}>
                       Curr ADP{sortCol === "current_pick" ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
                     </span>
-                  </TableHeader>
+                  </TableHead>
                   <SortableHead col="percent_owned" label="%Own" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead col="percent_started" label="%Start" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell text-right" />
                   {statKeys.map(function (key) {
                     return (
-                      <TableHeader key={key} className="hidden lg:table-cell text-right font-mono text-xs">
+                      <TableHead key={key} className="hidden lg:table-cell text-right font-mono text-xs">
                         <span className="cursor-pointer select-none" onClick={function () { handleSort("stat_" + key); }}>
                           {key}{sortCol === "stat_" + key ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
                         </span>
-                      </TableHeader>
+                      </TableHead>
                     );
                   })}
-                  <TableHeader className="w-12">Status</TableHeader>
-                  <TableHeader className="w-20"></TableHeader>
+                  <TableHead className="w-12">Status</TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {players.map(function (p) {
                   var posDisplay = "";
@@ -208,7 +209,7 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
                           {p.team && <img src={"https://www.mlbstatic.com/team-logos/" + getTeamId(p.team) + ".svg"} alt="" className="w-4 h-4" onError={function (e: any) { e.target.style.display = "none"; }} />}
                           <span className="truncate text-sm">{p.name}</span>
                           {p.intel && (p.intel as any).trends && (p.intel as any).trends.hot_cold === "hot" && (
-                            <Badge color="red" className="text-[10px] px-1 py-0 h-4">HOT</Badge>
+                            <Badge color="danger" className="text-[10px] px-1 py-0 h-4">HOT</Badge>
                           )}
                         </span>
                       </TableCell>
@@ -216,7 +217,7 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
                         <div className="flex gap-0.5 flex-wrap">
                           {posDisplay.split(",").map(function (pos) {
                             var trimmed = pos.trim();
-                            return trimmed ? <Badge key={trimmed} color="zinc" className="text-[10px] px-1 py-0">{trimmed}</Badge> : null;
+                            return trimmed ? <Badge key={trimmed} color="secondary" className="text-[10px] px-1 py-0">{trimmed}</Badge> : null;
                           })}
                         </div>
                       </TableCell>
@@ -245,14 +246,14 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
                       })}
                       <TableCell>
                         {p.status && p.status !== "Healthy" ? (
-                          <Badge color="red" className="text-[10px] px-1">{p.status}</Badge>
+                          <Badge color="danger" className="text-[10px] px-1">{p.status}</Badge>
                         ) : isRostered ? (
-                          <Badge color="zinc" className="text-[10px] px-1">Rostered</Badge>
+                          <Badge color="secondary" className="text-[10px] px-1">Rostered</Badge>
                         ) : null}
                       </TableCell>
                       <TableCell>
                         {!isRostered && (
-                          <Button className="h-6 text-xs px-2" onClick={function () { setAddTarget(p); }}>
+                          <Button color="secondary" className="h-6 text-xs px-2" onClick={function () { setAddTarget(p); }}>
                             <UserPlus size={12} className="mr-1" />
                             Add
                           </Button>
@@ -271,22 +272,28 @@ export function PlayerListView({ data, app, navigate }: { data: PlayerListData; 
       <div className="flex items-center justify-between">
         <Text>{players.length + " players"}</Text>
         {!isSearchResult && players.length >= 20 && (
-          <Button outline onClick={handleLoadMore} disabled={loading}>
+          <Button variant="outline" color="secondary" onClick={handleLoadMore} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
             Load More
           </Button>
         )}
       </div>
 
-      <AlertDialog
-        open={addTarget !== null}
-        onClose={function () { setAddTarget(null); }}
-        onConfirm={handleAdd}
-        title="Add Player"
-        description={"Add " + (addTarget ? addTarget.name : "") + " to your roster?"}
-        confirmLabel="Add"
-        loading={loading}
-      />
+      <Dialog open={addTarget !== null} onOpenChange={function (open) { if (!open) setAddTarget(null); }}>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>Add Player</Dialog.Title>
+            <Dialog.Description>{"Add " + (addTarget ? addTarget.name : "") + " to your roster?"}</Dialog.Description>
+          </Dialog.Header>
+          <Dialog.Footer>
+            <Button variant="ghost" color="secondary" onClick={function () { setAddTarget(null); }} disabled={loading}>Cancel</Button>
+            <Button color="secondary" onClick={handleAdd} disabled={loading}>
+              {loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Add
+            </Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog>
     </div>
   );
 }
@@ -301,11 +308,11 @@ function SortableHead({ col, label, sortCol, sortDir, onSort, className }: {
 }) {
   var isActive = sortCol === col;
   return (
-    <TableHeader className={className || ""}>
+    <TableHead className={className || ""}>
       <span className="cursor-pointer select-none" onClick={function () { onSort(col); }}>
         {label}{isActive ? (sortDir === "asc" ? " \u2191" : " \u2193") : ""}
       </span>
-    </TableHeader>
+    </TableHead>
   );
 }
 

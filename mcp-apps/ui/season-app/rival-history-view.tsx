@@ -1,8 +1,8 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { KpiTile } from "../shared/kpi-tile";
 import { AiInsight } from "../shared/ai-insight";
 import { Users, Trophy, Shield } from "@/shared/icons";
@@ -108,7 +108,7 @@ function RivalOverviewView({ data }: { data: RivalHistoryOverviewResponse }) {
         <div className="flex items-center gap-1 flex-wrap">
           <span className="text-xs text-muted-foreground">Seasons:</span>
           {data.seasons_scanned.map(function (s) {
-            return <Badge key={s} color="zinc" className="text-xs">{s}</Badge>;
+            return <Badge key={s} color="secondary" className="text-xs">{s}</Badge>;
           })}
         </div>
       )}
@@ -116,14 +116,14 @@ function RivalOverviewView({ data }: { data: RivalHistoryOverviewResponse }) {
       <Card>
         <CardContent className="p-0">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader>Opponent</TableHeader>
-                <TableHeader className="text-center">Record</TableHeader>
-                <TableHeader className="text-center hidden sm:table-cell">Last</TableHeader>
-                <TableHeader className="text-center">Status</TableHeader>
+                <TableHead>Opponent</TableHead>
+                <TableHead className="text-center">Record</TableHead>
+                <TableHead className="text-center hidden sm:table-cell">Last</TableHead>
+                <TableHead className="text-center">Status</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {rivals.map(function (r, idx) {
                 return (
@@ -236,7 +236,7 @@ function RivalDetailView({ data }: { data: RivalHistoryDetailResponse }) {
                 <p className="text-xs font-semibold text-sem-risk mb-1.5">They Dominate</p>
                 <div className="flex flex-wrap gap-1">
                   {theyDom.map(function (cat) {
-                    return <Badge key={cat} color="red" className="text-xs">{cat}</Badge>;
+                    return <Badge key={cat} color="danger" className="text-xs">{cat}</Badge>;
                   })}
                 </div>
               </CardContent>
@@ -253,15 +253,15 @@ function RivalDetailView({ data }: { data: RivalHistoryDetailResponse }) {
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Week</TableHeader>
-                  <TableHeader className="text-center">Score</TableHeader>
-                  <TableHeader className="text-center">Result</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">MVP Cat</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Note</TableHeader>
+                  <TableHead>Week</TableHead>
+                  <TableHead className="text-center">Score</TableHead>
+                  <TableHead className="text-center">Result</TableHead>
+                  <TableHead className="hidden sm:table-cell">MVP Cat</TableHead>
+                  <TableHead className="hidden sm:table-cell">Note</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(data.matchups || []).map(function (m, idx) {
                   return (

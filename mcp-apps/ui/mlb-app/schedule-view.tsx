@@ -1,4 +1,4 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 
 import { TeamLogo } from "../shared/team-logo";
 
@@ -25,14 +25,14 @@ export function ScheduleView({ data }: { data: MlbScheduleData }) {
       ) : (
         <div className="surface-card overflow-hidden">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader className="font-bold">Away</TableHeader>
-                <TableHeader className="text-center w-10 font-bold">@</TableHeader>
-                <TableHeader className="font-bold">Home</TableHeader>
-                <TableHeader className="hidden sm:table-cell font-bold">Status</TableHeader>
+                <TableHead className="font-bold">Away</TableHead>
+                <TableHead className="text-center w-10 font-bold">@</TableHead>
+                <TableHead className="font-bold">Home</TableHead>
+                <TableHead className="hidden sm:table-cell font-bold">Status</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {(data.games || []).map(function (g, i) {
                 return (

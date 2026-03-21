@@ -1,5 +1,5 @@
-import { Avatar } from "../catalyst/avatar";
-import { Badge } from "../catalyst/badge";
+import { Avatar } from "@plexui/ui/components/Avatar";
+import { Badge } from "@plexui/ui/components/Badge";
 import { mlbHeadshotUrl } from "./mlb-images";
 import { ZScoreBadge } from "./z-score";
 
@@ -24,8 +24,8 @@ export function PlayerCard({ name, position, positions, status, team, mlbId, per
       <div className="flex items-center gap-2">
         {mlbId && <Avatar src={mlbHeadshotUrl(mlbId)} className="size-8" />}
         <span className="font-medium">{name}</span>
-        {posArray.map((p) => <Badge key={p} color="zinc" className="text-xs">{p}</Badge>)}
-        {status && status !== "Healthy" && <Badge color="red" className="text-xs">{status}</Badge>}
+        {posArray.map((p) => <Badge key={p} color="secondary" className="text-xs">{p}</Badge>)}
+        {status && status !== "Healthy" && <Badge color="danger" className="text-xs">{status}</Badge>}
       </div>
     );
   }
@@ -39,8 +39,8 @@ export function PlayerCard({ name, position, positions, status, team, mlbId, per
           {team && <span className="text-xs text-muted-foreground">{team}</span>}
         </div>
         <div className="flex items-center gap-1 mt-0.5">
-          {posArray.map((p) => <Badge key={p} color="zinc" className="text-xs">{p}</Badge>)}
-          {status && status !== "Healthy" && <Badge color="red" className="text-xs">{status}</Badge>}
+          {posArray.map((p) => <Badge key={p} color="secondary" className="text-xs">{p}</Badge>)}
+          {status && status !== "Healthy" && <Badge color="danger" className="text-xs">{status}</Badge>}
           {percentOwned !== undefined && <span className="text-xs text-muted-foreground ml-1">{percentOwned}% owned</span>}
           {zScore !== undefined && <ZScoreBadge z={zScore} size="sm" />}
         </div>

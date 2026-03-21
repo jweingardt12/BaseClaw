@@ -1,5 +1,5 @@
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { useCallTool } from "../shared/use-call-tool";
 
 import { ChevronLeft, ChevronRight, Loader2, ArrowRightLeft } from "@/shared/icons";
@@ -31,11 +31,11 @@ export function PastTradesView({ data, app, navigate }: { data: PastTradesData; 
   return (
     <div className="space-y-3 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
-        <Button outline disabled={data.year <= 2011 || loading} onClick={() => changeYear(data.year - 1)}>
+        <Button variant="outline" color="secondary" disabled={data.year <= 2011 || loading} onClick={() => changeYear(data.year - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="flex-1 text-center text-sm font-bold">{"Trades - " + data.year}</span>
-        <Button outline disabled={data.year >= 2026 || loading} onClick={() => changeYear(data.year + 1)}>
+        <Button variant="outline" color="secondary" disabled={data.year >= 2026 || loading} onClick={() => changeYear(data.year + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -61,7 +61,7 @@ export function PastTradesView({ data, app, navigate }: { data: PastTradesData; 
                       <p className="text-sm font-bold mb-2">{t.team1 + " sends:"}</p>
                       <div className="flex flex-wrap gap-1">
                         {(t.players1 || []).map(function (p) {
-                          return <Badge key={p} color="zinc" className="text-xs font-semibold">{p}</Badge>;
+                          return <Badge key={p} color="secondary" className="text-xs font-semibold">{p}</Badge>;
                         })}
                       </div>
                     </div>
@@ -72,7 +72,7 @@ export function PastTradesView({ data, app, navigate }: { data: PastTradesData; 
                       <p className="text-sm font-bold mb-2">{t.team2 + " sends:"}</p>
                       <div className="flex flex-wrap gap-1">
                         {(t.players2 || []).map(function (p) {
-                          return <Badge key={p} color="zinc" className="text-xs font-semibold">{p}</Badge>;
+                          return <Badge key={p} color="secondary" className="text-xs font-semibold">{p}</Badge>;
                         })}
                       </div>
                     </div>

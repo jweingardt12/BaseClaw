@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { BarChart3 } from "@/shared/icons";
 import { ZScoreExplainer, tierTextColor, tierColor } from "../shared/z-score";
@@ -68,7 +68,7 @@ export function ValueView({ data, app, navigate }: { data: ValueData; app?: any;
               </p>
               <div className="flex items-center gap-2 mt-1">
                 {details.length > 0 && (
-                  <Badge color="zinc" className="text-xs">{details.join(" - ")}</Badge>
+                  <Badge color="secondary" className="text-xs">{details.join(" - ")}</Badge>
                 )}
                 {data.intel && <IntelBadge intel={data.intel} size="md" />}
               </div>

@@ -1,6 +1,6 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
-import { Tabs, TabsList, TabsTrigger } from "../catalyst/tabs";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Tabs } from "@plexui/ui/components/Tabs";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -70,11 +70,9 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
 
       <AiInsight recommendation={data.ai_recommendation} />
 
-      <Tabs defaultValue={data.pos_type || "B"} onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="B">Hitters</TabsTrigger>
-          <TabsTrigger value="P">Pitchers</TabsTrigger>
-        </TabsList>
+      <Tabs value={data.pos_type || "B"} onChange={handleTabChange} aria-label="Player type">
+        <Tabs.Tab value="B">Hitters</Tabs.Tab>
+        <Tabs.Tab value="P">Pitchers</Tabs.Tab>
       </Tabs>
 
       <div className="relative">
@@ -84,15 +82,15 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
           </div>
         )}
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader>Player</TableHeader>
-              <TableHeader className="text-right hidden sm:table-cell">wOBA</TableHeader>
-              <TableHeader className="text-right hidden sm:table-cell">xwOBA</TableHeader>
-              <TableHeader className="text-right">Diff</TableHeader>
-              <TableHeader className="text-right hidden sm:table-cell">PA</TableHeader>
+              <TableHead>Player</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">wOBA</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">xwOBA</TableHead>
+              <TableHead className="text-right">Diff</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">PA</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {candidates.map(function(c, i) {
               var diffColor = isBreakouts ? "text-green-600 dark:text-green-400" : "text-red-500";

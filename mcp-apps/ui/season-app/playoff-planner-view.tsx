@@ -1,7 +1,7 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 
@@ -37,11 +37,11 @@ interface PlayoffPlannerResponse {
   summary: string;
 }
 
-function priorityColor(priority: string): "red" | "yellow" | "zinc" {
+function priorityColor(priority: string): "danger" | "warning" | "secondary" {
   var lower = priority.toLowerCase();
-  if (lower === "high" || lower === "critical") return "red";
-  if (lower === "medium") return "yellow";
-  return "zinc";
+  if (lower === "high" || lower === "critical") return "danger";
+  if (lower === "medium") return "warning";
+  return "secondary";
 }
 
 function priorityOrder(priority: string): number {
@@ -116,7 +116,7 @@ export function PlayoffPlannerView({ data }: { data: PlayoffPlannerResponse; app
               <p className="text-xs text-muted-foreground mb-1.5">Punt Categories</p>
               <div className="flex flex-wrap gap-1">
                 {puntCats.map(function (cat) {
-                  return <Badge key={cat} color="red" className="text-xs">{cat}</Badge>;
+                  return <Badge key={cat} color="danger" className="text-xs">{cat}</Badge>;
                 })}
               </div>
             </CardContent>
@@ -132,16 +132,16 @@ export function PlayoffPlannerView({ data }: { data: PlayoffPlannerResponse; app
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Category</TableHeader>
-                  <TableHeader className="text-center">Current</TableHeader>
-                  <TableHeader className="text-center">Target</TableHeader>
-                  <TableHeader className="text-center">Gap</TableHeader>
-                  <TableHeader className="text-center">Priority</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Cost</TableHeader>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-center">Current</TableHead>
+                  <TableHead className="text-center">Target</TableHead>
+                  <TableHead className="text-center">Gap</TableHead>
+                  <TableHead className="text-center">Priority</TableHead>
+                  <TableHead className="hidden sm:table-cell">Cost</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {gaps.map(function (g, i) {
                   return (
@@ -178,7 +178,7 @@ export function PlayoffPlannerView({ data }: { data: PlayoffPlannerResponse; app
                     <div className="flex-1">
                       <p className="text-sm font-medium">{a.description}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <Badge color="zinc" className="text-xs">{a.action_type}</Badge>
+                        <Badge color="secondary" className="text-xs">{a.action_type}</Badge>
                         <span className="text-xs text-muted-foreground">{a.impact}</span>
                       </div>
                     </div>

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerName } from "../shared/player-name";
 
@@ -89,11 +89,11 @@ function classificationBadge(cls: string) {
     case "protect":
       return <Badge className="bg-sem-warning text-xs"><Shield className="h-2.5 w-2.5 mr-0.5 inline" />Protect</Badge>;
     case "concede":
-      return <Badge color="zinc" className="text-xs text-muted-foreground"><XCircle className="h-2.5 w-2.5 mr-0.5 inline" />Concede</Badge>;
+      return <Badge color="secondary" className="text-xs text-muted-foreground"><XCircle className="h-2.5 w-2.5 mr-0.5 inline" />Concede</Badge>;
     case "lock":
       return <Badge className="bg-sem-success text-xs"><Lock className="h-2.5 w-2.5 mr-0.5 inline" />Lock</Badge>;
     default:
-      return <Badge color="zinc" className="text-xs">{cls}</Badge>;
+      return <Badge color="secondary" className="text-xs">{cls}</Badge>;
   }
 }
 
@@ -151,7 +151,7 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
           <Subheading>Matchup Strategy</Subheading>
         </div>
         {app && (
-          <Button outline onClick={handleRefresh} disabled={loading} className="h-8 text-xs gap-1">
+          <Button variant="outline" color="secondary" onClick={handleRefresh} disabled={loading} className="h-8 text-xs gap-1">
             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Refresh
           </Button>
@@ -244,15 +244,15 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader>Category</TableHeader>
-                <TableHeader className="text-right">You</TableHeader>
-                <TableHeader className="text-right">Opp</TableHeader>
-                <TableHeader className="text-center">Status</TableHeader>
-                <TableHeader className="text-center">Plan</TableHeader>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">You</TableHead>
+                <TableHead className="text-right">Opp</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center">Plan</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {(d.categories || []).map(function (c, i) {
                 return (
@@ -312,16 +312,16 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Player</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Team</TableHeader>
-                  <TableHeader className="text-center">Games</TableHeader>
-                  <TableHeader className="text-right">Own%</TableHeader>
-                  <TableHeader className="hidden sm:table-cell">Targets</TableHeader>
-                  {app && <TableHeader className="w-10"></TableHeader>}
+                  <TableHead>Player</TableHead>
+                  <TableHead className="hidden sm:table-cell">Team</TableHead>
+                  <TableHead className="text-center">Games</TableHead>
+                  <TableHead className="text-right">Own%</TableHead>
+                  <TableHead className="hidden sm:table-cell">Targets</TableHead>
+                  {app && <TableHead className="w-10"></TableHead>}
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {(d.waiver_targets || []).map(function (wt, idx) {
                   return (
@@ -342,14 +342,14 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-wrap gap-0.5">
                           {(wt.categories || []).map(function (cat) {
-                            return <Badge key={cat} color="zinc" className="text-xs">{cat}</Badge>;
+                            return <Badge key={cat} color="secondary" className="text-xs">{cat}</Badge>;
                           })}
                         </div>
                       </TableCell>
                       {app && (
                         <TableCell>
                           <Button
-                            plain
+                            variant="ghost" color="secondary"
                             className="h-8 w-8 p-0"
                             onClick={function () { handleAdd(wt.pid); }}
                             disabled={loading}

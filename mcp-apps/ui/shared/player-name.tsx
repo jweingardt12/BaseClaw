@@ -1,14 +1,8 @@
 import * as React from "react";
 import { MessageSquare, ExternalLink, Search, FileText } from "@/shared/icons";
 import { mlbHeadshotUrl } from "./mlb-images";
-import { Avatar } from "../catalyst/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "../catalyst/dropdown-menu";
+import { Avatar } from "@plexui/ui/components/Avatar";
+import { Menu } from "@plexui/ui/components/Menu";
 
 interface PlayerNameProps {
   name: string;
@@ -54,72 +48,66 @@ export function PlayerName({ name, playerId, mlbId, app, navigate, context, show
   var fangraphsSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger>
+    <Menu>
+      <Menu.Trigger>
         <span className="inline-flex items-center gap-1.5 min-w-0 cursor-pointer hover:opacity-80">
           {headshot}
           <span className="truncate border-b border-dashed border-muted-foreground/50">{name}</span>
         </span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem
-          icon={<MessageSquare className="w-3.5 h-3.5" />}
-          onClick={function () { app.sendMessage(getAskPrompt(name, context)); }}
+      </Menu.Trigger>
+      <Menu.Content>
+        <Menu.Item
+          onSelect={function () { app.sendMessage(getAskPrompt(name, context)); }}
         >
-          Ask Claude
-        </DropdownMenuItem>
+          <MessageSquare className="w-3.5 h-3.5" /> Ask Claude
+        </Menu.Item>
 
-        <DropdownMenuSeparator />
+        <Menu.Separator />
 
         {playerId && (
-          <DropdownMenuItem
-            icon={<ExternalLink className="w-3.5 h-3.5" />}
-            onClick={function () { app.openLink("https://sports.yahoo.com/mlb/players/" + playerId); }}
+          <Menu.Item
+            onSelect={function () { app.openLink("https://sports.yahoo.com/mlb/players/" + playerId); }}
           >
-            View on Yahoo
-          </DropdownMenuItem>
+            <ExternalLink className="w-3.5 h-3.5" /> View on Yahoo
+          </Menu.Item>
         )}
 
-        <DropdownMenuItem
-          icon={<ExternalLink className="w-3.5 h-3.5" />}
-          onClick={function () { app.openLink("https://www.fangraphs.com/players/" + fangraphsSlug); }}
+        <Menu.Item
+          onSelect={function () { app.openLink("https://www.fangraphs.com/players/" + fangraphsSlug); }}
         >
-          View on FanGraphs
-        </DropdownMenuItem>
+          <ExternalLink className="w-3.5 h-3.5" /> View on FanGraphs
+        </Menu.Item>
 
         {mlbId && (
-          <DropdownMenuItem
-            icon={<ExternalLink className="w-3.5 h-3.5" />}
-            onClick={function () { app.openLink("https://baseballsavant.mlb.com/savant-player/" + mlbId); }}
+          <Menu.Item
+            onSelect={function () { app.openLink("https://baseballsavant.mlb.com/savant-player/" + mlbId); }}
           >
-            View on Savant
-          </DropdownMenuItem>
+            <ExternalLink className="w-3.5 h-3.5" /> View on Savant
+          </Menu.Item>
         )}
 
-        <DropdownMenuItem
-          icon={<Search className="w-3.5 h-3.5" />}
-          onClick={function () { app.openLink("https://www.reddit.com/r/fantasybaseball/search/?q=" + encodeURIComponent(name)); }}
+        <Menu.Item
+          onSelect={function () { app.openLink("https://www.reddit.com/r/fantasybaseball/search/?q=" + encodeURIComponent(name)); }}
         >
-          Search Reddit
-        </DropdownMenuItem>
+          <Search className="w-3.5 h-3.5" /> Search Reddit
+        </Menu.Item>
 
         {navigate && (
           <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              icon={<FileText className="w-3.5 h-3.5" />}
-              onClick={async function () {
+            <Menu.Separator />
+            <Menu.Item
+              onSelect={async function () {
                 var result = await app.callServerTool("fantasy_player_report", { player_name: name });
                 if (result) {
                   navigate(result.structuredContent);
                 }
               }}
             >
-              Get Full Report
-            </DropdownMenuItem>
+              <FileText className="w-3.5 h-3.5" /> Get Full Report
+            </Menu.Item>
           </>
         )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </Menu.Content>
+    </Menu>
   );
 }

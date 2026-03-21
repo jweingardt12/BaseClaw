@@ -1,12 +1,12 @@
-import clsx from 'clsx'
+import { cn } from '../lib/utils'
 
 export function Card({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
   return (
     <div
       {...props}
-      className={clsx(
+      className={cn(
+        'flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-border',
         className,
-        'flex flex-col gap-4 overflow-hidden rounded-xl bg-white py-4 text-sm text-zinc-950 ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:text-white dark:ring-white/10'
       )}
     />
   )
@@ -16,7 +16,7 @@ export function CardHeader({ className, ...props }: React.ComponentPropsWithoutR
   return (
     <div
       {...props}
-      className={clsx(className, 'grid auto-rows-min items-start gap-1 px-4')}
+      className={cn('grid auto-rows-min items-start gap-1 px-4', className)}
     />
   )
 }
@@ -25,7 +25,7 @@ export function CardTitle({ className, ...props }: React.ComponentPropsWithoutRe
   return (
     <div
       {...props}
-      className={clsx(className, 'text-base/7 font-semibold text-zinc-950 dark:text-white')}
+      className={cn('text-base/7 font-semibold text-foreground', className)}
     />
   )
 }
@@ -34,20 +34,20 @@ export function CardDescription({ className, ...props }: React.ComponentPropsWit
   return (
     <div
       {...props}
-      className={clsx(className, 'text-sm/6 text-zinc-500 dark:text-zinc-400')}
+      className={cn('text-sm/6 text-muted-foreground', className)}
     />
   )
 }
 
 export function CardContent({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
-  return <div {...props} className={clsx(className, 'px-4')} />
+  return <div {...props} className={cn('px-4', className)} />
 }
 
 export function CardFooter({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
   return (
     <div
       {...props}
-      className={clsx(className, 'flex items-center border-t border-zinc-950/5 px-4 pt-4 dark:border-white/5')}
+      className={cn('flex items-center border-t border-border px-4 pt-4', className)}
     />
   )
 }

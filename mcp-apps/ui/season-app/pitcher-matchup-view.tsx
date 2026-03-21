@@ -1,5 +1,5 @@
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Badge } from "../catalyst/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Subheading } from "../catalyst/heading";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -70,18 +70,18 @@ export function PitcherMatchupView({ data }: { data: PitcherMatchupData }) {
       </div>
 
       <Table>
-        <TableHead>
+        <TableHeader>
           <TableRow>
-            <TableHeader>Pitcher</TableHeader>
-            <TableHeader className="hidden sm:table-cell">Team</TableHeader>
-            <TableHeader>Next Start</TableHeader>
-            <TableHeader>Opponent</TableHeader>
-            <TableHeader className="hidden sm:table-cell text-right">AVG</TableHeader>
-            <TableHeader className="hidden sm:table-cell text-right">OBP</TableHeader>
-            <TableHeader className="hidden sm:table-cell text-right">K%</TableHeader>
-            <TableHeader className="text-center">Grade</TableHeader>
+            <TableHead>Pitcher</TableHead>
+            <TableHead className="hidden sm:table-cell">Team</TableHead>
+            <TableHead>Next Start</TableHead>
+            <TableHead>Opponent</TableHead>
+            <TableHead className="hidden sm:table-cell text-right">AVG</TableHead>
+            <TableHead className="hidden sm:table-cell text-right">OBP</TableHead>
+            <TableHead className="hidden sm:table-cell text-right">K%</TableHead>
+            <TableHead className="text-center">Grade</TableHead>
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {pitchers.map((p) => (
             <TableRow key={p.player_id + "-" + p.next_start_date}>

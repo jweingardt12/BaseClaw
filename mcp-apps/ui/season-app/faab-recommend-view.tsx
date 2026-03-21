@@ -1,8 +1,8 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { KpiTile } from "../shared/kpi-tile";
 import { formatFixed } from "../shared/number-format";
 
@@ -33,11 +33,11 @@ interface FaabRecommendData {
   improving_categories: string[];
 }
 
-function tierBadgeColor(tier: string): "amber" | "green" | "blue" | "red" {
-  if (tier === "Elite") return "amber";
-  if (tier === "Strong") return "green";
-  if (tier === "Solid") return "blue";
-  return "red";
+function tierBadgeColor(tier: string): "warning" | "success" | "primary" | "danger" {
+  if (tier === "Elite") return "warning";
+  if (tier === "Strong") return "success";
+  if (tier === "Solid") return "primary";
+  return "danger";
 }
 
 function directionArrow(direction: string): string {
@@ -73,7 +73,7 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
             <div>
               <Subheading>{player.name}</Subheading>
               <div className="flex items-center gap-2 mt-1">
-                <Badge color="zinc" className="text-xs">{player.pos}</Badge>
+                <Badge color="secondary" className="text-xs">{player.pos}</Badge>
                 <span className="text-sm text-muted-foreground">{player.team}</span>
               </div>
             </div>
@@ -138,7 +138,7 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-muted-foreground">Improves:</span>
           {improving.map(function (cat) {
-            return <Badge key={cat} color="green" className="text-xs">{cat}</Badge>;
+            return <Badge key={cat} color="success" className="text-xs">{cat}</Badge>;
           })}
         </div>
       )}
@@ -146,15 +146,15 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
       {/* Category impact table */}
       {Object.keys(impact).length > 0 && (
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader>Category</TableHeader>
-              <TableHeader className="text-right hidden sm:table-cell">Add Z</TableHeader>
-              <TableHeader className="text-right hidden sm:table-cell">Drop Z</TableHeader>
-              <TableHeader className="text-right">Delta</TableHeader>
-              <TableHeader className="text-center">Dir</TableHeader>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Add Z</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Drop Z</TableHead>
+              <TableHead className="text-right">Delta</TableHead>
+              <TableHead className="text-center">Dir</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {Object.keys(impact).map(function (cat) {
               var row = impact[cat];

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Tabs, TabsList, TabsTrigger } from "../catalyst/tabs";
-import { AlertDialog } from "../catalyst/alert-dialog";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Tabs } from "@plexui/ui/components/Tabs";
+import { Dialog } from "@plexui/ui/components/Dialog";
 import { useCallTool } from "../shared/use-call-tool";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -160,11 +160,9 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
         Waiver Wire Analysis - {label}
       </Subheading>
 
-      <Tabs defaultValue={data.pos_type || "B"} onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="B">Batters</TabsTrigger>
-          <TabsTrigger value="P">Pitchers</TabsTrigger>
-        </TabsList>
+      <Tabs value={data.pos_type || "B"} onChange={handleTabChange} aria-label="Position type">
+        <Tabs.Tab value="B">Batters</Tabs.Tab>
+        <Tabs.Tab value="P">Pitchers</Tabs.Tab>
       </Tabs>
 
       {(data.weak_categories || []).length > 0 && (
@@ -173,7 +171,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
           {(data.weak_categories || []).map((c, i) => {
             const name = typeof c === "string" ? c : c.name;
             const detail = typeof c === "string" ? "" : " (" + c.rank + "/" + c.total + ")";
-            return <Badge key={i} color="red" className="text-xs">{name}{detail}</Badge>;
+            return <Badge key={i} color="danger" className="text-xs">{name}{detail}</Badge>;
           })}
         </div>
       )}
@@ -203,16 +201,16 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
           </div>
         )}
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader>Player</TableHeader>
-              <TableHeader className="hidden sm:table-cell">Positions</TableHeader>
-              <TableHeader className="text-right">Own%</TableHeader>
-              <TableHeader className="text-right hidden sm:table-cell">Rec</TableHeader>
-              <TableHeader className="hidden sm:table-cell w-20">Status</TableHeader>
-              <TableHeader className="w-16"></TableHeader>
+              <TableHead>Player</TableHead>
+              <TableHead className="hidden sm:table-cell">Positions</TableHead>
+              <TableHead className="text-right">Own%</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Rec</TableHead>
+              <TableHead className="hidden sm:table-cell w-20">Status</TableHead>
+              <TableHead className="w-16"></TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {players.map((p, i) => {
               const playerId = p.pid || p.player_id || "";
@@ -229,7 +227,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                   <TableCell className="hidden sm:table-cell">
                     <div className="flex gap-1 flex-wrap">
                       {p.positions.split(",").map((pos) => (
-                        <Badge key={pos.trim()} color="zinc" className="text-xs">{pos.trim()}</Badge>
+                        <Badge key={pos.trim()} color="secondary" className="text-xs">{pos.trim()}</Badge>
                       ))}
                     </div>
                   </TableCell>
@@ -241,15 +239,15 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {p.status && p.status !== "Healthy" && (
-                      <Badge color="red" className="text-xs">{p.status}</Badge>
+                      <Badge color="danger" className="text-xs">{p.status}</Badge>
                     )}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button onClick={() => handleAdd(playerId)} disabled={loading} title="Add player">
+                      <Button color="secondary" onClick={() => handleAdd(playerId)} disabled={loading} title="Add player">
                         <UserPlus size={14} />
                       </Button>
-                      <Button outline onClick={() => setSwapTarget(p)} disabled={loading} title="Swap for roster player">
+                      <Button variant="outline" color="secondary" onClick={() => setSwapTarget(p)} disabled={loading} title="Swap for roster player">
                         <ArrowRightLeft size={14} />
                       </Button>
                     </div>
@@ -269,14 +267,18 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
         </Table>
       </div>
 
-      <AlertDialog
-        open={swapTarget !== null}
-        onClose={() => setSwapTarget(null)}
-        onConfirm={handleSwapConfirm}
-        title={"Swap: Add " + (swapTarget ? swapTarget.name : "")}
-        description={"This will add " + (swapTarget ? swapTarget.name : "") + " to your roster. Yahoo will prompt you to drop a player if your roster is full."}
-        confirmLabel="Add Player"
-      />
+      <Dialog open={swapTarget !== null} onOpenChange={function (open) { if (!open) setSwapTarget(null); }}>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>{"Swap: Add " + (swapTarget ? swapTarget.name : "")}</Dialog.Title>
+            <Dialog.Description>{"This will add " + (swapTarget ? swapTarget.name : "") + " to your roster. Yahoo will prompt you to drop a player if your roster is full."}</Dialog.Description>
+          </Dialog.Header>
+          <Dialog.Footer>
+            <Button variant="ghost" color="secondary" onClick={() => setSwapTarget(null)}>Cancel</Button>
+            <Button color="secondary" onClick={handleSwapConfirm}>Add Player</Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog>
     </div>
   );
 }

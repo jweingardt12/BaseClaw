@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../catalyst/card";
-import { Badge } from "../catalyst/badge";
-import { Button } from "../catalyst/button";
+import { Badge } from "@plexui/ui/components/Badge";
+import { Button } from "@plexui/ui/components/Button";
 import { Subheading } from "../catalyst/heading";
 import { Text } from "../catalyst/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -32,10 +32,10 @@ interface InjuryReportData {
 function PlayerRow({ player, showFind, onFind, readyToActivate, loading, app, navigate }: { player: InjuredPlayer; showFind?: boolean; onFind?: () => void; readyToActivate?: boolean; loading?: boolean; app?: any; navigate?: (data: any) => void }) {
   return (
     <div className="flex items-center gap-2 py-1.5 border-b last:border-0">
-      <Badge color="zinc" className="text-xs w-8 justify-center">{player.position}</Badge>
+      <Badge color="secondary" className="text-xs w-8 justify-center">{player.position}</Badge>
       <span className="font-medium text-sm flex-1"><PlayerName name={player.name} mlbId={player.mlb_id} app={app} navigate={navigate} context="roster" /></span>
       {player.intel && <IntelBadge intel={player.intel} size="sm" />}
-      <Badge color="red" className="text-xs">{player.status}</Badge>
+      <Badge color="danger" className="text-xs">{player.status}</Badge>
       {player.description && <span className="text-xs text-muted-foreground hidden sm:inline">{player.description}</span>}
       {readyToActivate && (
         <Badge className="text-xs bg-sem-success gap-1">
@@ -44,7 +44,7 @@ function PlayerRow({ player, showFind, onFind, readyToActivate, loading, app, na
         </Badge>
       )}
       {showFind && onFind && (
-        <Button outline onClick={onFind} disabled={loading} className="h-8 text-xs px-2 gap-1">
+        <Button variant="outline" color="secondary" onClick={onFind} disabled={loading} className="h-8 text-xs px-2 gap-1">
           <Search className="h-3 w-3" />
           Find FA
         </Button>
@@ -98,7 +98,7 @@ export function InjuryReportView({ data, app, navigate }: { data: InjuryReportDa
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <CardTitle className="text-base text-destructive">Injured in Active Lineup</CardTitle>
-              <Badge color="red">{(data.injured_active || []).length}</Badge>
+              <Badge color="danger">{(data.injured_active || []).length}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -114,7 +114,7 @@ export function InjuryReportView({ data, app, navigate }: { data: InjuryReportDa
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <CardTitle className="text-base text-sem-warning">On IL - May Be Activatable</CardTitle>
-              <Badge color="zinc">{(data.healthy_il || []).length}</Badge>
+              <Badge color="secondary">{(data.healthy_il || []).length}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -128,7 +128,7 @@ export function InjuryReportView({ data, app, navigate }: { data: InjuryReportDa
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <CardTitle className="text-base">Injured on Bench</CardTitle>
-              <Badge color="zinc">{(data.injured_bench || []).length}</Badge>
+              <Badge color="secondary">{(data.injured_bench || []).length}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -142,7 +142,7 @@ export function InjuryReportView({ data, app, navigate }: { data: InjuryReportDa
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <CardTitle className="text-base">On IL (Proper)</CardTitle>
-              <Badge color="zinc">{(data.il_proper || []).length}</Badge>
+              <Badge color="secondary">{(data.il_proper || []).length}</Badge>
             </div>
           </CardHeader>
           <CardContent>

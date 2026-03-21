@@ -1,6 +1,6 @@
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
 import { Subheading } from "../catalyst/heading";
 import { mlbHeadshotUrl, teamLogoFromAbbrev } from "../shared/mlb-images";
 import { AiInsight } from "../shared/ai-insight";
@@ -58,15 +58,15 @@ function PercentBar({ value }: { value: number }) {
 function TrendTable({ players, direction }: { players: TrendPlayer[]; direction: "added" | "dropped" }) {
   return (
     <Table>
-      <TableHead>
+      <TableHeader>
         <TableRow>
-          <TableHeader className="w-8">#</TableHeader>
-          <TableHeader>Player</TableHeader>
-          <TableHeader className="hidden sm:table-cell">Pos</TableHeader>
-          <TableHeader className="text-right">% Owned</TableHeader>
-          <TableHeader className="text-right">Change</TableHeader>
+          <TableHead className="w-8">#</TableHead>
+          <TableHead>Player</TableHead>
+          <TableHead className="hidden sm:table-cell">Pos</TableHead>
+          <TableHead className="text-right">% Owned</TableHead>
+          <TableHead className="text-right">Change</TableHead>
         </TableRow>
-      </TableHead>
+      </TableHeader>
       <TableBody>
         {(players || []).map(function (p, i) {
           var logoUrl = p.team ? teamLogoFromAbbrev(p.team) : null;
@@ -95,7 +95,7 @@ function TrendTable({ players, direction }: { players: TrendPlayer[]; direction:
               <TableCell className="hidden sm:table-cell">
                 <div className="flex gap-1 flex-wrap">
                   {(p.position || "").split(",").filter(Boolean).map(function (pos) {
-                    return <Badge key={pos.trim()} color="zinc" className="text-xs">{pos.trim()}</Badge>;
+                    return <Badge key={pos.trim()} color="secondary" className="text-xs">{pos.trim()}</Badge>;
                   })}
                 </div>
               </TableCell>
@@ -132,7 +132,7 @@ export function TransactionTrendsView({ data }: { data: TransactionTrendsData })
 
       <div className="flex gap-2 mb-1">
         <Badge className="text-xs">{added.length + " most added"}</Badge>
-        <Badge color="red" className="text-xs">{dropped.length + " most dropped"}</Badge>
+        <Badge color="danger" className="text-xs">{dropped.length + " most dropped"}</Badge>
       </div>
 
       {/* Most Added */}

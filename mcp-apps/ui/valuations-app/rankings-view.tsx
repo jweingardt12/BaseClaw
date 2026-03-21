@@ -1,8 +1,8 @@
 import { Fragment } from "react";
-import { Badge } from "../catalyst/badge";
+import { Badge } from "@plexui/ui/components/Badge";
 import { Card, CardContent } from "../catalyst/card";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../catalyst/table";
-import { Tabs, TabsList, TabsTrigger } from "../catalyst/tabs";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@plexui/ui/components/Table";
+import { Tabs } from "@plexui/ui/components/Tabs";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { TeamLogo } from "../shared/team-logo";
@@ -61,7 +61,7 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
       <div className="flex items-center gap-2 mb-2">
         <BarChart3 size={18} />
         <Subheading>{label} Rankings</Subheading>
-        <Badge color="zinc">{data.source}</Badge>
+        <Badge color="secondary">{data.source}</Badge>
         <span className="text-xs text-muted-foreground">Top {data.count}</span>
       </div>
 
@@ -92,7 +92,7 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
                 <PlayerCell player={topPlayer} app={app} navigate={navigate} context="default" />
               </p>
               <div className="flex items-center gap-2 mt-1">
-                {topPlayer.position && <Badge color="zinc" className="text-xs">{topPlayer.position}</Badge>}
+                {topPlayer.position && <Badge color="secondary" className="text-xs">{topPlayer.position}</Badge>}
               </div>
             </div>
             <VerdictBadge grade={formatFixed(topPlayer.z_score, 1, "0.0")} variant={topPlayer.z_score >= 2 ? "success" : topPlayer.z_score >= 1 ? "info" : "warning"} size="lg" />
@@ -102,11 +102,9 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
 
       <ZScoreExplainer />
 
-      <Tabs value={data.pos_type || "B"} onValueChange={handleTabChange} className="mb-4 mt-2">
-        <TabsList>
-          <TabsTrigger value="B">Batters</TabsTrigger>
-          <TabsTrigger value="P">Pitchers</TabsTrigger>
-        </TabsList>
+      <Tabs value={data.pos_type || "B"} onChange={handleTabChange} aria-label="Player type" className="mb-4 mt-2">
+        <Tabs.Tab value="B">Batters</Tabs.Tab>
+        <Tabs.Tab value="P">Pitchers</Tabs.Tab>
       </Tabs>
 
       <div className="relative">
@@ -130,14 +128,14 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
         )}
 
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableHeader className="w-12">#</TableHeader>
-              <TableHeader>Player</TableHeader>
-              <TableHeader className="hidden sm:table-cell">Pos</TableHeader>
-              <TableHeader className="text-right">Z-Score</TableHeader>
+              <TableHead className="w-12">#</TableHead>
+              <TableHead>Player</TableHead>
+              <TableHead className="hidden sm:table-cell">Pos</TableHead>
+              <TableHead className="text-right">Z-Score</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {players.map(function (p) {
               var tier = getTier(p.z_score);
@@ -162,7 +160,7 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
                       <PlayerCell player={p} app={app} navigate={navigate} context="default" />
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      {p.position && <Badge color="zinc" className="text-xs">{p.position}</Badge>}
+                      {p.position && <Badge color="secondary" className="text-xs">{p.position}</Badge>}
                     </TableCell>
                     <TableCell className="text-right">
                       <ZScoreBar z={p.z_score} />
