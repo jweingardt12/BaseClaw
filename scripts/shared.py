@@ -420,6 +420,26 @@ def get_trend_lookup():
         return {}
 
 
+def get_regression_adjusted_z(player_name, z_final):
+    """Adjust a player's z-score based on regression signals.
+    Buy-low players (positive regression_score) are worth more than current z.
+    Sell-high players (negative score) are worth less.
+    Scale: +/-50 regression score = +/-1.0 z adjustment, capped at +/-2.0.
+    """
+    try:
+        from intel import get_regression_signal
+        sig = get_regression_signal(player_name)
+        if not sig:
+            return z_final
+        score = sig.get("regression_score")
+        if score is None:
+            return z_final
+        adjustment = min(max(float(score) / 50.0, -2.0), 2.0)
+        return round(z_final + adjustment, 2)
+    except Exception:
+        return z_final
+
+
 # ---------------------------------------------------------------------------
 # Player enrichment helpers
 # ---------------------------------------------------------------------------
@@ -453,6 +473,17 @@ def enrich_with_intel(players, count=None, boost_scores=False):
                     p["score"] = p.get("score", 0) + 8
                 elif pi.get("trends", {}).get("hot_cold") == "warm":
                     p["score"] = p.get("score", 0) + 4
+                # Regression signal adjustment
+                try:
+                    from intel import get_regression_signal
+                    reg = get_regression_signal(p.get("name", ""))
+                    if reg and reg.get("regression_score") is not None:
+                        reg_score = float(reg.get("regression_score", 0))
+                        # +/-50 regression score = +/-10 points to composite score
+                        p["score"] = p.get("score", 0) + (reg_score / 5.0)
+                        p["regression"] = reg
+                except Exception:
+                    pass
     except Exception as e:
         print("Warning: intel enrichment failed: " + str(e))
 

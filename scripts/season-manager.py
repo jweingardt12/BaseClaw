@@ -1764,6 +1764,26 @@ def cmd_trade_eval(args, as_json=False):
     adjusted_diff = diff + roster_spot_adj + category_fit_bonus + consolidation_premium + catcher_premium
     grade = _grade_trade(adjusted_diff)
 
+    # SGP analysis (alongside z-score analysis)
+    try:
+        from valuations import get_player_sgp
+        give_sgp = []
+        get_sgp = []
+        for p in give_players:
+            sgp_info = get_player_sgp(p.get("name", ""))
+            give_sgp.append(sgp_info.get("total_sgp", 0) if sgp_info else 0)
+        for p in get_players:
+            sgp_info = get_player_sgp(p.get("name", ""))
+            get_sgp.append(sgp_info.get("total_sgp", 0) if sgp_info else 0)
+        sgp_give_total = round(sum(give_sgp), 2)
+        sgp_get_total = round(sum(get_sgp), 2)
+        sgp_net = round(sgp_get_total - sgp_give_total, 2)
+    except Exception as e:
+        print("Warning: SGP analysis failed: " + str(e))
+        sgp_give_total = None
+        sgp_get_total = None
+        sgp_net = None
+
     # Position impact
     give_positions = set()
     get_positions = set()
@@ -1824,6 +1844,9 @@ def cmd_trade_eval(args, as_json=False):
             "rival_warning": rival_info,
             "adjusted_net_value": round(adjusted_diff, 2),
             "grade": grade,
+            "sgp_give": sgp_give_total,
+            "sgp_get": sgp_get_total,
+            "sgp_net": sgp_net,
             "warnings": warnings + pos_warnings,
             "position_impact": {
                 "losing": list(losing),
@@ -1882,6 +1905,13 @@ def cmd_trade_eval(args, as_json=False):
         print("  Gaining coverage at: " + ", ".join(gaining))
     if not losing and not gaining:
         print("  Position coverage unchanged")
+
+    if sgp_net is not None:
+        print("")
+        print("SGP Analysis:")
+        print("  Give SGP: " + str(sgp_give_total))
+        print("  Get SGP:  " + str(sgp_get_total))
+        print("  Net SGP:  " + str(sgp_net) + " standings points")
 
 
 def cmd_daily_update(args, as_json=False):
@@ -3753,6 +3783,12 @@ def cmd_trade_finder(args, as_json=False):
 
         # 2. Get z-score info for the target player
         target_z, target_tier, target_per_cat = _player_z_summary(target_player.get("name", target_name))
+        # Regression-adjusted z-score for trade valuation
+        try:
+            from shared import get_regression_adjusted_z
+            target_z = get_regression_adjusted_z(target_player.get("name", target_name), target_z)
+        except Exception:
+            pass
         target_positions = target_player.get("eligible_positions", [])
         target_is_pitcher = is_pitcher_position(target_positions)
 
@@ -3769,6 +3805,12 @@ def cmd_trade_finder(args, as_json=False):
             positions = p.get("eligible_positions", [])
             is_pitcher = is_pitcher_position(positions)
             z_val, tier, per_cat = _player_z_summary(name)
+            # Regression-adjusted z-score for trade valuation
+            try:
+                from shared import get_regression_adjusted_z
+                z_val = get_regression_adjusted_z(name, z_val)
+            except Exception:
+                pass
             my_players.append({
                 "name": name,
                 "player_id": str(p.get("player_id", "")),
@@ -5797,6 +5839,16 @@ def cmd_punt_advisor(args, as_json=False):
             cat["recommendation"] = "hold"
             cat["reasoning"] = "Mid-pack — maintain current level"
 
+        # SGP efficiency: how many standings points per unit improvement
+        try:
+            from valuations import GENERIC_SGP_DENOMINATORS_12
+            sgp_denom = GENERIC_SGP_DENOMINATORS_12.get(name, None)
+            if sgp_denom:
+                cat["sgp_denominator"] = sgp_denom
+                cat["sgp_efficiency"] = "high" if sgp_denom < 10 else "medium" if sgp_denom < 50 else "low"
+        except Exception:
+            pass
+
     # Roto guard: flag all punts as not recommended in roto
     if not format_strategy.get("punt_viable", True):
         for cat in categories:
@@ -5968,6 +6020,16 @@ def _punt_advisor_from_projections(lg, as_json=False):
             if not viability.get("puntable", True):
                 entry["recommendation"] = "caution_punt"
                 entry["reasoning"] = "Research says punting " + cat + " is high-risk: " + viability.get("reason", "correlated with other key categories")
+
+        # SGP efficiency annotation
+        try:
+            from valuations import GENERIC_SGP_DENOMINATORS_12
+            sgp_denom = GENERIC_SGP_DENOMINATORS_12.get(cat, None)
+            if sgp_denom:
+                entry["sgp_denominator"] = sgp_denom
+                entry["sgp_efficiency"] = "high" if sgp_denom < 10 else "medium" if sgp_denom < 50 else "low"
+        except Exception:
+            pass
 
         categories.append(entry)
 
@@ -6351,6 +6413,12 @@ def cmd_optimal_moves(args, as_json=False):
         pid = str(p.get("player_id", ""))
         z_info = get_player_zscore(name) or {}
         z_val = z_info.get("z_final", 0)
+        # Regression-adjusted z-score
+        try:
+            from shared import get_regression_adjusted_z
+            z_val = get_regression_adjusted_z(name, z_val)
+        except Exception:
+            pass
         tier = z_info.get("tier", "Streamable")
         per_cat = z_info.get("per_category_zscores", {})
         eligible = p.get("eligible_positions", [])
@@ -6401,6 +6469,12 @@ def cmd_optimal_moves(args, as_json=False):
             if not z_info:
                 continue
             z_val = z_info.get("z_final", 0)
+            # Regression-adjusted z-score
+            try:
+                from shared import get_regression_adjusted_z
+                z_val = get_regression_adjusted_z(name, z_val)
+            except Exception:
+                pass
             tier = z_info.get("tier", "Streamable")
             per_cat = z_info.get("per_category_zscores", {})
             fa_pool.append({
@@ -8743,11 +8817,25 @@ def cmd_trade_pipeline(args, as_json=False):
             for name in give_names:
                 z_info = get_player_zscore(name)
                 if z_info:
-                    give_value += z_info.get("z_final", 0)
+                    z_val = z_info.get("z_final", 0)
+                    # Regression-adjusted z-score
+                    try:
+                        from shared import get_regression_adjusted_z
+                        z_val = get_regression_adjusted_z(name, z_val)
+                    except Exception:
+                        pass
+                    give_value += z_val
             for name in get_names:
                 z_info = get_player_zscore(name)
                 if z_info:
-                    get_value += z_info.get("z_final", 0)
+                    z_val = z_info.get("z_final", 0)
+                    # Regression-adjusted z-score
+                    try:
+                        from shared import get_regression_adjusted_z
+                        z_val = get_regression_adjusted_z(name, z_val)
+                    except Exception:
+                        pass
+                    get_value += z_val
 
             net_value = get_value - give_value
             grade = _grade_trade(net_value)

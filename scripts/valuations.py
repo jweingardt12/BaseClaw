@@ -318,6 +318,31 @@ PARK_FACTORS = {
     "SEA": 0.95, "TB": 0.94, "SD": 0.93, "SF": 0.93, "MIA": 0.92,
 }
 
+# PA/IP needed for a stat to become more predictive than projections
+# Research-backed stabilization points (Russell Carleton / Tom Tango)
+STAT_STABILIZATION = {
+    # Hitter stats (PA needed)
+    "K": 60, "SO": 60, "BB": 120, "HR": 170, "SB": 80, "CS": 80,
+    "H": 200, "R": 200, "RBI": 200, "2B": 200, "3B": 200,
+    "AVG": 400, "OBP": 350, "SLG": 300,
+    # Pitcher stats (batters faced, approx IP * 3)
+    "ERA": 600, "WHIP": 350, "W": 500, "L": 500, "QS": 400,
+    "SV": 100, "HLD": 100, "ER": 400,
+    # Pitcher K stabilizes faster than hitter K
+    "K_pitch": 70, "IP": 200,
+}
+DEFAULT_STABILIZATION = 200
+
+# Generic SGP denominators for 12-team H2H categories league
+# How much of stat X = one standings point (historical averages)
+GENERIC_SGP_DENOMINATORS_12 = {
+    "R": 45, "H": 75, "HR": 15, "RBI": 45, "SB": 10, "CS": 8,
+    "AVG": 0.008, "OBP": 0.007, "TB": 55, "XBH": 20, "NSB": 8,
+    "K": 90, "W": 5, "QS": 8, "ERA": 0.30, "WHIP": 0.04,
+    "IP": 45, "HLD": 10, "NSV": 5, "SV": 8,
+    "L": 3, "ER": 30, "BB": 20,
+}
+
 # Minimum thresholds (filter out tiny samples)
 MIN_PA = 200
 MIN_IP = 30
@@ -1066,6 +1091,23 @@ def get_projection_weight(season_start_date=None):
         return 0.20
 
 
+def get_stat_blend_weight(stat_name, sample_size, stat_type="bat"):
+    """Return projection weight for a specific stat based on sample size.
+    Uses per-metric stabilization points. K-rate stabilizes at 60 PA,
+    BABIP/AVG needs 400+ PA. Returns projection_weight (1.0 = all projections).
+    """
+    lookup_key = stat_name
+    if stat_type == "pit" and stat_name in ("K", "SO"):
+        lookup_key = "K_pitch"
+    stabilization = STAT_STABILIZATION.get(lookup_key,
+                    STAT_STABILIZATION.get(stat_name.upper(), DEFAULT_STABILIZATION))
+    reliability = min(sample_size / stabilization, 1.0) if stabilization > 0 else 0
+    date_weight = get_projection_weight()
+    # Per-metric reliability, but date-based floor prevents trusting tiny samples
+    stat_proj_weight = max(1.0 - reliability, date_weight * 0.5)
+    return stat_proj_weight
+
+
 def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
     """Blend projection data with actual in-season stats.
     Weight: actual_weight = min(games_played / 80, 0.7)
@@ -1094,89 +1136,88 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
         blended = proj_row.copy()
 
         if stat_type == "bat":
-            actual_weight = 1.0 - get_projection_weight()
-            # Sample-size floor: below 50 PA/IP, defer to projections
-            sample = float(actual_row.get("PA", actual_row.get("IP", 0)))
-            if sample < 50:
-                actual_weight = min(actual_weight, 0.20)
-            proj_weight = 1.0 - actual_weight
-
             actual_pa = float(actual_row.get("PA", 0))
             proj_pa = float(proj_row.get("PA", 0))
 
             if actual_pa > 0 and proj_pa > 0:
-                # Counting stats: blend per-PA rates then scale to projected PA
+                # Counting stats: per-stat blend weights based on stabilization
                 counting = ["R", "H", "HR", "RBI", "SB", "CS", "2B", "3B"]
                 for stat in counting:
+                    stat_proj_w = get_stat_blend_weight(stat, actual_pa, "bat")
+                    stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, actual_row.get("SO" if stat == "K" else stat, 0)))
                     p_val = float(proj_row.get(stat, 0))
                     a_rate = a_val / actual_pa if actual_pa > 0 else 0
                     p_rate = p_val / proj_pa if proj_pa > 0 else 0
-                    blended_rate = (a_rate * actual_weight) + (p_rate * proj_weight)
+                    blended_rate = (a_rate * stat_actual_w) + (p_rate * stat_proj_w)
                     blended[stat] = round(blended_rate * proj_pa)
 
-                # SO/K
+                # SO/K with per-stat weight
+                stat_proj_w = get_stat_blend_weight("K", actual_pa, "bat")
+                stat_actual_w = 1.0 - stat_proj_w
                 a_so = float(actual_row.get("SO", actual_row.get("K", 0)))
                 p_so = float(proj_row.get("SO", proj_row.get("K", 0)))
                 a_rate = a_so / actual_pa if actual_pa > 0 else 0
                 p_rate = p_so / proj_pa if proj_pa > 0 else 0
-                blended_rate = (a_rate * actual_weight) + (p_rate * proj_weight)
+                blended_rate = (a_rate * stat_actual_w) + (p_rate * stat_proj_w)
                 if "SO" in proj_row.index:
                     blended["SO"] = round(blended_rate * proj_pa)
                 if "K" in proj_row.index:
                     blended["K"] = round(blended_rate * proj_pa)
 
-                # Ratio stats: weighted by PA
+                # Ratio stats: per-stat weights, weighted by PA
                 for stat in ["AVG", "OBP", "SLG"]:
+                    stat_proj_w = get_stat_blend_weight(stat, actual_pa, "bat")
+                    stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, 0))
                     p_val = float(proj_row.get(stat, 0))
                     total_pa = actual_pa + proj_pa
                     if total_pa > 0:
                         blended[stat] = round(
-                            (a_val * actual_pa * actual_weight + p_val * proj_pa * proj_weight)
-                            / (actual_pa * actual_weight + proj_pa * proj_weight), 3
+                            (a_val * actual_pa * stat_actual_w + p_val * proj_pa * stat_proj_w)
+                            / (actual_pa * stat_actual_w + proj_pa * stat_proj_w), 3
                         )
 
-                # BB
+                # BB with per-stat weight
+                stat_proj_w = get_stat_blend_weight("BB", actual_pa, "bat")
+                stat_actual_w = 1.0 - stat_proj_w
                 a_bb = float(actual_row.get("BB", 0))
                 p_bb = float(proj_row.get("BB", 0))
                 a_rate = a_bb / actual_pa if actual_pa > 0 else 0
                 p_rate = p_bb / proj_pa if proj_pa > 0 else 0
-                blended_rate = (a_rate * actual_weight) + (p_rate * proj_weight)
+                blended_rate = (a_rate * stat_actual_w) + (p_rate * stat_proj_w)
                 blended["BB"] = round(blended_rate * proj_pa)
 
         else:
-            # Pitching
-            actual_weight = 1.0 - get_projection_weight()
-            # Sample-size floor: below 50 PA/IP, defer to projections
-            sample = float(actual_row.get("PA", actual_row.get("IP", 0)))
-            if sample < 50:
-                actual_weight = min(actual_weight, 0.20)
-            proj_weight = 1.0 - actual_weight
-
+            # Pitching: per-stat blend weights using batters faced (IP * 3)
             actual_ip = float(actual_row.get("IP", 0))
             proj_ip = float(proj_row.get("IP", 0))
+            actual_bf = actual_ip * 3  # approximate batters faced
 
             if actual_ip > 0 and proj_ip > 0:
-                # Counting stats per IP
+                # Counting stats per IP with per-stat weights
                 counting = ["W", "L", "K", "BB", "SV", "HLD", "ER", "QS"]
                 for stat in counting:
+                    stat_proj_w = get_stat_blend_weight(stat, actual_bf, "pit")
+                    stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, actual_row.get("SO" if stat == "K" else stat, 0)))
                     p_val = float(proj_row.get(stat, 0))
                     a_rate = a_val / actual_ip if actual_ip > 0 else 0
                     p_rate = p_val / proj_ip if proj_ip > 0 else 0
-                    blended_rate = (a_rate * actual_weight) + (p_rate * proj_weight)
+                    blended_rate = (a_rate * stat_actual_w) + (p_rate * stat_proj_w)
                     blended[stat] = round(blended_rate * proj_ip)
 
-                # Ratio stats: weighted by IP
+                # Ratio stats: per-stat weights, weighted by IP
                 for stat in ["ERA", "WHIP"]:
+                    stat_proj_w = get_stat_blend_weight(stat, actual_bf, "pit")
+                    stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, 0))
                     p_val = float(proj_row.get(stat, 0))
                     total_ip = actual_ip + proj_ip
                     if total_ip > 0:
                         blended[stat] = round(
-                            (a_val * actual_ip * actual_weight + p_val * proj_ip * proj_weight)
-                            / (actual_ip * actual_weight + proj_ip * proj_weight), 3
+                            (a_val * actual_ip * stat_actual_w + p_val * proj_ip * stat_proj_w)
+                            / (actual_ip * stat_actual_w + proj_ip * stat_proj_w), 3
                         )
 
         blended_rows.append(blended)
@@ -1458,6 +1499,172 @@ def _fill_positions_from_yahoo(players, pos_type="B"):
 
     except Exception as e:
         print("Warning: Yahoo position lookup failed: " + str(e))
+
+
+# ============================================================
+# SGP (Standings Gain Points) Engine
+# ============================================================
+
+def compute_sgp_denominators(category_standings=None, num_teams=12):
+    """Compute SGP denominators from league category standings.
+    SGP denominator = (1st place value - last place value) / (num_teams - 1).
+    Falls back to generic defaults if no standings data.
+
+    Args:
+        category_standings: dict of {category_name: [values_by_team]} or None
+        num_teams: number of teams in the league
+    Returns:
+        dict of {category_name: denominator}
+    """
+    if not category_standings:
+        return dict(GENERIC_SGP_DENOMINATORS_12)
+
+    denominators = {}
+    divisor = max(num_teams - 1, 1)
+    for cat, values in category_standings.items():
+        if not values or len(values) < 2:
+            denominators[cat] = GENERIC_SGP_DENOMINATORS_12.get(cat, 1.0)
+            continue
+        try:
+            float_vals = [float(v) for v in values if v is not None]
+            if not float_vals:
+                denominators[cat] = GENERIC_SGP_DENOMINATORS_12.get(cat, 1.0)
+                continue
+            max_val = max(float_vals)
+            min_val = min(float_vals)
+            denom = (max_val - min_val) / divisor
+            if denom <= 0:
+                denom = GENERIC_SGP_DENOMINATORS_12.get(cat, 1.0)
+            denominators[cat] = round(denom, 4)
+        except (ValueError, TypeError):
+            denominators[cat] = GENERIC_SGP_DENOMINATORS_12.get(cat, 1.0)
+    return denominators
+
+
+def compute_player_sgp(player_projected_stats, denominators, negative_cats=None):
+    """Convert projected stats to SGP (Standings Gain Points).
+    For each category: player_stat / denominator = standings points contributed.
+
+    Args:
+        player_projected_stats: dict of {category: projected_value}
+        denominators: dict of {category: sgp_denominator}
+        negative_cats: set of categories where lower is better (ERA, WHIP, etc.)
+    Returns:
+        dict with per_category_sgp, total_sgp
+    """
+    if negative_cats is None:
+        negative_cats = {"ERA", "WHIP", "ER", "L", "K_negative", "L_negative", "ER_negative"}
+
+    per_cat = {}
+    total = 0.0
+    for cat, denom in denominators.items():
+        stat_val = player_projected_stats.get(cat, 0)
+        if stat_val is None or denom is None or denom == 0:
+            continue
+        try:
+            val = float(stat_val)
+            d = float(denom)
+            sgp = val / d
+            if cat in negative_cats:
+                sgp = -sgp  # lower is better, so invert
+            per_cat[cat] = round(sgp, 2)
+            total += sgp
+        except (ValueError, TypeError):
+            continue
+    return {
+        "per_category_sgp": per_cat,
+        "total_sgp": round(total, 2),
+    }
+
+
+_sgp_cache = {"denominators": None, "time": 0}
+_SGP_CACHE_TTL = 3600  # 1 hour
+
+def get_player_sgp(player_name, denominators=None):
+    """Get SGP breakdown for a player. Like get_player_zscore() but for SGP.
+    Uses cached denominators, falling back to generic pre-season defaults.
+    """
+    import time as _time
+    now = _time.time()
+    if denominators is None:
+        if (_sgp_cache.get("denominators") is not None
+                and now - _sgp_cache.get("time", 0) < _SGP_CACHE_TTL):
+            denominators = _sgp_cache["denominators"]
+        else:
+            denominators = compute_sgp_denominators()
+            _sgp_cache["denominators"] = denominators
+            _sgp_cache["time"] = now
+
+    # Get player projected stats
+    z_info = get_player_zscore(player_name)
+    if not z_info:
+        return None
+
+    # We need the raw projected stats, not z-scores
+    # Use the loaded projection data directly
+    hitters, pitchers, source = _get_loaded_data()
+
+    player_stats = {}
+    player_row = None
+    name_lower = player_name.strip().lower() if player_name else ""
+
+    for df in [hitters, pitchers]:
+        if df is None:
+            continue
+        for _, row in df.iterrows():
+            row_name = str(row.get("Name", "")).strip().lower()
+            if row_name == name_lower:
+                player_row = row
+                break
+        if player_row is not None:
+            break
+
+    if player_row is None:
+        return None
+
+    # Extract projected stats
+    for col in player_row.index:
+        try:
+            val = float(player_row[col])
+            player_stats[col] = val
+        except (ValueError, TypeError):
+            pass
+
+    # Map column names to category names used in denominators
+    mapped_stats = {}
+    for k, v in player_stats.items():
+        mapped_stats[k] = v
+
+    # Derive XBH if not present
+    if "XBH" not in mapped_stats:
+        xbh = player_stats.get("2B", 0) + player_stats.get("3B", 0) + player_stats.get("HR", 0)
+        if xbh > 0:
+            mapped_stats["XBH"] = xbh
+
+    # Derive TB if not present
+    if "TB" not in mapped_stats:
+        tb = (player_stats.get("H", 0)
+              + player_stats.get("2B", 0)
+              + 2 * player_stats.get("3B", 0)
+              + 3 * player_stats.get("HR", 0))
+        if tb > 0:
+            mapped_stats["TB"] = tb
+
+    # Derive NSB if not present
+    if "NSB" not in mapped_stats:
+        nsb = player_stats.get("SB", 0) - player_stats.get("CS", 0)
+        mapped_stats["NSB"] = nsb
+
+    # Derive NSV if not present
+    if "NSV" not in mapped_stats:
+        nsv = player_stats.get("SV", 0) + player_stats.get("HLD", 0)
+        mapped_stats["NSV"] = nsv
+
+    result = compute_player_sgp(mapped_stats, denominators)
+    result["name"] = z_info.get("name", player_name)
+    result["z_final"] = z_info.get("z_final", 0)
+    result["tier"] = z_info.get("tier", "Streamable")
+    return result
 
 
 # --- CLI Commands ---
