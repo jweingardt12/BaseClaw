@@ -107,7 +107,7 @@ export function ValueView({ data, app, navigate }: { data: ValueData; app?: any;
           var pct = Math.max(0, Math.min(100, ((c.z_score + 2) / 6) * 100));
           var barColor = tierColor(c.z_score);
           return (
-            <div key={c.category} className="surface-card p-2.5">
+            <div key={c.category} className="surface-card p-4">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold">{c.category}</span>

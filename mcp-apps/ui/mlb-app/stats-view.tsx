@@ -14,7 +14,7 @@ export function StatsView({ data }: { data: MlbStatsData }) {
           var key = pair[0];
           var val = pair[1];
           return (
-            <div key={key} className="surface-card p-3 text-center">
+            <div key={key} className="surface-card p-4 text-center">
               <p className="text-xl font-bold font-mono">{String(val)}</p>
               <p className="text-xs text-muted-foreground font-semibold">{key}</p>
             </div>

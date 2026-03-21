@@ -29,9 +29,8 @@ export function KpiTile({ value, label, color = "primary", trend, className }: K
       value={value}
       variant="accent"
       accentColor={COLOR_MAP[color] || "primary"}
-      size="sm"
       trend={trendProp}
-      className={cn("text-center", className)}
+      className={cn(className)}
     />
   );
 }

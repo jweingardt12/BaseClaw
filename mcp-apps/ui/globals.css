@@ -232,8 +232,8 @@ button, a, [role="button"] {
    ═══════════════════════════════════════════════════ */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--app-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--app-space-3);
 }
 
 /* ═══════════════════════════════════════════════════

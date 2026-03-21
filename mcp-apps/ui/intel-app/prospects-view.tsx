@@ -50,7 +50,7 @@ export function ProspectsView({ data, app, navigate }: { data: ProspectsData; ap
         <div className="space-y-1.5">
           {transactions.map(function(t, i) {
             return (
-              <div key={i} className="surface-card p-3 flex items-center gap-3">
+              <div key={i} className="surface-card p-4 flex items-center gap-3">
                 <div className="shrink-0">
                   <TeamLogo abbrev={t.team} />
                 </div>
