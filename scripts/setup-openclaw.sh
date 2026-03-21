@@ -169,11 +169,30 @@ except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
     print(0)
     sys.exit(0)
 
+# Check existing jobs to avoid duplicates (openclaw allows duplicate names)
+try:
+    existing = subprocess.run(
+        ["openclaw", "cron", "list", "--json"],
+        capture_output=True, text=True, timeout=15,
+    )
+    existing_names = set()
+    if existing.returncode == 0:
+        data = json.loads(existing.stdout)
+        if isinstance(data, dict):
+            data = data.get("jobs", data.get("data", []))
+        existing_names = {j.get("name", "") for j in data}
+except Exception:
+    existing_names = set()
+
 registered = 0
 for job in jobs:
+    name = job.get("name", "")
+    if name in existing_names:
+        registered += 1
+        continue
     cmd = [
         "openclaw", "cron", "add",
-        "--name", job.get("name", ""),
+        "--name", name,
         "--cron", job.get("schedule", {}).get("expr", ""),
         "--tz", tz,
         "--session", job.get("sessionTarget", "isolated"),
@@ -187,13 +206,11 @@ for job in jobs:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode == 0:
             registered += 1
-        elif "already exists" in result.stderr.lower() or "duplicate" in result.stderr.lower():
-            registered += 1
         else:
             msg = result.stderr.strip() or result.stdout.strip()
-            print("  Failed: " + job.get("name", "?") + " — " + msg, file=sys.stderr)
+            print("  Failed: " + name + " — " + msg, file=sys.stderr)
     except Exception as e:
-        print("  Failed: " + job.get("name", "?") + " — " + str(e), file=sys.stderr)
+        print("  Failed: " + name + " — " + str(e), file=sys.stderr)
 
 print(registered)
 PYEOF
