@@ -39,16 +39,31 @@ The installer clones the repo, builds the Docker image, prompts for Yahoo OAuth 
 
 ## OpenClaw Setup
 
-1. Copy config files into your OpenClaw directory:
+After installing BaseClaw, run the OpenClaw setup script:
+
+```bash
+~/.baseclaw/scripts/setup-openclaw.sh
+```
+
+This registers the MCP server, installs the skill, and optionally sets up
+8 scheduled cron jobs for autonomous team management.
+
+**Manual setup** (if you prefer):
+
+1. Register the MCP server:
    ```bash
-   cp openclaw-config-example.yaml ~/.openclaw/services/baseclaw.yaml
-   cp openclaw-cron-examples.json ~/.openclaw/crons/baseclaw.json
+   npx mcporter config add baseclaw --url http://localhost:4951/mcp
    ```
-2. Edit `baseclaw.yaml` — set your `YAHOO_CONSUMER_KEY`, `YAHOO_CONSUMER_SECRET`, `LEAGUE_ID`, and `TEAM_ID`.
-3. Start the service:
+
+2. Copy the skill files:
    ```bash
-   openclaw start
+   mkdir -p ~/.openclaw/workspace/skills/baseclaw
+   cp SKILL.md AGENTS.md ~/.openclaw/workspace/skills/baseclaw/
    ```
+
+3. Cron jobs can be registered through your OpenClaw agent:
+   "Set up BaseClaw scheduled jobs" — it will read the cron schedule
+   from the skill and register them.
 
 ## Workflow Tools
 

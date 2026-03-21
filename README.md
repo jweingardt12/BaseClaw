@@ -212,50 +212,30 @@ Eleven aggregated tools that bundle 5-7+ API calls server-side. Available to all
 The one-command installer handles OpenClaw configuration automatically. To set it up manually:
 
 ```bash
-docker compose up -d
-cp openclaw-config.yaml /path/to/openclaw/config/
-cp AGENTS.md /path/to/openclaw/config/
-cp openclaw-cron-examples.json /path/to/openclaw/config/
+~/.baseclaw/scripts/setup-openclaw.sh
 ```
 
-Edit `openclaw-config.yaml`:
+This registers the MCP server in mcporter, installs the skill files, and optionally sets up 8 scheduled cron jobs.
 
-```yaml
-agents:
-  - id: fantasy-gm
-    model: anthropic/claude-sonnet-4-5
-    persona: ./AGENTS.md
-    mcp_servers:
-      - name: baseclaw
-        command: docker
-        args: [exec, -i, baseclaw, node, /app/mcp-apps/dist/main.js, --stdio]
-        env:
-          ENABLE_WRITE_OPS: "true"
-    schedules: ./openclaw-cron-examples.json
-```
+**Manual setup** (if you prefer):
 
-- **`persona: ./AGENTS.md`** — Agent persona with league strategy, daily/weekly routines, workflow tools, and decision tiers. Customize to adjust behavior.
-- **`ENABLE_WRITE_OPS: "true"`** — Required for roster moves. Without it, the agent can only read and recommend.
-- **`schedules`** — Cron job definitions. Edit times, timezone, or tasks in `openclaw-cron-examples.json`.
+1. Register the MCP server:
+   ```bash
+   npx mcporter config add baseclaw --url http://localhost:4951/mcp
+   ```
 
-Start the agent:
+2. Copy the skill files:
+   ```bash
+   mkdir -p ~/.openclaw/workspace/skills/baseclaw
+   cp SKILL.md AGENTS.md ~/.openclaw/workspace/skills/baseclaw/
+   ```
+
+3. Register cron jobs through your agent: "Set up BaseClaw scheduled jobs"
+
+**Uninstall from OpenClaw:**
 
 ```bash
-openclaw start
-```
-
-Example cron job:
-
-```json
-{
-  "name": "Daily lineup + morning briefing",
-  "schedule": { "kind": "cron", "expr": "0 9 * * *", "tz": "America/New_York" },
-  "sessionTarget": "isolated",
-  "payload": {
-    "kind": "agentTurn",
-    "message": "Daily routine. Call yahoo_morning_briefing, then yahoo_auto_lineup. Execute any priority-1 action items. Report actions taken in 2-3 sentences."
-  }
-}
+~/.baseclaw/scripts/remove-openclaw.sh
 ```
 
 </details>
@@ -559,8 +539,7 @@ baseclaw/
 ├── yf                              # CLI helper script (with --json and api modes)
 ├── SKILL.md                        # ClawHub manifest (install metadata + overview)
 ├── AGENTS.md                       # Agent persona for autonomous GM
-├── openclaw-config.yaml            # OpenClaw agent orchestrator config
-├── openclaw-cron-examples.json     # Cron schedule (8 jobs)
+├── openclaw-cron-examples.json     # OpenClaw cron schedule (8 jobs, API-ready format)
 ├── config/
 │   ├── yahoo_oauth.json            # OAuth credentials + tokens (gitignored, auto-generated from env vars)
 │   ├── yahoo_session.json          # Browser session (gitignored, for write ops)
@@ -584,17 +563,8 @@ baseclaw/
 │   ├── mlb-data.py                 # MLB Stats API helper
 │   ├── mlb_id_cache.py             # Player name → MLB ID mapping
 │   ├── shared.py                   # Shared utilities (team key detection, name normalization)
-│   └── openclaw-skill/             # OpenClaw automation scripts
-│       ├── api_client.py           # Shared HTTP client for automation scripts
-│       ├── config.py               # AutomationConfig (autonomy levels per action type)
-│       ├── config.yaml             # Default autonomy configuration
-│       ├── formatter.py            # Message formatter for Telegram/WhatsApp
-│       ├── daily-lineup.py         # Cron: morning lineup optimization
-│       ├── injury-monitor.py       # Cron: injury auto-response with state tracking
-│       ├── waiver-scout.py         # Cron: daily waiver wire recommendations
-│       ├── weekly-recap.py         # Cron: end-of-week narrative recap
-│       ├── manifest.json           # OpenClaw skill package manifest
-│       └── README.md               # Automation setup documentation
+│   ├── setup-openclaw.sh           # OpenClaw integration setup (mcporter + skill + cron)
+│   └── remove-openclaw.sh          # OpenClaw integration removal
 └── mcp-apps/                       # TypeScript MCP server + UI apps
     ├── server.ts                   # MCP server setup + tool registration
     ├── main.ts                     # Entry point (stdio + HTTP)

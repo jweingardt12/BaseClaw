@@ -126,6 +126,11 @@ if [ "${1:-}" = "--uninstall" ]; then
     fi
   done
 
+  # Remove OpenClaw integration
+  if [ -d "$HOME/.openclaw" ] && [ -f "$INSTALL_DIR/scripts/remove-openclaw.sh" ]; then
+    bash "$INSTALL_DIR/scripts/remove-openclaw.sh" 2>/dev/null || true
+  fi
+
   ok "BaseClaw uninstalled"
   exit 0
 fi
@@ -177,9 +182,11 @@ fetch() {
 info "Downloading config files..."
 fetch "$RAW/docker-compose.example.yml" "$INSTALL_DIR/docker-compose.yml"
 fetch "$RAW/.env.example"               "$INSTALL_DIR/.env"
-fetch "$RAW/openclaw-config.yaml"       "$INSTALL_DIR/openclaw-config.yaml"
 fetch "$RAW/AGENTS.md"                  "$INSTALL_DIR/AGENTS.md"
 fetch "$RAW/openclaw-cron-examples.json" "$INSTALL_DIR/openclaw-cron-examples.json"
+fetch "$RAW/scripts/setup-openclaw.sh"  "$INSTALL_DIR/scripts/setup-openclaw.sh"
+fetch "$RAW/scripts/remove-openclaw.sh" "$INSTALL_DIR/scripts/remove-openclaw.sh"
+chmod +x "$INSTALL_DIR/scripts/setup-openclaw.sh" "$INSTALL_DIR/scripts/remove-openclaw.sh"
 ok "Config files ready"
 
 # ---------------------------------------------------------------------------
@@ -310,15 +317,10 @@ fi
 
 # OpenClaw
 if [ -d "$HOME/.openclaw" ]; then
-  read -rp "Configure OpenClaw agent? [Y/n] " DO_OC
+  read -rp "Configure OpenClaw integration? [Y/n] " DO_OC
   DO_OC="${DO_OC:-Y}"
   if [[ "$DO_OC" =~ ^[Yy] ]]; then
-    OC_DIR="$HOME/.openclaw/workspace/baseclaw"
-    mkdir -p "$OC_DIR"
-    cp "$INSTALL_DIR/openclaw-config.yaml" "$OC_DIR/"
-    cp "$INSTALL_DIR/AGENTS.md" "$OC_DIR/"
-    cp "$INSTALL_DIR/openclaw-cron-examples.json" "$OC_DIR/"
-    ok "OpenClaw configured at $OC_DIR"
+    bash "$INSTALL_DIR/scripts/setup-openclaw.sh"
   fi
 fi
 
