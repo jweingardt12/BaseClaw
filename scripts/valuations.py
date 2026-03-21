@@ -1091,10 +1091,11 @@ def get_projection_weight(season_start_date=None):
         return 0.20
 
 
-def get_stat_blend_weight(stat_name, sample_size, stat_type="bat"):
+def get_stat_blend_weight(stat_name, sample_size, stat_type="bat", date_weight=None):
     """Return projection weight for a specific stat based on sample size.
     Uses per-metric stabilization points. K-rate stabilizes at 60 PA,
     BABIP/AVG needs 400+ PA. Returns projection_weight (1.0 = all projections).
+    Pass date_weight to avoid recomputing get_projection_weight() per call.
     """
     lookup_key = stat_name
     if stat_type == "pit" and stat_name in ("K", "SO"):
@@ -1102,8 +1103,8 @@ def get_stat_blend_weight(stat_name, sample_size, stat_type="bat"):
     stabilization = STAT_STABILIZATION.get(lookup_key,
                     STAT_STABILIZATION.get(stat_name.upper(), DEFAULT_STABILIZATION))
     reliability = min(sample_size / stabilization, 1.0) if stabilization > 0 else 0
-    date_weight = get_projection_weight()
-    # Per-metric reliability, but date-based floor prevents trusting tiny samples
+    if date_weight is None:
+        date_weight = get_projection_weight()
     stat_proj_weight = max(1.0 - reliability, date_weight * 0.5)
     return stat_proj_weight
 
@@ -1116,6 +1117,9 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
     """
     if proj_df is None or actual_df is None or len(actual_df) == 0:
         return proj_df
+
+    # Cache date-based weight once for entire blend pass
+    _date_weight = get_projection_weight()
 
     # Build lookup from actual stats by name
     actual_by_name = {}
@@ -1143,7 +1147,7 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
                 # Counting stats: per-stat blend weights based on stabilization
                 counting = ["R", "H", "HR", "RBI", "SB", "CS", "2B", "3B"]
                 for stat in counting:
-                    stat_proj_w = get_stat_blend_weight(stat, actual_pa, "bat")
+                    stat_proj_w = get_stat_blend_weight(stat, actual_pa, "bat", _date_weight)
                     stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, actual_row.get("SO" if stat == "K" else stat, 0)))
                     p_val = float(proj_row.get(stat, 0))
@@ -1153,7 +1157,7 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
                     blended[stat] = round(blended_rate * proj_pa)
 
                 # SO/K with per-stat weight
-                stat_proj_w = get_stat_blend_weight("K", actual_pa, "bat")
+                stat_proj_w = get_stat_blend_weight("K", actual_pa, "bat", _date_weight)
                 stat_actual_w = 1.0 - stat_proj_w
                 a_so = float(actual_row.get("SO", actual_row.get("K", 0)))
                 p_so = float(proj_row.get("SO", proj_row.get("K", 0)))
@@ -1167,7 +1171,7 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
 
                 # Ratio stats: per-stat weights, weighted by PA
                 for stat in ["AVG", "OBP", "SLG"]:
-                    stat_proj_w = get_stat_blend_weight(stat, actual_pa, "bat")
+                    stat_proj_w = get_stat_blend_weight(stat, actual_pa, "bat", _date_weight)
                     stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, 0))
                     p_val = float(proj_row.get(stat, 0))
@@ -1179,7 +1183,7 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
                         )
 
                 # BB with per-stat weight
-                stat_proj_w = get_stat_blend_weight("BB", actual_pa, "bat")
+                stat_proj_w = get_stat_blend_weight("BB", actual_pa, "bat", _date_weight)
                 stat_actual_w = 1.0 - stat_proj_w
                 a_bb = float(actual_row.get("BB", 0))
                 p_bb = float(proj_row.get("BB", 0))
@@ -1198,7 +1202,7 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
                 # Counting stats per IP with per-stat weights
                 counting = ["W", "L", "K", "BB", "SV", "HLD", "ER", "QS"]
                 for stat in counting:
-                    stat_proj_w = get_stat_blend_weight(stat, actual_bf, "pit")
+                    stat_proj_w = get_stat_blend_weight(stat, actual_bf, "pit", _date_weight)
                     stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, actual_row.get("SO" if stat == "K" else stat, 0)))
                     p_val = float(proj_row.get(stat, 0))
@@ -1209,7 +1213,7 @@ def blend_projections_and_actual(proj_df, actual_df, stat_type="bat"):
 
                 # Ratio stats: per-stat weights, weighted by IP
                 for stat in ["ERA", "WHIP"]:
-                    stat_proj_w = get_stat_blend_weight(stat, actual_bf, "pit")
+                    stat_proj_w = get_stat_blend_weight(stat, actual_bf, "pit", _date_weight)
                     stat_actual_w = 1.0 - stat_proj_w
                     a_val = float(actual_row.get(stat, 0))
                     p_val = float(proj_row.get(stat, 0))
@@ -1595,34 +1599,18 @@ def get_player_sgp(player_name, denominators=None):
             _sgp_cache["denominators"] = denominators
             _sgp_cache["time"] = now
 
-    # Get player projected stats
+    # Get player z-info and raw projected stats
+    hitters, pitchers, source = _get_loaded_data()
+    player_row = get_player_by_name(player_name, hitters, pitchers)
+    if player_row is None:
+        return None
+
     z_info = get_player_zscore(player_name)
     if not z_info:
         return None
 
-    # We need the raw projected stats, not z-scores
-    # Use the loaded projection data directly
-    hitters, pitchers, source = _get_loaded_data()
-
+    # Extract numeric projected stats from the row
     player_stats = {}
-    player_row = None
-    name_lower = player_name.strip().lower() if player_name else ""
-
-    for df in [hitters, pitchers]:
-        if df is None:
-            continue
-        for _, row in df.iterrows():
-            row_name = str(row.get("Name", "")).strip().lower()
-            if row_name == name_lower:
-                player_row = row
-                break
-        if player_row is not None:
-            break
-
-    if player_row is None:
-        return None
-
-    # Extract projected stats
     for col in player_row.index:
         try:
             val = float(player_row[col])
@@ -1630,37 +1618,32 @@ def get_player_sgp(player_name, denominators=None):
         except (ValueError, TypeError):
             pass
 
-    # Map column names to category names used in denominators
-    mapped_stats = {}
-    for k, v in player_stats.items():
-        mapped_stats[k] = v
-
     # Derive XBH if not present
-    if "XBH" not in mapped_stats:
+    if "XBH" not in player_stats:
         xbh = player_stats.get("2B", 0) + player_stats.get("3B", 0) + player_stats.get("HR", 0)
         if xbh > 0:
-            mapped_stats["XBH"] = xbh
+            player_stats["XBH"] = xbh
 
     # Derive TB if not present
-    if "TB" not in mapped_stats:
+    if "TB" not in player_stats:
         tb = (player_stats.get("H", 0)
               + player_stats.get("2B", 0)
               + 2 * player_stats.get("3B", 0)
               + 3 * player_stats.get("HR", 0))
         if tb > 0:
-            mapped_stats["TB"] = tb
+            player_stats["TB"] = tb
 
     # Derive NSB if not present
-    if "NSB" not in mapped_stats:
+    if "NSB" not in player_stats:
         nsb = player_stats.get("SB", 0) - player_stats.get("CS", 0)
-        mapped_stats["NSB"] = nsb
+        player_stats["NSB"] = nsb
 
     # Derive NSV if not present
-    if "NSV" not in mapped_stats:
+    if "NSV" not in player_stats:
         nsv = player_stats.get("SV", 0) + player_stats.get("HLD", 0)
-        mapped_stats["NSV"] = nsv
+        player_stats["NSV"] = nsv
 
-    result = compute_player_sgp(mapped_stats, denominators)
+    result = compute_player_sgp(player_stats, denominators)
     result["name"] = z_info.get("name", player_name)
     result["z_final"] = z_info.get("z_final", 0)
     result["tier"] = z_info.get("tier", "Streamable")
