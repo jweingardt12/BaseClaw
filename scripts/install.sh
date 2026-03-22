@@ -10,6 +10,7 @@ RAW="https://raw.githubusercontent.com/$REPO/main"
 INSTALL_DIR="${BASECLAW_DIR:-$HOME/.baseclaw}"
 CONTAINER="baseclaw"
 SERVER_NAME="baseclaw"
+START_TIME=$(date +%s)
 
 # Colors (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -197,10 +198,25 @@ ENV_FILE="$INSTALL_DIR/.env"
 if ! has_real_value "YAHOO_CONSUMER_KEY" || ! has_real_value "YAHOO_CONSUMER_SECRET"; then
   echo ""
   printf "${BOLD}Yahoo API credentials required${NC}\n"
-  echo "Create an app at https://developer.yahoo.com/apps/create"
-  echo "  - Select 'Fantasy Sports' read permissions"
-  echo "  - Set redirect URI to 'oob'"
   echo ""
+  echo "  +-------------------------------------------------+"
+  echo "  | To get your Yahoo API credentials:              |"
+  echo "  |                                                 |"
+  echo "  | 1. Go to: developer.yahoo.com/apps/create/     |"
+  echo "  | 2. Click 'Create an App'                        |"
+  echo "  | 3. Name: BaseClaw (or anything)                 |"
+  echo "  | 4. Type: Installed Application                  |"
+  echo "  | 5. Permissions: Fantasy Sports (Read/Write)     |"
+  echo "  | 6. Copy the Consumer Key and Consumer Secret    |"
+  echo "  +-------------------------------------------------+"
+  echo ""
+
+  # Auto-open the Yahoo Developer Console
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    open "https://developer.yahoo.com/apps/create/" 2>/dev/null || true
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "https://developer.yahoo.com/apps/create/" 2>/dev/null || true
+  fi
 
   read -rp "Consumer Key: " CONSUMER_KEY
   read -rsp "Consumer Secret: " CONSUMER_SECRET
@@ -292,11 +308,16 @@ fi
 echo ""
 printf "${BOLD}Configure MCP clients${NC}\n"
 
+# Auto-detect and offer to configure installed AI clients
+info "Detecting installed AI clients..."
+
 # Claude Code
-read -rp "Add to Claude Code (~/.mcp.json)? [Y/n] " DO_CC
-DO_CC="${DO_CC:-Y}"
-if [[ "$DO_CC" =~ ^[Yy] ]]; then
-  manage_mcp_config "add" "$HOME/.mcp.json" && ok "Claude Code configured" || warn "Could not configure Claude Code"
+if [ -d "$HOME/.claude" ] || [ -f "$HOME/.mcp.json" ]; then
+  read -rp "Configure Claude Code (~/.mcp.json)? [Y/n] " DO_CC
+  DO_CC="${DO_CC:-Y}"
+  if [[ "$DO_CC" =~ ^[Yy] ]]; then
+    manage_mcp_config "add" "$HOME/.mcp.json" && ok "Claude Code configured" || warn "Could not configure Claude Code"
+  fi
 fi
 
 # Claude Desktop
@@ -306,12 +327,37 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "linux"* ]]; then
   DESKTOP_CFG="$HOME/.config/Claude/claude_desktop_config.json"
 fi
-
-if [ -n "$DESKTOP_CFG" ]; then
-  read -rp "Add to Claude Desktop? [Y/n] " DO_CD
+if [ -n "$DESKTOP_CFG" ] && [ -d "$(dirname "$DESKTOP_CFG")" ]; then
+  read -rp "Configure Claude Desktop? [Y/n] " DO_CD
   DO_CD="${DO_CD:-Y}"
   if [[ "$DO_CD" =~ ^[Yy] ]]; then
     manage_mcp_config "add" "$DESKTOP_CFG" && ok "Claude Desktop configured" || warn "Could not configure Claude Desktop"
+  fi
+fi
+
+# Cursor
+CURSOR_CFG=""
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  CURSOR_CFG="$HOME/Library/Application Support/Cursor/User/globalStorage/cursor.mcp/mcp.json"
+fi
+if [ -n "$CURSOR_CFG" ] && [ -d "$(dirname "$CURSOR_CFG")" ]; then
+  read -rp "Configure Cursor? [Y/n] " DO_CURSOR
+  DO_CURSOR="${DO_CURSOR:-Y}"
+  if [[ "$DO_CURSOR" =~ ^[Yy] ]]; then
+    manage_mcp_config "add" "$CURSOR_CFG" && ok "Cursor configured (note: 40 tool limit, BaseClaw defaults to ~26)" || warn "Could not configure Cursor"
+  fi
+fi
+
+# VS Code (Copilot)
+VSCODE_CFG=""
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  VSCODE_CFG="$HOME/Library/Application Support/Code/User/globalStorage/github.copilot/mcp.json"
+fi
+if [ -n "$VSCODE_CFG" ] && [ -d "$(dirname "$VSCODE_CFG")" ]; then
+  read -rp "Configure VS Code (Copilot)? [Y/n] " DO_VSCODE
+  DO_VSCODE="${DO_VSCODE:-Y}"
+  if [[ "$DO_VSCODE" =~ ^[Yy] ]]; then
+    manage_mcp_config "add" "$VSCODE_CFG" && ok "VS Code configured" || warn "Could not configure VS Code"
   fi
 fi
 
@@ -325,8 +371,25 @@ if [ -d "$HOME/.openclaw" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Connectivity test
+# ---------------------------------------------------------------------------
+info "Testing connection to Yahoo Fantasy..."
+if docker exec "$CONTAINER" python3 -c "
+from yahoo_fantasy_api import Game
+import json
+with open('/app/config/yahoo_oauth.json') as f:
+    creds = json.load(f)
+print('OK')
+" 2>/dev/null; then
+  ok "Yahoo connection verified!"
+else
+  warn "Could not verify Yahoo connection. You may need to run: cd $INSTALL_DIR && ./yf discover"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
+ELAPSED=$(( $(date +%s) - START_TIME ))
 echo ""
 echo "============================================"
 printf "  ${GREEN}${BOLD}BaseClaw installed${NC}\n"
@@ -334,6 +397,7 @@ echo "============================================"
 echo ""
 echo "  Install dir:  $INSTALL_DIR"
 echo "  Container:    $CONTAINER"
+echo "  Setup time:   $(( ELAPSED / 60 ))m $(( ELAPSED % 60 ))s"
 
 if has_real_value "LEAGUE_ID"; then
   LEAGUE_VAL=$(grep "^LEAGUE_ID=" "$ENV_FILE" | head -1 | cut -d= -f2-)

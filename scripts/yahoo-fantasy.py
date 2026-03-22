@@ -977,6 +977,35 @@ def cmd_scoreboard(args, as_json=False):
         print("Error parsing scoreboard: " + str(e))
 
 
+_stat_id_to_name_cache = {}
+
+def _get_stat_id_to_name(sc):
+    """Fetch stat ID to display name mapping, cached for the process lifetime."""
+    global _stat_id_to_name_cache
+    if _stat_id_to_name_cache:
+        return _stat_id_to_name_cache
+    try:
+        raw_settings = sc.session.get(
+            "https://fantasysports.yahooapis.com/fantasy/v2/league/"
+            + LEAGUE_ID + "/settings?format=json"
+        )
+        settings_data = raw_settings.json()
+        settings_league = settings_data.get("fantasy_content", {}).get("league", [{}])
+        for item in settings_league:
+            if isinstance(item, dict) and "settings" in item:
+                raw_cats = item["settings"][0].get("stat_categories", {}).get("stats", [])
+                for rc in raw_cats:
+                    stat = rc.get("stat", {})
+                    sid = str(stat.get("stat_id", ""))
+                    display = stat.get("display_name", stat.get("name", "Stat " + sid))
+                    if sid:
+                        _stat_id_to_name_cache[sid] = display
+                break
+    except Exception:
+        pass
+    return _stat_id_to_name_cache
+
+
 def cmd_matchup_detail(args, as_json=False):
     """Show detailed H2H matchup with per-category comparison"""
     sc, gm, lg = get_league()
@@ -1008,13 +1037,8 @@ def cmd_matchup_detail(args, as_json=False):
         matchup_block = sb.get("0", {}).get("matchups", {})
         count = int(matchup_block.get("count", 0))
 
-        # Also fetch stat categories for category names
-        stat_cats = lg.stat_categories()
-        stat_id_to_name = {}
-        for cat in stat_cats:
-            sid = str(cat.get("stat_id", ""))
-            display = cat.get("display_name", cat.get("name", "Stat " + sid))
-            stat_id_to_name[sid] = display
+        # Fetch stat categories (cached after first call)
+        stat_id_to_name = _get_stat_id_to_name(sc)
 
         # Fetch team logos
         team_meta = {}

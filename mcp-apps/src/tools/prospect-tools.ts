@@ -14,14 +14,18 @@ import {
   type ProspectTradeTargetsResponse,
   type ProspectNewsResponse,
 } from "../api/types.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
-export function registerProspectTools(server: McpServer) {
+export function registerProspectTools(server: McpServer, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
+
   // prospect_report
+  if (shouldRegister("fantasy_prospect_report")) {
   registerAppTool(
     server,
     "fantasy_prospect_report",
     {
-      description: "Deep prospect analysis with MiLB stats, scouting evaluation, call-up probability, and stash recommendation",
+      description: "Use this to get a deep-dive report on a specific MLB prospect including MiLB stats, scouting evaluation, FV grade, call-up probability, and stash recommendation. Pass the prospect's name for a full breakdown. Use fantasy_prospect_rankings instead when you want to browse the top prospects list rather than researching one specific player.",
       inputSchema: { player_name: z.string().describe("Prospect name to look up") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -84,13 +88,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // prospect_rankings
+  if (shouldRegister("fantasy_prospect_rankings")) {
   registerAppTool(
     server,
     "fantasy_prospect_rankings",
     {
-      description: "Top prospects ranked by composite score with call-up probabilities. Filter by position, level, or team.",
+      description: "Use this to see the top MLB prospects ranked by composite score with call-up probabilities, FV grades, and ETAs. Filter by position, level, or organization to narrow results. Use fantasy_prospect_report instead when you want a detailed deep-dive on one specific prospect rather than browsing the rankings list.",
       inputSchema: {
         position: z.string().optional().describe("Filter by position (e.g. SS, OF, RHP)"),
         level: z.string().optional().describe("Filter by level (e.g. AAA, AA)"),
@@ -133,13 +139,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // callup_wire
+  if (shouldRegister("fantasy_callup_wire")) {
   registerAppTool(
     server,
     "fantasy_callup_wire",
     {
-      description: "Recent MLB call-ups with fantasy impact analysis - prospect ranks, opportunity created",
+      description: "Use this to see recent MLB call-ups with fantasy impact analysis including prospect ranks, fantasy relevance scores, and opportunities created by the move. Pass the days parameter to control the lookback window. Use fantasy_prospect_watch instead when you want a quick summary of prospect roster moves without the detailed fantasy impact analysis.",
       inputSchema: {
         days: z.number().optional().describe("Number of days to look back (default 7)"),
       },
@@ -169,13 +177,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // stash_advisor
+  if (shouldRegister("fantasy_stash_advisor")) {
   registerAppTool(
     server,
     "fantasy_stash_advisor",
     {
-      description: "NA stash recommendations based on call-up probability and league context - who to stash on your NA slots",
+      description: "Use this to get NA stash recommendations ranked by call-up probability and league context to decide who to stash on your NA roster slots. Returns prospect names, stash actions, confidence levels, call-up probabilities, and reasoning. Use fantasy_prospect_report instead when you want a full scouting report on a specific prospect you are already considering.",
       inputSchema: {
         count: z.number().optional().describe("Number of recommendations to return (default 10)"),
       },
@@ -206,13 +216,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // prospect_compare
+  if (shouldRegister("fantasy_prospect_compare")) {
   registerAppTool(
     server,
     "fantasy_prospect_compare",
     {
-      description: "Side-by-side prospect comparison - stats, grades, call-up probability, and evaluation",
+      description: "Use this to compare two prospects side-by-side on stats, FV grades, call-up probability, evaluation scores, and stash recommendations. Pass player1 and player2 names for a head-to-head comparison table. Use fantasy_prospect_report instead when you want a full deep-dive on just one prospect rather than a comparison.",
       inputSchema: {
         player1: z.string().describe("First prospect name"),
         player2: z.string().describe("Second prospect name"),
@@ -258,13 +270,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // prospect_buzz
+  if (shouldRegister("fantasy_prospect_buzz")) {
   registerAppTool(
     server,
     "fantasy_prospect_buzz",
     {
-      description: "Reddit prospect buzz and discussion tracker - trending prospect posts and mentions",
+      description: "Use this to see trending Reddit discussions specifically about MLB prospects, including posts from r/fantasybaseball and prospect-related subreddits. Returns post titles, scores, comment counts, and matched prospect names. Use fantasy_reddit_buzz instead when you want general fantasy baseball Reddit activity rather than prospect-specific discussions.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -284,13 +298,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // eta_tracker
+  if (shouldRegister("fantasy_eta_tracker")) {
   registerAppTool(
     server,
     "fantasy_eta_tracker",
     {
-      description: "Track call-up probability changes for watchlist prospects - flags significant movements",
+      description: "Use this to track call-up probability changes over time for prospects on your watchlist, with flags for significant movements. Returns current vs previous probability, delta, classification, and flagged alerts for big movers. Use fantasy_prospect_watch_add instead when you need to add or remove a prospect from the watchlist being tracked.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -318,13 +334,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // prospect_trade_targets
+  if (shouldRegister("fantasy_prospect_trade_targets")) {
   registerAppTool(
     server,
     "fantasy_prospect_trade_targets",
     {
-      description: "League-specific prospect trade targets - identifies stashed prospects on other teams worth acquiring",
+      description: "Use this to identify stashed prospects on other teams in your league that are worth acquiring via trade. Returns prospect names, current owners, prospect ranks, FV grades, call-up probabilities, urgency levels, and trade suggestions. Use fantasy_stash_advisor instead when you want recommendations for which free-agent prospects to stash on your own NA slots.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -350,13 +368,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // fantasy_prospect_watch_add
+  if (shouldRegister("fantasy_prospect_watch_add")) {
   registerAppTool(
     server,
     "fantasy_prospect_watch_add",
     {
-      description: "Add or remove a prospect from your ETA watchlist for tracking call-up probability changes over time",
+      description: "Use this to add or remove a prospect from your ETA watchlist so their call-up probability changes are tracked over time. Pass the prospect name and optional action ('add' or 'remove'). Use fantasy_eta_tracker instead when you want to view the current watchlist and see probability changes rather than modifying the list.",
       inputSchema: {
         player_name: z.string().describe("Prospect name to add or remove"),
         action: z.string().optional().describe("'add' (default) or 'remove'"),
@@ -385,13 +405,15 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // prospect_news
+  if (shouldRegister("fantasy_prospect_news")) {
   registerAppTool(
     server,
     "fantasy_prospect_news",
     {
-      description: "Get qualitative news intelligence for a prospect — aggregates front office quotes, beat reporter intel, roster decisions, injury news, and rumors from MLB Trade Rumors, ESPN, FanGraphs, and Google News. Shows each article's sentiment signals and how they modify the prospect's call-up probability. Use before stash/trade decisions to check for breaking news that stats alone would miss.",
+      description: "Use this to get qualitative news intelligence for a prospect by aggregating front office quotes, beat reporter intel, roster decisions, injury news, and rumors from MLB Trade Rumors, ESPN, FanGraphs, and Google News. Returns article summaries with sentiment signals and how they modify call-up probability via Bayesian blending. Use fantasy_prospect_report instead when you want the full statistical scouting profile rather than a news-focused intelligence briefing.",
       inputSchema: {
         player_name: z.string().describe("Prospect name to search for"),
         days: z.number().optional().describe("Number of days of news to search (default 7)"),
@@ -450,4 +472,5 @@ export function registerProspectTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 }

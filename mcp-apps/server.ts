@@ -1,3 +1,8 @@
+// Tool naming convention:
+//   yahoo_*   → Yahoo Fantasy league operations (your team, your league)
+//   fantasy_* → Cross-source fantasy intelligence (news, prospects, trends)
+//   mlb_*     → MLB reference data (teams, rosters, schedules, stats)
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as path from "path";
 import * as fs from "fs";
@@ -12,6 +17,7 @@ import { registerIntelTools } from "./src/tools/intel-tools.js";
 import { registerWorkflowTools } from "./src/tools/workflow-tools.js";
 import { registerStrategyTools } from "./src/tools/strategy-tools.js";
 import { registerProspectTools } from "./src/tools/prospect-tools.js";
+import { registerMetaTools, populateRegistryFromServer } from "./src/tools/meta-tools.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = __dirname;
@@ -23,7 +29,7 @@ const HISTORY_ENABLED = process.env.ENABLE_HISTORY === "true";
 const LOGO_DATA_URI = "data:image/png;base64,"
   + fs.readFileSync(path.join(__dirname, "assets", "logo-128.png")).toString("base64");
 
-export function createServer(): McpServer {
+export function createServer(enabledTools?: Set<string>): McpServer {
   const server = new McpServer({
     name: "Yahoo Fantasy Baseball",
     version: "1.0.0",
@@ -34,16 +40,22 @@ export function createServer(): McpServer {
     }],
   });
 
-  registerRosterTools(server, DIST_DIR, WRITES_ENABLED);
-  registerStandingsTools(server, DIST_DIR);
-  registerValuationsTools(server);
-  registerSeasonTools(server, DIST_DIR, WRITES_ENABLED);
-  if (HISTORY_ENABLED) registerHistoryTools(server);
-  registerMlbTools(server);
-  registerIntelTools(server, DIST_DIR);
-  registerWorkflowTools(server, WRITES_ENABLED);
-  registerStrategyTools(server);
-  registerProspectTools(server);
+  // Meta-tools are always registered regardless of toolset profile
+  registerMetaTools(server, enabledTools);
+
+  registerRosterTools(server, DIST_DIR, WRITES_ENABLED, enabledTools);
+  registerStandingsTools(server, DIST_DIR, enabledTools);
+  registerValuationsTools(server, enabledTools);
+  registerSeasonTools(server, DIST_DIR, WRITES_ENABLED, enabledTools);
+  if (HISTORY_ENABLED) registerHistoryTools(server, enabledTools);
+  registerMlbTools(server, enabledTools);
+  registerIntelTools(server, DIST_DIR, enabledTools);
+  registerWorkflowTools(server, WRITES_ENABLED, enabledTools);
+  registerStrategyTools(server, enabledTools);
+  registerProspectTools(server, enabledTools);
+
+  // Populate TOOL_REGISTRY with real descriptions from registered tools
+  populateRegistryFromServer(server);
 
   return server;
 }

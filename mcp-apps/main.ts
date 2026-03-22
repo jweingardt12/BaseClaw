@@ -1,4 +1,5 @@
 import { createServer } from "./server.js";
+import { resolveToolset } from "./src/toolsets.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
@@ -15,8 +16,14 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Resolve toolset from MCP_TOOLSET env var (default profile loads ~26 tools)
+const toolsetConfig = process.env.MCP_TOOLSET || "default";
+const enabledTools = toolsetConfig === "all"
+  ? undefined // undefined = register everything
+  : resolveToolset(toolsetConfig);
+
 async function handleMcp(req: Request, res: Response): Promise<void> {
-  const server = createServer();
+  const server = createServer(enabledTools);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
@@ -27,7 +34,7 @@ async function handleMcp(req: Request, res: Response): Promise<void> {
 
 async function main() {
   if (process.argv.includes("--stdio")) {
-    const server = createServer();
+    const server = createServer(enabledTools);
     const transport = new StdioServerTransport();
     await server.connect(transport);
   } else {

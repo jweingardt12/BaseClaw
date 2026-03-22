@@ -14,14 +14,18 @@ import {
   type MlbDraftResponse,
   type WeatherResponse,
 } from "../api/types.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
-export function registerMlbTools(server: McpServer) {
+export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
+
   // mlb_teams
+  if (shouldRegister("mlb_teams")) {
   registerAppTool(
     server,
     "mlb_teams",
     {
-      description: "List all MLB teams with abbreviations",
+      description: "Use this to list all 30 MLB teams with their abbreviations and full names. Returns the team abbreviation codes needed by other tools like mlb_roster and mlb_standings. Use mlb_roster instead when you want to see a specific team's player roster.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -38,13 +42,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_roster
+  if (shouldRegister("mlb_roster")) {
   registerAppTool(
     server,
     "mlb_roster",
     {
-      description: "Get an MLB team's roster. team: abbreviation (NYY, LAD) or team ID",
+      description: "Use this to see all players on an MLB team's 40-man roster with jersey numbers and positions. Pass the team abbreviation (e.g. 'NYY', 'LAD') or MLB team ID. Use mlb_player instead when you want detailed info on a specific player rather than the full roster.",
       inputSchema: { team: z.string().describe("Team abbreviation (NYY, LAD) or MLB team ID") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -62,13 +68,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_player
+  if (shouldRegister("mlb_player")) {
   registerAppTool(
     server,
     "mlb_player",
     {
-      description: "Get MLB player info by MLB Stats API player ID",
+      description: "Use this to get biographical info for an MLB player including position, team, bats/throws, and age. Pass the MLB Stats API player ID. Use mlb_stats instead when you want a player's season statistics rather than their bio.",
       inputSchema: { player_id: z.string().describe("MLB Stats API player ID") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -89,13 +97,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_stats
+  if (shouldRegister("mlb_stats")) {
   registerAppTool(
     server,
     "mlb_stats",
     {
-      description: "Get player season stats by MLB Stats API player ID",
+      description: "Use this to get a player's official season statistics from the MLB Stats API. Pass the player ID and optional season year. Use fantasy_player_report instead when you want a richer analysis with Statcast data, trends, and fantasy context beyond raw stats.",
       inputSchema: { player_id: z.string().describe("MLB Stats API player ID"), season: z.string().describe("Season year (e.g. 2025)").default("2025") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -114,13 +124,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_injuries
+  if (shouldRegister("mlb_injuries")) {
   registerAppTool(
     server,
     "mlb_injuries",
     {
-      description: "Show current MLB injuries across all teams",
+      description: "Use this to see all current MLB injuries across every team with player names and injury descriptions. Returns the league-wide injury list which is useful for waiver wire planning. Use yahoo_player_intel instead when you want injury details for one specific player along with other qualitative context.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -139,13 +151,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_standings
+  if (shouldRegister("mlb_standings")) {
   registerAppTool(
     server,
     "mlb_standings",
     {
-      description: "Show MLB division standings",
+      description: "Use this to see current MLB division standings with win-loss records and games back. Returns all six divisions with team rankings. Use mlb_schedule instead when you want to see upcoming games rather than standings.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -166,13 +180,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_schedule
+  if (shouldRegister("mlb_schedule")) {
   registerAppTool(
     server,
     "mlb_schedule",
     {
-      description: "Show MLB game schedule. Leave date empty for today, or pass YYYY-MM-DD",
+      description: "Use this to see the MLB game schedule for a given day showing matchups and game status. Pass a date in YYYY-MM-DD format or leave empty for today's games. Use yahoo_weather instead when you need to know which games are at outdoor vs domed stadiums for weather risk.",
       inputSchema: { date: z.string().describe("Date in YYYY-MM-DD format, empty for today").default("") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -192,13 +208,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // mlb_draft
+  if (shouldRegister("mlb_draft")) {
   registerAppTool(
     server,
     "mlb_draft",
     {
-      description: "Show MLB draft picks by year. Returns draft selections with player names, teams, rounds, and positions",
+      description: "Use this to see MLB amateur draft picks by year with player names, teams, rounds, positions, and schools. Pass the year or omit for the current year's draft results. Use fantasy_prospect_rankings instead when you want fantasy-relevant prospect rankings with call-up probabilities rather than raw draft order.",
       inputSchema: { year: z.string().describe("Draft year (e.g. '2025'). Omit for current year.").default("") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -232,13 +250,15 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_weather
+  if (shouldRegister("yahoo_weather")) {
   registerAppTool(
     server,
     "yahoo_weather",
     {
-      description: "Check weather/venue risk for MLB games. Shows which games are in domed vs outdoor stadiums to help with lineup and streaming decisions",
+      description: "Use this to check weather and venue risk for MLB games by seeing which games are at outdoor vs domed stadiums. Returns a breakdown of dome and outdoor game counts to help with lineup and streaming pitcher decisions. Use mlb_schedule instead when you just need the game matchups without weather context.",
       inputSchema: { date: z.string().describe("Date in YYYY-MM-DD format, empty for today").default("") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -278,4 +298,5 @@ export function registerMlbTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 }

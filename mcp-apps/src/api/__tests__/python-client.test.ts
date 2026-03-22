@@ -71,7 +71,7 @@ describe("apiGet", () => {
       new Response("Not found", { status: 404, statusText: "Not Found" })
     );
 
-    await expect(apiGet("/api/missing")).rejects.toThrow("API error: 404 Not Found - Not found");
+    await expect(apiGet("/api/missing")).rejects.toThrow("API 404 Not Found - Not found");
   });
 });
 
@@ -101,7 +101,7 @@ describe("apiPost", () => {
     );
 
     await expect(apiPost("/api/drop", { player_id: "456" })).rejects.toThrow(
-      "API error: 500 Internal Server Error - Server error"
+      "API 500 Internal Server Error - Server error"
     );
   });
 });

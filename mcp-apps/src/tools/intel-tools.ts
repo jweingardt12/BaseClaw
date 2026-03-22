@@ -15,10 +15,13 @@ import {
   type StatcastCompareResponse,
   type AggregatedNewsFeedResponse,
 } from "../api/types.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
 export const INTEL_URI = "ui://baseclaw/intel.html";
 
-export function registerIntelTools(server: McpServer, distDir: string) {
+export function registerIntelTools(server: McpServer, distDir: string, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
+
   registerAppResource(
     server,
     "Intelligence Dashboard",
@@ -50,11 +53,12 @@ export function registerIntelTools(server: McpServer, distDir: string) {
   );
 
   // fantasy_player_report
+  if (shouldRegister("fantasy_player_report")) {
   registerAppTool(
     server,
     "fantasy_player_report",
     {
-      description: "Deep-dive Statcast + trends + plate discipline + Reddit buzz for a single player",
+      description: "Use this to get a deep-dive scouting report on a single player combining Statcast metrics, recent trends, plate discipline, and Reddit buzz. Returns exit velo, barrel rate, xwOBA percentiles, 14-day performance trends, and community sentiment. Use yahoo_player_intel instead when you want a broader qualitative briefing with news, injury severity, and role changes beyond just stats.",
       inputSchema: { player_name: z.string().describe("Player name to look up") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -112,14 +116,16 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // fantasy_breakout_candidates
   // fantasy_reddit_buzz
+  if (shouldRegister("fantasy_reddit_buzz")) {
   registerAppTool(
     server,
     "fantasy_reddit_buzz",
     {
-      description: "What r/fantasybaseball is talking about right now - hot posts, trending topics",
+      description: "Use this to see what r/fantasybaseball is talking about right now including hot posts, trending topics, and top discussions. Returns post titles, scores, comment counts, and flair tags. Use fantasy_trending_players instead when you want to see only player-specific posts with high engagement rather than general subreddit activity.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -139,13 +145,15 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // fantasy_trending_players
+  if (shouldRegister("fantasy_trending_players")) {
   registerAppTool(
     server,
     "fantasy_trending_players",
     {
-      description: "Players with rising buzz on Reddit - high engagement posts about specific players",
+      description: "Use this to see which players have rising buzz on Reddit via high-engagement posts mentioning specific player names. Returns trending player discussion posts with scores and comment counts. Use fantasy_reddit_buzz instead when you want a broader view of all subreddit activity beyond just player-specific posts.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -165,13 +173,15 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // fantasy_prospect_watch
+  if (shouldRegister("fantasy_prospect_watch")) {
   registerAppTool(
     server,
     "fantasy_prospect_watch",
     {
-      description: "Recent MLB prospect call-ups and roster moves that could impact fantasy",
+      description: "Use this to see recent MLB prospect call-ups and roster moves that could impact fantasy leagues. Returns transaction types, player names, and team info for recent promotions and demotions. Use fantasy_callup_wire instead when you want more detailed call-up analysis with prospect ranks and fantasy impact scores.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -191,13 +201,15 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // fantasy_transactions
+  if (shouldRegister("fantasy_transactions")) {
   registerAppTool(
     server,
     "fantasy_transactions",
     {
-      description: "Recent fantasy-relevant MLB transactions (IL, call-up, DFA, trade). Use days param to control lookback window.",
+      description: "Use this to see recent fantasy-relevant MLB transactions including IL stints, call-ups, DFAs, and trades. Pass the days parameter to control how far back to look (default 7 days). Use fantasy_prospect_watch instead when you only care about prospect-specific roster moves rather than all transaction types.",
       inputSchema: { days: z.number().describe("Number of days to look back").default(7) },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -218,13 +230,15 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_statcast_history
+  if (shouldRegister("yahoo_statcast_history")) {
   registerAppTool(
     server,
     "yahoo_statcast_history",
     {
-      description: "Compare a player's Statcast profile now vs 30/60 days ago — track changes in exit velo, barrel rate, xwOBA, sprint speed, and more over time",
+      description: "Use this to compare a player's Statcast profile now versus 30 or 60 days ago to track changes in exit velo, barrel rate, xwOBA, sprint speed, and more over time. Returns a side-by-side comparison with delta values and directional arrows. Use fantasy_player_report instead when you want a current snapshot of a player's Statcast profile without the historical comparison.",
       inputSchema: {
         player_name: z.string().describe("Player name to look up"),
         days_ago: z.number().describe("How many days back to compare (30 or 60)").default(30),
@@ -269,13 +283,15 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // fantasy_news_feed
+  if (shouldRegister("fantasy_news_feed")) {
   registerAppTool(
     server,
     "fantasy_news_feed",
     {
-      description: "Real-time fantasy baseball news from 16 sources: ESPN, FanGraphs, CBS, Yahoo, MLB.com, RotoWire, Pitcher List, Razzball, Google News, RotoBaller, Reddit r/fantasybaseball, and 5 Bluesky analyst feeds. Filter by source or search by player.",
+      description: "Use this to get a real-time fantasy baseball news feed aggregated from 16 sources including ESPN, FanGraphs, CBS, Yahoo, MLB.com, RotoWire, Pitcher List, Razzball, Google News, RotoBaller, Reddit, and Bluesky analyst feeds. Filter by source or search by player name. Use yahoo_player_intel instead when you want a synthesized intelligence briefing on one specific player rather than a raw news feed.",
       inputSchema: {
         sources: z.string().optional().describe("Comma-separated source IDs to filter (e.g. 'espn,fangraphs,rotowire,reddit,bsky_pitcherlist'). Omit for all sources."),
         player: z.string().optional().describe("Player name to filter news for"),
@@ -310,13 +326,15 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_player_intel
+  if (shouldRegister("yahoo_player_intel")) {
   registerAppTool(
     server,
     "yahoo_player_intel",
     {
-      description: "Comprehensive qualitative intelligence on a player — recent news, injury severity, hot/cold streak, role changes, Reddit buzz, and ownership trends. Synthesizes information from 6+ sources into one actionable briefing. Use this when you want to understand the full picture on a player beyond just their stats.",
+      description: "Use this when you want the full qualitative picture on a player beyond just stats, combining recent news, injury severity, hot/cold streak, role changes, Reddit buzz, Statcast tier, and Yahoo ownership trends into one actionable briefing. Returns synthesized intelligence from 6+ sources with flags for dealbreakers and role changes. Use fantasy_player_report instead when you want a deeper dive into Statcast percentiles and plate discipline without the news and qualitative layers.",
       inputSchema: { player: z.string().describe("Player name to research") },
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: INTEL_URI } },
@@ -426,5 +444,6 @@ export function registerIntelTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
 }

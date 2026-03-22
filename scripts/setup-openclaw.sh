@@ -100,13 +100,15 @@ PYEOF
 ok "MCP server registered"
 
 # ---------------------------------------------------------------------------
-# Step 3: Install skill files
+# Step 3: Install skill files + workspace templates
 # ---------------------------------------------------------------------------
-info "Installing skill files..."
+info "Installing skill and workspace files..."
 
 mkdir -p "$SKILL_DIR"
 
 COPIED=0
+
+# Core files
 for f in SKILL.md AGENTS.md; do
   if [ -f "$BASE_DIR/$f" ]; then
     cp "$BASE_DIR/$f" "$SKILL_DIR/$f"
@@ -116,7 +118,17 @@ for f in SKILL.md AGENTS.md; do
   fi
 done
 
-ok "Skill installed at $SKILL_DIR ($COPIED files)"
+# OpenClaw workspace files
+for f in SOUL.md HEARTBEAT.md USER.md MEMORY.md cron-schedule.json; do
+  if [ -f "$BASE_DIR/openclaw/$f" ]; then
+    cp "$BASE_DIR/openclaw/$f" "$SKILL_DIR/$f"
+    COPIED=$((COPIED + 1))
+  else
+    warn "openclaw/$f not found at $BASE_DIR/openclaw/$f"
+  fi
+done
+
+ok "Skill and workspace files installed to $SKILL_DIR ($COPIED files)"
 
 # ---------------------------------------------------------------------------
 # Step 4: Cron job registration (optional, requires openclaw CLI)

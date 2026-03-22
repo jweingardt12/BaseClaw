@@ -1,0 +1,46 @@
+# Docker MCP Catalog registry entry for BaseClaw
+# Submit as PR to github.com/docker/mcp-registry
+
+name: baseclaw
+description: "AI-powered Yahoo Fantasy Baseball manager. 123 tools for roster management, trade analysis, waiver strategy, lineup optimization, and more — powered by your actual league data."
+categories:
+  - sports
+  - fantasy
+  - analytics
+repository: https://github.com/jweingardt12/baseclaw
+documentation: https://github.com/jweingardt12/baseclaw#readme
+license: MIT
+
+runtime:
+  type: docker
+  image: jweingardt12/baseclaw:latest
+  command: ["node", "/app/mcp-apps/dist/main.js", "--stdio"]
+
+environment:
+  - name: YAHOO_CONSUMER_KEY
+    description: "Yahoo API Consumer Key (from developer.yahoo.com/apps)"
+    required: true
+  - name: YAHOO_CONSUMER_SECRET
+    description: "Yahoo API Consumer Secret"
+    required: true
+  - name: LEAGUE_ID
+    description: "Your Yahoo Fantasy league ID (e.g., 469.l.16960)"
+    required: true
+  - name: TEAM_ID
+    description: "Your Yahoo Fantasy team ID (e.g., 469.l.16960.t.12)"
+    required: true
+  - name: MCP_TOOLSET
+    description: "Tool profile to load (default, full, draft-day, analysis, automation, all)"
+    required: false
+    default: "default"
+  - name: ENABLE_WRITE_OPS
+    description: "Enable roster moves (add, drop, trade, lineup changes)"
+    required: false
+    default: "false"
+
+tools:
+  count: 123
+  profiles:
+    default: 26
+    full: 44
+    all: 123

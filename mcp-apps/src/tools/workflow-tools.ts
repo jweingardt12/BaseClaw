@@ -25,15 +25,18 @@ import {
   type SeasonCheckpointResponse,
 } from "../api/types.js";
 import { SEASON_URI } from "./season-tools.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
-export function registerWorkflowTools(server: McpServer, writesEnabled: boolean = false) {
+export function registerWorkflowTools(server: McpServer, writesEnabled: boolean = false, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
 
   // yahoo_morning_briefing
+  if (shouldRegister("yahoo_morning_briefing")) {
   registerAppTool(
     server,
     "yahoo_morning_briefing",
     {
-      description: "Comprehensive daily briefing: injuries, lineup issues, live matchup scores, category strategy, league activity, opponent moves, and top waiver targets — all in one call with priority-ranked action items. Replaces 7+ individual tool calls.",
+      description: "Use this as your first tool call of the day. Returns a complete situational report: injuries on your roster, today's lineup status, live matchup scores, category strategy, league activity, opponent moves, and top waiver targets — all in one call. Replaces calling 7+ individual tools. Best run daily before first pitch. Use yahoo_game_day_manager instead when you want pre-game lineup optimization with weather risks.",
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
@@ -96,13 +99,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_league_landscape
+  if (shouldRegister("yahoo_league_landscape")) {
   registerAppTool(
     server,
     "yahoo_league_landscape",
     {
-      description: "Complete league intelligence: standings, playoff projections, roster strength, manager activity, recent transactions, this week's matchup results across the league, and trade opportunities. Use weekly for strategic planning.",
+      description: "Use this for weekly strategic planning with a complete league intelligence report: standings, playoff projections, roster strength, active/dormant managers, this week's scoreboard, and trade opportunities. Returns data from multiple sources in one call. Use yahoo_morning_briefing instead for a daily personal briefing, or yahoo_standings for just the standings.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -169,13 +174,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_roster_health_check
+  if (shouldRegister("yahoo_roster_health_check")) {
   registerAppTool(
     server,
     "yahoo_roster_health_check",
     {
-      description: "Audit roster for problems: injured players in active slots, healthy players stuck on IL, bust candidates, off-day starters. Returns issues ranked by severity (critical/warning/info) with concrete fix recommendations.",
+      description: "Use this to audit your roster for problems: injured players in active slots, healthy players stuck on IL, bust candidates, and off-day starters. Returns issues ranked by severity (critical/warning/info) with concrete fix recommendations. Use yahoo_injury_report instead when you only care about injuries, or yahoo_lineup_optimize to fix off-day lineup issues automatically.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -199,13 +206,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_waiver_recommendations
+  if (shouldRegister("yahoo_waiver_recommendations")) {
   registerAppTool(
     server,
     "yahoo_waiver_recommendations",
     {
-      description: "Find the best waiver pickups for your team's weak categories, paired with recommended drops. Returns ranked add/drop pairs with projected category impact. Combines category analysis, waiver scoring, and simulation into one call.",
+      description: "Use this when you want personalized add/drop pairs tailored to your team's weak categories. Returns ranked waiver pickup recommendations paired with suggested drops and projected category impact. Use yahoo_free_agents instead when you just want to browse available players, or yahoo_waiver_deadline_prep for a pre-deadline analysis with FAAB bid suggestions.",
       inputSchema: { count: z.number().describe("Number of recommendations per position type").default(5) },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -229,14 +238,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_auto_lineup (write-gated)
-  if (writesEnabled) {
+  if (writesEnabled && shouldRegister("yahoo_auto_lineup")) {
   registerAppTool(
     server,
     "yahoo_auto_lineup",
     {
-      description: "Automatically optimize today's lineup: bench off-day players, start active bench players, flag injured starters. SAFE for autonomous execution — idempotent, only moves players between active/bench slots. Returns summary of changes made.",
+      description: "Use this to automatically optimize today's lineup and check for injuries in one step. Benches off-day players, starts active bench players, and flags injured starters needing manual IL moves. Safe for autonomous execution — idempotent, only moves players between active/bench slots. Use yahoo_lineup_optimize instead when you want a preview before applying, or yahoo_set_lineup for manual player-to-position moves.",
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
@@ -278,11 +288,12 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
   } // end writesEnabled
 
   // yahoo_trade_analysis
+  if (shouldRegister("yahoo_trade_analysis")) {
   registerAppTool(
     server,
     "yahoo_trade_analysis",
     {
-      description: "Evaluate a trade by player names with surplus value analysis. Computes roster spot tax, category fit bonus, consolidation premium, catcher scarcity premium, and standings-aware rival warnings. Returns A+/F letter grade, adjusted net value breakdown, positional impact, and category simulation. Use before proposing or accepting any trade.",
+      description: "Use this when the user asks about a potential trade. Accepts player names (not IDs) and returns z-score comparison, surplus value analysis, category impact, Statcast profiles, and news context for all players involved. Returns structured data with ai_recommendation. Use yahoo_trade_pipeline instead for end-to-end trade search including finding partners.",
       inputSchema: {
         give_names: z.array(z.string()).describe("Player names you would give up"),
         get_names: z.array(z.string()).describe("Player names you would receive"),
@@ -542,13 +553,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_game_day_manager
+  if (shouldRegister("yahoo_game_day_manager")) {
   registerAppTool(
     server,
     "yahoo_game_day_manager",
     {
-      description: "Game-day pipeline: today's schedule, weather risks, injury check, lineup optimization, and streaming recommendation — all in one call. Run before first pitch to catch late scratches and weather delays.",
+      description: "Use this before first pitch for a complete game-day pipeline: today's schedule, weather risks, injury check, lineup optimization, and streaming recommendation in one call. Catches late scratches and weather delays. Use yahoo_morning_briefing instead for a broader daily report including matchup strategy and league activity, or yahoo_lineup_optimize for just lineup swaps.",
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
@@ -593,13 +606,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_waiver_deadline_prep
+  if (shouldRegister("yahoo_waiver_deadline_prep")) {
   registerAppTool(
     server,
     "yahoo_waiver_deadline_prep",
     {
-      description: "Pre-deadline waiver analysis: identifies your weak categories, ranks waiver candidates with simulated category impact. Includes FAAB bid recommendations for FAAB leagues. Run before waiver deadline to make informed claims.",
+      description: "Use this before the waiver deadline to get a complete waiver analysis: your weak categories, ranked candidates with simulated category impact, roster issues, and FAAB bid recommendations for FAAB leagues. Use yahoo_waiver_recommendations instead for simpler add/drop pairs, or yahoo_faab_recommend for a single-player bid recommendation.",
       inputSchema: { count: z.number().describe("Number of candidates per position type").default(5) },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -643,13 +658,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_trade_pipeline
+  if (shouldRegister("yahoo_trade_pipeline")) {
   registerAppTool(
     server,
     "yahoo_trade_pipeline",
     {
-      description: "End-to-end trade search: finds complementary trade partners, evaluates package values, simulates category impact, and grades each proposal. Returns ready-to-propose trade packages.",
+      description: "Use this for end-to-end trade discovery: finds complementary trade partners, evaluates package values, simulates category impact, and grades each proposal with both sides' perspective. Returns ready-to-propose trade packages. Use yahoo_trade_analysis instead when you already know the specific players involved, or yahoo_propose_trade to send a discovered package.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -682,13 +699,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_weekly_digest
+  if (shouldRegister("yahoo_weekly_digest")) {
   registerAppTool(
     server,
     "yahoo_weekly_digest",
     {
-      description: "End-of-week summary: matchup result, standings position, transactions, achievements, and a prose narrative. Use for weekly reporting and season tracking.",
+      description: "Use this at the end of the week for a structured summary: matchup result, standings position, transaction count, achievements earned, and a prose narrative. Best for weekly reporting and season tracking. Use yahoo_weekly_narrative instead for a more detailed prose recap with category breakdown, or yahoo_season_checkpoint for a monthly strategic assessment.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -717,13 +736,15 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_season_checkpoint
+  if (shouldRegister("yahoo_season_checkpoint")) {
   registerAppTool(
     server,
     "yahoo_season_checkpoint",
     {
-      description: "Monthly strategic assessment: current rank, playoff probability, category trajectory (improving/declining), punt strategy, and trade recommendations. Run monthly to track season-long progress.",
+      description: "Use this monthly for a strategic season assessment: current rank, playoff probability, category trajectory (improving/declining categories), punt strategy, and trade recommendations. Tracks season-long progress at a high level. Use yahoo_playoff_planner instead for a detailed action plan with specific category gaps, or yahoo_weekly_digest for an end-of-week summary.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -768,6 +789,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
       } catch (e) { return toolError(e); }
     },
   );
+  }
 }
 
 function getSuffix(rank: number): string {

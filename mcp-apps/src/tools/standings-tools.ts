@@ -23,10 +23,12 @@ import {
   type PowerRankingsResponse,
   type SeasonPaceResponse,
 } from "../api/types.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
 export const STANDINGS_URI = "ui://baseclaw/standings.html";
 
-export function registerStandingsTools(server: McpServer, distDir: string) {
+export function registerStandingsTools(server: McpServer, distDir: string, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
   registerAppResource(
     server,
     "Standings View",
@@ -58,11 +60,12 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
   );
 
   // yahoo_standings
+  if (shouldRegister("yahoo_standings")) {
   registerAppTool(
     server,
     "yahoo_standings",
     {
-      description: "Show league standings with win-loss records",
+      description: "Use this to see current league standings with win-loss records, points, and team rankings. Returns all teams sorted by rank. Use yahoo_season_pace instead when you want projected final records and playoff probability, or yahoo_power_rankings for roster-strength-based rankings.",
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: STANDINGS_URI } },
     },
@@ -81,13 +84,15 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_matchups
+  if (shouldRegister("yahoo_matchups")) {
   registerAppTool(
     server,
     "yahoo_matchups",
     {
-      description: "Show weekly H2H matchup pairings. Leave week empty for current week.",
+      description: "Use this to see all head-to-head matchup pairings for a given week across the league. Leave week empty for current week. Returns team pairings and matchup status. Use yahoo_my_matchup instead when you want detailed category scores for your own matchup, or yahoo_matchup_strategy for strategic advice.",
       inputSchema: { week: z.string().describe("Week number, empty for current week").default("") },
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: STANDINGS_URI } },
@@ -110,13 +115,15 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_my_matchup
+  if (shouldRegister("yahoo_my_matchup")) {
   registerAppTool(
     server,
     "yahoo_my_matchup",
     {
-      description: "Show your detailed H2H matchup with per-category comparison for the current week",
+      description: "Use this to see how you're doing in this week's head-to-head matchup. Shows your score vs your opponent across every stat category with running totals. Use yahoo_matchup_strategy for deeper category-level advice, or yahoo_scout_opponent to analyze their roster.",
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: STANDINGS_URI } },
     },
@@ -138,13 +145,15 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_league_context
+  if (shouldRegister("yahoo_league_context")) {
   registerAppTool(
     server,
     "yahoo_league_context",
     {
-      description: "Compact league profile: waiver type (FAAB/priority), scoring format, stat categories, roster slots, and FAAB balance if applicable. Call once at session start — replaces separate yahoo_info + yahoo_stat_categories calls for agent setup.",
+      description: "Use this to load the league profile at the start of a session: waiver type (FAAB/priority), scoring format (H2H/roto), stat categories, roster slots, and FAAB balance. Returns format-specific behavioral notes for the agent. Use yahoo_standings instead when you want current win-loss records, or yahoo_category_check for your team's category performance.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -188,22 +197,31 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_transactions
+  if (shouldRegister("yahoo_transactions")) {
   registerAppTool(
     server,
     "yahoo_transactions",
     {
-      description: "Show recent league transactions. trans_type: add, drop, trade, or empty for all",
-      inputSchema: { trans_type: z.string().describe("Transaction type: add, drop, trade, or empty for all").default(""), count: z.number().describe("Number of transactions to return").default(25) },
+      description: "Use this to see recent league transactions (adds, drops, trades). Filter by trans_type or leave empty for all types. Returns player names, transaction types, and team involved. Use yahoo_transaction_trends instead for league-wide most-added/dropped players, or yahoo_league_pulse for per-team activity counts.",
+      inputSchema: {
+        trans_type: z.string().describe("Transaction type: add, drop, trade, or empty for all").default(""),
+        count: z.number().describe("Number of transactions to return").default(25),
+        limit: z.number().default(20).describe("Max results to return (default 20, max 50)"),
+        offset: z.number().default(0).describe("Offset for pagination"),
+      },
       annotations: { readOnlyHint: true },
       _meta: {},
     },
-    async ({ trans_type, count }) => {
+    async ({ trans_type, count, limit, offset }) => {
       try {
         const params: Record<string, string> = {};
         if (trans_type) params.type = trans_type;
         params.count = String(count);
+        params.limit = String(limit);
+        params.offset = String(offset);
         const data = await apiGet<TransactionsResponse>("/api/transactions", params);
         const label = trans_type || "all";
         const text = "Recent transactions (" + label + "):\n" + data.transactions.map((t) =>
@@ -212,24 +230,39 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
         var ai_recommendation: string | null = data.transactions.length + " recent transaction" + (data.transactions.length === 1 ? "" : "s") + ". Monitor league activity for waiver targets.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "transactions", ai_recommendation, ...data },
+          structuredContent: {
+            type: "transactions",
+            ai_recommendation,
+            ...data,
+            _pagination: {
+              returned: (data.transactions || []).length,
+              offset: offset,
+              has_more: (data.transactions || []).length >= limit,
+            },
+          },
         };
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_transaction_trends
+  if (shouldRegister("yahoo_transaction_trends")) {
   registerAppTool(
     server,
     "yahoo_transaction_trends",
     {
-      description: "Most added and most dropped players across all Yahoo Fantasy leagues",
+      description: "Use this to see the most-added and most-dropped players across all Yahoo Fantasy leagues with ownership deltas. Identifies the hottest pickups trending league-wide. Use yahoo_transactions instead when you want to see moves specific to your league, or yahoo_waiver_recommendations for personalized add/drop suggestions.",
+      inputSchema: {
+        limit: z.number().default(20).describe("Max results per list to return (default 20)"),
+        offset: z.number().default(0).describe("Offset for pagination"),
+      },
       annotations: { readOnlyHint: true },
       _meta: {},
     },
-    async () => {
+    async ({ limit, offset }) => {
       try {
-        const data = await apiGet<TransactionTrendsResponse>("/api/transaction-trends");
+        const data = await apiGet<TransactionTrendsResponse>("/api/transaction-trends", { limit: String(limit), offset: String(offset) });
         const addedLines = (data.most_added || []).slice(0, 10).map((p, i) =>
           "  " + String(i + 1).padStart(2) + ". " + str(p.name).padEnd(25) + " " + str(p.team).padEnd(4)
           + " " + str(p.percent_owned) + "% (" + str(p.delta) + ")"
@@ -243,20 +276,34 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
         var ai_recommendation: string | null = topAdded
           ? "Hottest pickup: " + topAdded.name + " (" + topAdded.percent_owned + "% owned, " + topAdded.delta + "). Check if available in your league."
           : null;
+        var addedCount = (data.most_added || []).length;
+        var droppedCount = (data.most_dropped || []).length;
+        var trendCount = addedCount > droppedCount ? addedCount : droppedCount;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "transaction-trends", ai_recommendation, ...data },
+          structuredContent: {
+            type: "transaction-trends",
+            ai_recommendation,
+            ...data,
+            _pagination: {
+              returned: trendCount,
+              offset: offset,
+              has_more: trendCount >= limit,
+            },
+          },
         };
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_league_pulse
+  if (shouldRegister("yahoo_league_pulse")) {
   registerAppTool(
     server,
     "yahoo_league_pulse",
     {
-      description: "Show league activity - moves and trades per team, sorted by most active",
+      description: "Use this to see how active each manager in the league has been — total moves, trades, and add/drops per team sorted by most active. Helps identify dormant teams to exploit and active competitors to watch. Use yahoo_transactions instead when you want the specific player moves, or yahoo_league_landscape for a full strategic overview.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -283,13 +330,15 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_power_rankings
+  if (shouldRegister("yahoo_power_rankings")) {
   registerAppTool(
     server,
     "yahoo_power_rankings",
     {
-      description: "Rank all league teams by estimated roster strength (based on aggregate player ownership %)",
+      description: "Use this to rank all league teams by estimated roster strength based on aggregate player ownership percentages. Shows average owned %, hitter/pitcher splits, and your team's position. Use yahoo_standings instead for actual win-loss records, or yahoo_positional_ranks to see per-position strength across teams.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -314,13 +363,15 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_season_pace
+  if (shouldRegister("yahoo_season_pace")) {
   registerAppTool(
     server,
     "yahoo_season_pace",
     {
-      description: "Project season pace, playoff probability, and magic number for all teams",
+      description: "Use this to see projected final records, playoff probability, and magic numbers for every team in the league. Shows current pace, playoff status (clinched/in contention/eliminated), and your position. Use yahoo_standings instead for current records only, or yahoo_playoff_planner for a detailed action plan to reach the playoffs.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -348,13 +399,15 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_positional_ranks
+  if (shouldRegister("yahoo_positional_ranks")) {
   registerAppTool(
     server,
     "yahoo_positional_ranks",
     {
-      description: "Get positional rankings for all teams in the league. Shows each team's rank (1-12) at every position with grade (strong/neutral/weak), starting and bench players, and recommended trade partners.",
+      description: "Use this to see how every team ranks at each position (C, 1B, 2B, SS, 3B, OF, SP, RP) with strong/neutral/weak grades and recommended trade partners. Returns starters, bench players, and complementary trade opportunities for each team. Use yahoo_power_rankings instead for aggregate roster strength, or yahoo_trade_pipeline to act on the trade partner suggestions.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -381,4 +434,5 @@ export function registerStandingsTools(server: McpServer, distDir: string) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 }

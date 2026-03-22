@@ -52,6 +52,7 @@ _CATEGORY_CORRELATIONS = {
 ROSTER_SPOT_VALUE = 2.5  # z-score value of an empty roster spot for trade eval
 CALLUP_IMMINENT_THRESHOLD = 70  # min call-up probability to inject into optimal moves FA pool
 READINESS_TO_Z_DIVISOR = 25.0  # prospect readiness->z conversion (80 readiness ~ 3.2 z)
+CAT_HELP_Z_THRESHOLD = 0.3  # min per-category z-score to count as meaningful contribution
 
 CATEGORY_VOLATILITY = {
     "R": 0.15, "H": 0.12, "HR": 0.20, "RBI": 0.15,
@@ -1516,6 +1517,7 @@ def cmd_waiver_analyze(args, as_json=False):
 
         # Z-score based scoring
         z_info = get_player_zscore(name)
+        per_cat = {}
         if z_info:
             z_final = z_info.get("z_final", 0)
             tier = z_info.get("tier", "Streamable")
@@ -1559,6 +1561,9 @@ def cmd_waiver_analyze(args, as_json=False):
         if status and status not in ("", "Healthy"):
             score *= 0.5
 
+        # Compute which weak categories this player actually helps
+        helps_cats = [c for c in weak_cat_names if per_cat.get(c, 0) > CAT_HELP_Z_THRESHOLD]
+
         scored.append({
             "name": name,
             "pid": pid,
@@ -1569,6 +1574,7 @@ def cmd_waiver_analyze(args, as_json=False):
             "z_score": round(z_final, 2),
             "tier": tier,
             "regression": reg_signal.get("signal", "") if reg_signal else None,
+            "helps_categories": helps_cats,
         })
 
     # Sort by score
@@ -1615,6 +1621,7 @@ def cmd_waiver_analyze(args, as_json=False):
                 "intel": p.get("intel"),
                 "trend": p.get("trend"),
                 "mlb_id": get_mlb_id(p.get("name", "")),
+                "helps_categories": p.get("helps_categories", []),
             }
             _attach_context_fields(rec, p)
             recs.append(rec)
@@ -4080,18 +4087,20 @@ def _find_player_owner(lg, target_name):
     return None, None, None
 
 
-def _team_cat_strengths_from_zscores(lg, team_key):
+def _team_cat_strengths_from_zscores(lg, team_key, roster=None):
     """Derive per-category strengths from projected z-scores (preseason fallback).
     Returns (cat_ranks_dict, weak_cats_list, strong_cats_list).
+    If roster is provided, skip the API call to fetch it.
     """
     from valuations import DEFAULT_BATTING_CATS, DEFAULT_PITCHING_CATS
 
     # Aggregate per-category z-scores across the team roster
-    try:
-        target_team = lg.to_team(team_key)
-        roster = target_team.roster()
-    except Exception:
-        return {}, [], []
+    if roster is None:
+        try:
+            target_team = lg.to_team(team_key)
+            roster = target_team.roster()
+        except Exception:
+            return {}, [], []
 
     all_cats = list(DEFAULT_BATTING_CATS) + list(DEFAULT_PITCHING_CATS)
     cat_totals = {c: 0.0 for c in all_cats}
@@ -4629,9 +4638,8 @@ def _trade_finder_league_scan(lg, team, as_json=False):
 
     # --- Phase 1: Build MY team profile ---
     my_team_key = team.team_key
-    _, my_weak, my_strong = _team_cat_strengths_from_zscores(lg, my_team_key)
-
     my_roster = team.roster()
+    _, my_weak, my_strong = _team_cat_strengths_from_zscores(lg, my_team_key, roster=my_roster)
 
     # Fetch news for our roster players (used in qualitative assessment)
     my_names = [p.get("name", "") for p in my_roster]
@@ -4677,13 +4685,10 @@ def _trade_finder_league_scan(lg, team, as_json=False):
         if other_key in _cat_profile_cache:
             _, their_weak, their_strong = _cat_profile_cache[other_key]
         else:
-            _, their_weak, their_strong = _team_cat_strengths_from_zscores(lg, other_key)
+            _, their_weak, their_strong = _team_cat_strengths_from_zscores(lg, other_key, roster=other_roster)
             _cat_profile_cache[other_key] = (_, their_weak, their_strong)
 
-        # Build their roster with z-scores and qualitative context
-        their_names = [p.get("name", "") for p in other_roster]
-        their_news = batch_player_news(their_names, max_results=3)
-
+        # Build their roster with z-scores (news deferred to post-selection)
         their_players = []
         their_hitters = []
         their_pitchers = []
@@ -4693,7 +4698,7 @@ def _trade_finder_league_scan(lg, team, as_json=False):
             z_val, tier, per_cat = _player_z_summary(name)
             entry = _build_player_entry(
                 p, name, positions, z_val, tier, per_cat,
-                news=their_news.get(name))
+                news=None)
             their_players.append(entry)
             if entry.get("is_pitcher"):
                 their_pitchers.append(entry)
@@ -4757,6 +4762,21 @@ def _trade_finder_league_scan(lg, team, as_json=False):
 
     partners.sort(key=lambda p: p.get("score", 0), reverse=True)
     partners = partners[:5]
+
+    # Enrich selected partners with news (deferred from scan phase for speed)
+    for partner in partners:
+        tradeable = partner.get("their_tradeable", [])
+        names = [p.get("name", "") for p in tradeable if p.get("name")]
+        if names:
+            news = batch_player_news(names, max_results=3)
+            for p in tradeable:
+                pname = p.get("name", "")
+                if pname and pname in news:
+                    p["context"] = _assess_player_context(
+                        p, p.get("roster_position", ""),
+                        p.get("percent_owned"), p.get("percent_started"),
+                        news=news.get(pname))
+                    p["effective_z"] = p["context"].get("effective_z", p.get("z_score", 0))
 
     # --- Phase 4: Build mutually beneficial packages ---
     def _cat_gain(player, weak_cats):
@@ -9337,11 +9357,8 @@ def cmd_trade_pipeline(args, as_json=False):
             their_net = -net_value
             their_grade = _grade_trade(their_net)
 
-            # Simulate category impact for the first get player
+            # Category impact: use z-score delta as proxy (skip slow category simulate)
             category_impact = []
-            if get_names:
-                sim = _safe(cmd_category_simulate, get_names[:1])
-                category_impact, _ = _extract_category_impact(sim)
 
             # Only include proposals where both sides grade C or better
             if _GRADE_VALUES.get(grade, 0) >= 3 and _GRADE_VALUES.get(their_grade, 0) >= 3:

@@ -4,24 +4,33 @@ import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { generateRankingsInsight, generateCompareInsight } from "../insights.js";
 import { str, type RankingsResponse, type CompareResponse, type ValueResponse } from "../api/types.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
-export function registerValuationsTools(server: McpServer) {
+export function registerValuationsTools(server: McpServer, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
   // yahoo_rankings
+  if (shouldRegister("yahoo_rankings")) {
   registerAppTool(
     server,
     "yahoo_rankings",
     {
-      description: "Show top players ranked by z-score value. pos_type: B for batters, P for pitchers",
-      inputSchema: { pos_type: z.string().describe("B for batters, P for pitchers").default("B"), count: z.number().describe("Number of players to return").default(25) },
+      description: "Use this to see the top-ranked players by z-score value for batters or pitchers. Returns rank, name, position, z-score, and Statcast quality tier. Use yahoo_compare instead when you want a side-by-side comparison of two specific players, or yahoo_value for a single player's full category-level z-score breakdown.",
+      inputSchema: {
+        pos_type: z.string().describe("B for batters, P for pitchers").default("B"),
+        count: z.number().describe("Number of players to return").default(25),
+        limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
+        offset: z.number().default(0).describe("Offset for pagination"),
+      },
       annotations: { readOnlyHint: true },
       _meta: {},
     },
-    async ({ pos_type, count }) => {
+    async ({ pos_type, count, limit, offset }) => {
       try {
-        const data = await apiGet<RankingsResponse>("/api/rankings", { pos_type, count: String(count) });
+        var effectiveCount = Math.min(count, limit);
+        const data = await apiGet<RankingsResponse>("/api/rankings", { pos_type, count: String(effectiveCount), limit: String(effectiveCount), offset: String(offset) });
         const effectiveType = data.pos_type || pos_type;
         const label = effectiveType.toUpperCase() === "B" ? "Hitter" : "Pitcher";
-        const text = "Top " + count + " " + label + " Rankings (z-score, source: " + data.source + "):\n"
+        const text = "Top " + effectiveCount + " " + label + " Rankings (z-score, source: " + data.source + "):\n"
           + data.players.map((p) => {
             const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
             return "  " + String(p.rank).padStart(3) + ". " + str(p.name).padEnd(25) + " " + str(p.pos).padEnd(8) + " z=" + p.z_score.toFixed(2) + tier;
@@ -29,18 +38,29 @@ export function registerValuationsTools(server: McpServer) {
         var ai_recommendation = generateRankingsInsight(data);
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "rankings", ai_recommendation, ...data },
+          structuredContent: {
+            type: "rankings",
+            ai_recommendation,
+            ...data,
+            _pagination: {
+              returned: (data.players || []).length,
+              offset: offset,
+              has_more: (data.players || []).length >= effectiveCount,
+            },
+          },
         };
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_compare
+  if (shouldRegister("yahoo_compare")) {
   registerAppTool(
     server,
     "yahoo_compare",
     {
-      description: "Compare two players side by side with z-score breakdowns",
+      description: "Use this to compare two players head-to-head with per-category z-score breakdowns. Returns who wins in each scoring category and overall z-score totals. Use yahoo_trade_analysis instead when you want a full trade evaluation with surplus value and category impact, or yahoo_value for a single player's detailed breakdown.",
       inputSchema: { player1: z.string().describe("First player name"), player2: z.string().describe("Second player name") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -76,13 +96,15 @@ export function registerValuationsTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_value
+  if (shouldRegister("yahoo_value")) {
   registerAppTool(
     server,
     "yahoo_value",
     {
-      description: "Show a player's full z-score breakdown across all categories",
+      description: "Use this to see a single player's complete z-score breakdown across every scoring category with raw stat values, park factor, and Statcast quality tier. Use yahoo_compare instead when you want to evaluate two players side by side, or yahoo_rankings for a ranked list of top players by z-score.",
       inputSchema: { player_name: z.string().describe("Player name to look up") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -128,13 +150,15 @@ export function registerValuationsTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_projections_update
+  if (shouldRegister("yahoo_projections_update")) {
   registerAppTool(
     server,
     "yahoo_projections_update",
     {
-      description: "Force-refresh player projections from FanGraphs. Use before draft to get latest data. proj_type: 'consensus' (default, blends all systems), 'steamer', 'zips', or 'fangraphsdc'",
+      description: "Use this to force-refresh player projections from FanGraphs before a draft or when projections are stale. Supports consensus (blends all systems), steamer, zips, or fangraphsdc. Use yahoo_rankings after updating to see the refreshed z-score rankings, or yahoo_projection_disagreements to identify where systems diverge.",
       inputSchema: {
         proj_type: z.string().describe("Projection system: consensus, steamer, zips, or fangraphsdc").default("consensus"),
       },
@@ -157,13 +181,15 @@ export function registerValuationsTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_zscore_shifts
+  if (shouldRegister("yahoo_zscore_shifts")) {
   registerAppTool(
     server,
     "yahoo_zscore_shifts",
     {
-      description: "Show players whose z-score value has shifted most since draft day. Identifies rising and falling players by comparing current rest-of-season valuations to the draft-day baseline.",
+      description: "Use this to find players whose z-score value has shifted the most since draft day. Compares current rest-of-season projections to the draft-day baseline to identify risers and fallers. Use yahoo_rankings instead for current absolute rankings, or yahoo_optimal_moves to act on rising free agents with roster swaps.",
       inputSchema: {
         count: z.number().describe("Number of biggest movers to return").default(25),
       },
@@ -201,13 +227,15 @@ export function registerValuationsTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_projection_disagreements
+  if (shouldRegister("yahoo_projection_disagreements")) {
   registerAppTool(
     server,
     "yahoo_projection_disagreements",
     {
-      description: "Show players where projection systems (Steamer, ZiPS, Depth Charts) disagree most on value. Useful for finding draft sleepers/busts",
+      description: "Use this to find players where Steamer, ZiPS, and FanGraphs Depth Charts projection systems disagree most on value. High disagreement flags draft sleepers and potential busts. Use yahoo_projections_update first to ensure projections are current, or yahoo_rankings for consensus z-score rankings.",
       inputSchema: {
         pos_type: z.string().describe("B for batters, P for pitchers").default("B"),
         count: z.number().describe("Number of players to show").default(20),
@@ -234,4 +262,5 @@ export function registerValuationsTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 }

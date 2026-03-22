@@ -14,14 +14,17 @@ import {
   type PastMatchupResponse,
   type RosterHistoryResponse,
 } from "../api/types.js";
+import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
-export function registerHistoryTools(server: McpServer) {
+export function registerHistoryTools(server: McpServer, enabledTools?: Set<string>) {
+  const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
   // yahoo_league_history
+  if (shouldRegister("yahoo_league_history")) {
   registerAppTool(
     server,
     "yahoo_league_history",
     {
-      description: "All-time season results: champions, your finishes, and W-L-T records",
+      description: "Use this to see the all-time history of your fantasy league including champions, your finishes, and W-L-T records for every season. Returns a year-by-year summary of league results. Use yahoo_record_book instead when you want career leader boards, all-time records, and #1 draft picks.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -42,13 +45,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_record_book
+  if (shouldRegister("yahoo_record_book")) {
   registerAppTool(
     server,
     "yahoo_record_book",
     {
-      description: "All-time records: career W-L, best seasons, most active managers, playoff appearances, #1 draft picks",
+      description: "Use this to see all-time league records including career W-L leaders, best seasons, most active managers, playoff appearances, champion history, and #1 draft picks. Returns a comprehensive record book across all league seasons. Use yahoo_league_history instead when you just want a quick year-by-year summary of champions and your finishes.",
       annotations: { readOnlyHint: true },
       _meta: {},
     },
@@ -75,13 +80,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_past_standings
+  if (shouldRegister("yahoo_past_standings")) {
   registerAppTool(
     server,
     "yahoo_past_standings",
     {
-      description: "Full standings for a past season with W-L-T records and managers",
+      description: "Use this to see the full standings for a specific past season with W-L-T records and manager names. Pass the year parameter (e.g. 2024) to get ranked standings for that season. Use yahoo_past_matchup instead when you want week-by-week matchup results rather than final standings.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -100,13 +107,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_past_draft
+  if (shouldRegister("yahoo_past_draft")) {
   registerAppTool(
     server,
     "yahoo_past_draft",
     {
-      description: "Draft picks for a past season with player names resolved",
+      description: "Use this to see who was drafted and in what order for a past season with player names resolved. Pass the year and optional count to control how many picks are returned. Use yahoo_past_teams instead when you want team rosters and activity counts rather than draft order.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), count: z.number().describe("Number of picks to return").default(25) },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -125,13 +134,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_past_teams
+  if (shouldRegister("yahoo_past_teams")) {
   registerAppTool(
     server,
     "yahoo_past_teams",
     {
-      description: "Team names, managers, move counts, and trade counts for a past season",
+      description: "Use this to see all team names, managers, move counts, and trade counts for a past season. Pass the year to see which managers were most active in transactions. Use yahoo_past_trades instead when you want details on specific trades and which players were exchanged.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -150,13 +161,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_past_trades
+  if (shouldRegister("yahoo_past_trades")) {
   registerAppTool(
     server,
     "yahoo_past_trades",
     {
-      description: "Trade history for a past season showing players exchanged between teams",
+      description: "Use this to see the trade history for a past season showing which players were exchanged between which teams. Pass the year and optional count to limit results. Use yahoo_past_teams instead when you only need overall trade and move counts per team.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), count: z.number().describe("Number of trades to return").default(10) },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -183,13 +196,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_past_matchup
+  if (shouldRegister("yahoo_past_matchup")) {
   registerAppTool(
     server,
     "yahoo_past_matchup",
     {
-      description: "Matchup results for a specific week in a past season with category win counts",
+      description: "Use this to see head-to-head matchup results for a specific week in a past season with category win counts. Pass both year and week number to see who played whom and the scores. Use yahoo_past_standings instead when you want final season standings rather than a single week's results.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), week: z.number().describe("Week number") },
       annotations: { readOnlyHint: true },
       _meta: {},
@@ -208,13 +223,15 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 
   // yahoo_roster_history
+  if (shouldRegister("yahoo_roster_history")) {
   registerAppTool(
     server,
     "yahoo_roster_history",
     {
-      description: "View a team's roster from a past week or specific date",
+      description: "Use this to view a team's roster from a past week or specific date, showing who was in each lineup slot. Pass either a week number or a YYYY-MM-DD date, and optionally a team_key for another team. Use yahoo_past_draft instead when you want to see draft selections rather than in-season rosters.",
       inputSchema: {
         week: z.string().describe("Week number to look up").default(""),
         date: z.string().describe("Date to look up (YYYY-MM-DD)").default(""),
@@ -252,4 +269,5 @@ export function registerHistoryTools(server: McpServer) {
       } catch (e) { return toolError(e); }
     },
   );
+  }
 }

@@ -1890,12 +1890,28 @@ def workflow_roster_health():
         return safe_jsonify({"error": str(e)}, 500)
 
 
-def _synthesize_waiver_pairs(waiver_b, waiver_p):
+def _synthesize_waiver_pairs(waiver_b, waiver_p, cat_check=None):
     """Pair waiver recommendations with position type labels"""
     pairs = []
 
+    # Fallback weak categories from cat_check when waiver source is empty
+    fallback_weak = []
+    if cat_check:
+        fallback_weak = [str(c) for c in cat_check.get("weakest", [])]
+
     for label, waiver in [("B", waiver_b), ("P", waiver_p)]:
         for rec in (waiver or {}).get("recommendations", [])[:5]:
+            # Per-player category impact (preferred) vs team-level fallback
+            per_player_helps = rec.get("helps_categories", [])
+            if per_player_helps:
+                weak_cats = per_player_helps
+            else:
+                raw_weak = (waiver or {}).get("weak_categories", [])
+                if raw_weak:
+                    weak_cats = [c.get("name", "") for c in raw_weak]
+                else:
+                    weak_cats = fallback_weak
+
             pair = {
                 "add": {
                     "name": str(rec.get("name", "?")),
@@ -1906,10 +1922,7 @@ def _synthesize_waiver_pairs(waiver_b, waiver_p):
                     "context_line": rec.get("context_line", ""),
                 },
                 "pos_type": label,
-                "weak_categories": [
-                    c.get("name", "") for c in
-                    (waiver or {}).get("weak_categories", [])
-                ],
+                "weak_categories": weak_cats,
             }
             pairs.append(pair)
 
@@ -1925,7 +1938,7 @@ def workflow_waiver_recommendations():
         waiver_p = _safe_call(season_manager.cmd_waiver_analyze, ["P", count])
         roster = _safe_call(yahoo_fantasy.cmd_roster)
 
-        pairs = _synthesize_waiver_pairs(waiver_b, waiver_p)
+        pairs = _synthesize_waiver_pairs(waiver_b, waiver_p, cat_check=cat_check)
 
         return safe_jsonify({
             "pairs": pairs,
