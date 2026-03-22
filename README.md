@@ -6,7 +6,7 @@
 
 Your fantasy baseball team, managed by AI.
 
-BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league. Your roster, the waiver wire, Statcast data, trade analytics — 97 tools cover it. The important ones render interactive UI right inside Claude. The rest return text. Ask questions in plain English, or connect an agent and let it run your team on autopilot.
+BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league. Your roster, the waiver wire, Statcast data, trade analytics, prospect intelligence — 123 tools cover it. The important ones render interactive UI right inside Claude. The rest return text. Ask questions in plain English, or connect an agent and let it run your team on autopilot.
 
 ## Table of Contents
 
@@ -64,9 +64,11 @@ Complex questions chain 3-8 tool calls automatically. Simple lookups are one cal
 
 4. **Browser automation** — Write operations (add, drop, trade, lineup changes) use Playwright to automate the Yahoo Fantasy website directly, since Yahoo's API no longer grants write scope to new developer apps. Read operations still use the fast OAuth API.
 
-5. **Inline UI apps** — 20 tools render React UIs directly inside Claude's response. Four single-file HTML apps built with Plex UI and Recharts cover 75+ views — tables, charts, radar plots, heatmaps, dashboards. The rest return clean text to keep the chat uncluttered.
+5. **Prospect news intelligence** — A qualitative news layer that ingests prospect-specific articles from 16 sources (via the news aggregator) plus MLB Stats API transactions, classifies call-up signals using 50+ keyword patterns (bullish: "called up", "expected to join", "likely for Opening Day"; bearish: "optioned", "assigned to minors", "placed on IL"), scores them with Bayesian updating (source tier weighting + exponential time decay), and blends the result with stat-based call-up probabilities (65% stat / 35% news, capped at ±30pp). Event deduplication prevents multiple articles about the same roster move from over-compounding. Every prospect tool — rankings, stash advisor, trade targets, comparisons — reflects the news-adjusted probabilities.
 
-6. **Workflow tools** — Eleven aggregated tools (`yahoo_morning_briefing`, `yahoo_game_day_manager`, `yahoo_trade_pipeline`, etc.) each bundle 5-7+ API calls server-side so the agent gets everything it needs in one shot. A full daily routine takes 2-3 tool calls instead of 15+.
+6. **Inline UI apps** — 20 tools render React UIs directly inside Claude's response. Four single-file HTML apps built with Plex UI and Recharts cover 75+ views — tables, charts, radar plots, heatmaps, dashboards. The rest return clean text to keep the chat uncluttered.
+
+7. **Workflow tools** — Eleven aggregated tools (`yahoo_morning_briefing`, `yahoo_game_day_manager`, `yahoo_trade_pipeline`, etc.) each bundle 5-7+ API calls server-side so the agent gets everything it needs in one shot. A full daily routine takes 2-3 tool calls instead of 15+.
 
 </details>
 
@@ -249,6 +251,7 @@ The `AGENTS.md` file defines the agent's identity and behavior:
 - **Strategy principles** — Target close categories, concede lost causes, stream pitchers with multi-factor scoring, monitor closers, trade from surplus
 - **Regression awareness** — Check regression scores before any add/drop/trade; buy-low signals prevent panic-dropping slumping stars, sell-high signals maximize trade value
 - **Trade intelligence** — Surplus value analysis, category fit over raw value, consolidation premium, catcher scarcity, rival blocking (never help teams within 2 standings positions)
+- **Prospect news intelligence** — Signal classification from 16 news sources with Bayesian call-up probability blending. Injury news, reassignments, and bullish reports automatically adjust stash recommendations and trade targets
 - **Statcast decision rules** — Research-backed thresholds for barrel rate, exit velocity, sprint speed, xwOBA gaps, ERA vs SIERA, Stuff+, velocity changes
 - **Season phases** — Early (build depth, stream aggressively), mid (trade for balance, buy low), late (playoff positioning)
 - **Decision trees** — Injury response pipelines, trade search with surplus value evaluation, waiver deadline claim chains
@@ -266,7 +269,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 
 ## MCP Tools
 
-97 tools across 9 tool files. Core dashboards and action tools (20) render interactive UI in Claude; the rest return text.
+123 tools across 11 tool files. Core dashboards and action tools (20) render interactive UI in Claude; the rest return text.
 
 <details>
 <summary><strong>Roster Management</strong> (16 tools)</summary>
@@ -371,6 +374,24 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 | `fantasy_transactions` | Recent fantasy-relevant MLB transactions (IL, call-up, DFA, trade) |
 | `yahoo_statcast_history` | Compare a player's Statcast profile now vs. 30/60 days ago |
 | `fantasy_news_feed` | Real-time news from 16 sources (ESPN, FanGraphs, CBS, Yahoo, MLB.com, RotoWire, Pitcher List, Razzball, Google News, RotoBaller, Reddit, 5 Bluesky analyst feeds) — filter by source or player |
+
+</details>
+
+<details>
+<summary><strong>Prospect Intelligence</strong> (11 tools)</summary>
+
+| Tool | Description |
+|------|-------------|
+| `fantasy_prospect_report` | Deep prospect analysis with MiLB stats, scouting evaluation, call-up probability, and stash recommendation |
+| `fantasy_prospect_rankings` | Top prospects ranked by composite score with call-up probabilities. Filter by position, level, or team |
+| `fantasy_callup_wire` | Recent MLB call-ups with fantasy impact analysis — prospect ranks, opportunity created |
+| `fantasy_stash_advisor` | NA stash recommendations based on call-up probability and league context |
+| `fantasy_prospect_compare` | Side-by-side prospect comparison — stats, grades, call-up probability, and evaluation |
+| `fantasy_prospect_buzz` | Reddit prospect buzz and discussion tracker — trending prospect posts and mentions |
+| `fantasy_eta_tracker` | Track call-up probability changes for watchlist prospects — flags significant movements |
+| `fantasy_prospect_trade_targets` | League-specific prospect trade targets — identifies stashed prospects on other teams worth acquiring |
+| `fantasy_prospect_watch_add` | Add or remove a prospect from your ETA watchlist for tracking call-up probability changes |
+| `fantasy_prospect_news` | Qualitative news intelligence for a prospect — aggregates front office quotes, beat reporter intel, roster decisions from 16 sources. Signal classification with Bayesian probability updating |
 
 </details>
 
@@ -483,10 +504,10 @@ The `./yf` helper script provides direct CLI access to all functionality:
 │  │  (Flask :8766)    │──│  (Express :4951)    │  │
 │  │                   │  │                     │  │
 │  │  yahoo_fantasy_api│  │  MCP SDK + ext-apps │  │
-│  │  pybaseball       │  │  97 tool defs       │  │
+│  │  pybaseball       │  │  123 tool defs      │  │
 │  │  MLB-StatsAPI     │  │  4 apps / 75 views  │  │
 │  │  Playwright       │  │  11 workflow tools  │  │
-│  │  CacheManager     │  │  9 tool files       │  │
+│  │  CacheManager     │  │  11 tool files      │  │
 │  └──────────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────┘
          │                        │
@@ -500,7 +521,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 - **Read operations**: Yahoo Fantasy OAuth API (fast, reliable)
 - **Write operations**: Playwright browser automation against Yahoo Fantasy website
 - **Valuations**: FVARz z-scores with per-category projection blending (Steamer + ZiPS + Depth Charts), park-factor adjusted, date-based decay curve for in-season blending, conditional catcher premium. ILP lineup optimizer (scipy) with greedy fallback. Surplus value trade analysis, budget-paced FAAB, multi-factor streaming with Stuff+, research-backed punt viability
-- **Intelligence**: Statcast data, SIERA, Stuff+/Location+/Pitching+, platoon splits, arsenal changes, batted ball profiles, historical comparisons, research-calibrated regression scoring (-100 to +100) with 14 signals across hitters and pitchers. Cached with configurable TTL
+- **Intelligence**: Statcast data, SIERA, Stuff+/Location+/Pitching+, platoon splits, arsenal changes, batted ball profiles, historical comparisons, research-calibrated regression scoring (-100 to +100) with 14 signals across hitters and pitchers. Prospect news sentiment layer blends qualitative signals from 16 news sources with stat-based call-up probabilities using Bayesian updating. Cached with configurable TTL
 - **MCP Apps**: Inline HTML UIs (React + Plex UI + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
 - **Workflow tools**: 11 aggregated endpoints that bundle 5-7+ API calls server-side to keep tool call counts low
 
@@ -563,6 +584,9 @@ baseclaw/
 │   ├── yahoo_browser.py            # Playwright browser automation
 │   ├── history.py                  # Historical records
 │   ├── intel.py                    # Fantasy intelligence (Statcast, splits, arsenal, caching)
+│   ├── news.py                     # 16-source news aggregator (RSS, Reddit, Bluesky)
+│   ├── prospects.py                # Prospect intelligence (MiLB stats, call-up probability, stash advisor)
+│   ├── prospect_news.py            # Prospect news sentiment (signal classification, Bayesian updating)
 │   ├── valuations.py               # Z-score valuation engine (consensus, park factors, ROS tracking)
 │   ├── snapshot.py                 # Weekly state snapshots (projections, roster, standings)
 │   ├── backtest.py                 # Backtest replay engine (lineup efficiency vs actuals)
@@ -575,7 +599,7 @@ baseclaw/
     ├── server.ts                   # MCP server setup + tool registration
     ├── main.ts                     # Entry point (stdio + HTTP)
     ├── assets/logo-128.png         # Server icon (pixel-art baseball)
-    ├── src/tools/                  # 9 tool files, 97 MCP tools
+    ├── src/tools/                  # 11 tool files, 123 MCP tools
     ├── src/api/                    # Python API client + type definitions
     └── ui/                         # 4 inline HTML apps, 75+ views (React + Plex UI + Recharts)
 ```
