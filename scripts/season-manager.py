@@ -23,7 +23,7 @@ from shared import (
     LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
     MLB_API, mlb_fetch, TEAM_ALIASES, normalize_team_name,
     get_trend_lookup, enrich_with_intel, enrich_with_trends, enrich_with_context,
-    _attach_context_fields, batch_player_news,
+    _attach_context_fields, batch_player_news, has_dealbreaker_flag,
 )
 
 from yahoo_browser import is_scope_error as _is_scope_error, write_method as _write_method
@@ -1618,11 +1618,23 @@ def cmd_waiver_analyze(args, as_json=False):
             }
             _attach_context_fields(rec, p)
             recs.append(rec)
+
+        # Filter dealbreakers from waiver recommendations
+        filtered_waiver = []
+        recs_clean = []
+        for rec in recs:
+            if has_dealbreaker_flag(rec):
+                filtered_waiver.append({"name": rec.get("name", ""), "reason": rec.get("warning", "")})
+            else:
+                recs_clean.append(rec)
+        recs = recs_clean
+
         return {
             "pos_type": pos_type,
             "weak_categories": weak_list,
             "recommendations": recs,
             "drop_candidates": drop_candidates[:5],
+            "filtered_dealbreakers": filtered_waiver,
         }
 
     print("Top " + str(count) + " Waiver Recommendations (Z-Score Based):")
@@ -1882,6 +1894,28 @@ def cmd_streaming(args, as_json=False):
 
         enrich_with_context(scored, 15)
 
+        # Filter: remove SP->RP role changes and dealbreakers
+        filtered_streaming = []
+        try:
+            i = 0
+            while i < len(scored) and i < 15:
+                p = scored[i]
+                name = p.get("name", "")
+                if has_dealbreaker_flag(p):
+                    filtered_streaming.append({"name": name, "reason": "dealbreaker"})
+                    scored.pop(i)
+                    continue
+                # Role change already computed by enrich_with_context above
+                role = p.get("role_change", {})
+                if role.get("role_changed") and role.get("change_type") == "sp_to_rp":
+                    filtered_streaming.append({"name": name, "reason": role.get("description", "Moved to bullpen")})
+                    scored.pop(i)
+                    continue
+                i += 1
+        except Exception as e:
+            print("Warning: streaming QIL filtering failed: " + str(e))
+            filtered_streaming = []
+
         tg_list = []
         sorted_teams = sorted(team_games.items(), key=lambda x: -x[1])
         for tn, gc in sorted_teams[:10]:
@@ -1911,6 +1945,7 @@ def cmd_streaming(args, as_json=False):
             "week": target_week,
             "team_games": tg_list,
             "recommendations": recs,
+            "filtered": filtered_streaming,
         }
 
     print("Top Streaming Pitcher Recommendations (Z-Score Based):")
@@ -2252,6 +2287,8 @@ def cmd_trade_eval(args, as_json=False):
                 "mlb_id": get_mlb_id(p.get("name", "")),
             })
         enrich_with_intel(give_list + get_list)
+        enrich_with_context(give_list + get_list)
+
         return {
             "give_players": give_list,
             "get_players": get_list,
@@ -3850,6 +3887,7 @@ def cmd_whats_new(args, as_json=False):
                 "player_id": str(p.get("player_id", "")),
                 "status": p.get("status", ""),
                 "position": p.get("position", ""),
+                "injury_severity": p.get("injury_severity"),
                 "section": "active_injured",
             })
         for p in injury_data.get("healthy_il", []):
@@ -7018,9 +7056,47 @@ def cmd_optimal_moves(args, as_json=False):
 
     # 7. Player context: news + transaction flags for ADD players
     add_players = [m.get("add", {}) for m in chain if m.get("add", {}).get("name")]
-    enrich_with_context(add_players)
+    filter_result = enrich_with_context(add_players, filter_dealbreakers=True)
 
-    # 8. Calculate totals
+    # Remove chain moves where the add player was a dealbreaker
+    filtered_names = set()
+    filtered_info = []
+    if filter_result.get("filtered"):
+        for fp in filter_result["filtered"]:
+            filtered_names.add(fp.get("name", ""))
+            reason = ""
+            for flag in fp.get("context_flags", []):
+                if flag.get("type") == "DEALBREAKER":
+                    reason = flag.get("message", "")
+                    break
+            filtered_info.append({"name": fp.get("name", ""), "reason": reason})
+
+        # Remove filtered moves from chain
+        chain = [m for m in chain if m.get("add", {}).get("name", "") not in filtered_names]
+
+        # Try to backfill from all_moves
+        added_pids = set(m.get("add", {}).get("player_id", "") for m in chain)
+        dropped_pids = set(m.get("drop", {}).get("player_id", "") for m in chain)
+        for move in all_moves:
+            if len(chain) >= count:
+                break
+            drop_pid = move.get("drop", {}).get("player_id", "")
+            add_pid = move.get("add", {}).get("player_id", "")
+            add_name = move.get("add", {}).get("name", "")
+            if drop_pid in dropped_pids or add_pid in added_pids:
+                continue
+            if add_name in filtered_names:
+                continue
+            chain.append(move)
+            dropped_pids.add(drop_pid)
+            added_pids.add(add_pid)
+
+        # Re-enrich backfilled moves
+        new_adds = [m.get("add", {}) for m in chain if m.get("add", {}).get("name") and m.get("add", {}).get("name") not in set(p.get("name", "") for p in add_players)]
+        if new_adds:
+            enrich_with_context(new_adds)
+
+    # Recalculate totals (in case chain changed)
     total_improvement = round(sum(m.get("z_improvement", 0) for m in chain), 2)
     projected_z_after = round(roster_z_total + total_improvement, 2)
 
@@ -7039,11 +7115,15 @@ def cmd_optimal_moves(args, as_json=False):
     else:
         summary = "No beneficial add/drop moves found above the +0.2 z-score threshold."
 
+    if filtered_info:
+        summary = summary + " Filtered " + str(len(filtered_info)) + " unavailable player(s)."
+
     result = {
         "roster_z_total": roster_z_total,
         "projected_z_after": projected_z_after,
         "net_improvement": total_improvement,
         "moves": chain,
+        "filtered_dealbreakers": filtered_info,
         "summary": summary,
     }
 

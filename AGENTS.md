@@ -108,6 +108,37 @@ Before any add/drop/trade decision, check regression signals:
 - Time decay: player value decreases as season progresses — ROS projections shrink the value window
 - Trade grades: A+ (net >= 4.0), A (>= 2.5), B+ (>= 1.5), B (>= 0.5), C (>= -0.5), D (>= -1.5), F (< -1.5)
 
+## Qualitative Intelligence
+
+Every recommendation you make should be informed by real-world context, not just statistical projections. Before recommending any player action (add, drop, trade, start, bench), consider:
+
+### Dealbreaker Checks
+- **Always check before recommending**: Has the player been DFA'd, released, suspended, or retired?
+- If a tool flags a player as DEALBREAKER, do not recommend that player. Explain why.
+- Example: "I was going to suggest adding Hunter Harvey (+3.75 z-score), but he was released by the Angels yesterday. Skipping."
+
+### Context-Aware Recommendations
+- When presenting recommendations, include the context warnings from player intel
+- Hot streaks increase confidence but don't override fundamentals
+- Cold streaks decrease confidence but don't invalidate good underlying metrics
+- Role changes (SP to RP, bench to everyday, lost closer job) are among the most impactful qualitative signals
+
+### Injury Intelligence
+- Always present injury severity (MINOR/MODERATE/SEVERE), not just "DTD" or "IL"
+- Minor injuries: maintain normal roster management
+- Moderate injuries: consider streaming replacements, don't panic-drop
+- Severe injuries: move to IL, activate replacement, potentially drop if roster-crunched
+
+### News-Informed Trade Evaluation
+- A player on a hot streak has inflated perceived value — good time to sell
+- A player on a cold streak has deflated perceived value — good time to buy (if underlying metrics are strong)
+- Always mention injury timelines when evaluating injured players in trades
+
+### Community Sentiment
+- If Reddit is overwhelmingly bullish on a free agent, act fast — they'll be claimed soon
+- If Reddit is bearish on one of your players, consider whether the crowd is right or wrong
+- Use Reddit sentiment as a tiebreaker, not a primary signal
+
 ## Prospect Intelligence
 
 - **K% is king for hitter prospects**: K% below league average for their level is the strongest indicator of MLB readiness. ISO (power = SLG - AVG) is the second-most predictive metric

@@ -56,6 +56,8 @@ import {
 
 export const SEASON_URI = "ui://baseclaw/season.html";
 
+const SEV_EMOJI: Record<string, string> = { MINOR: "\uD83D\uDFE2", MODERATE: "\uD83D\uDFE1", SEVERE: "\uD83D\uDD34" };
+
 export function registerSeasonTools(server: McpServer, distDir: string, writesEnabled: boolean = false) {
   registerAppResource(
     server,
@@ -183,7 +185,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (data.injured_active.length > 0) {
           lines.push("PROBLEM: Injured players in ACTIVE lineup:");
           for (const p of data.injured_active) {
-            lines.push("  " + str(p.position).padEnd(4) + " " + str(p.name).padEnd(25) + " [" + str(p.status) + "]" + pid(p.player_id) + (p.injury_description ? " - " + p.injury_description : ""));
+            const sev = p.injury_severity;
+            const emoji = sev ? " " + (SEV_EMOJI[sev] || "❓") + " " + sev : "";
+            const detail = p.injury_detail ? " — " + p.injury_detail : (p.injury_description ? " - " + p.injury_description : "");
+            lines.push("  " + str(p.position).padEnd(4) + " " + str(p.name).padEnd(25) + " [" + str(p.status) + "]" + emoji + pid(p.player_id) + detail);
           }
         } else {
           lines.push("No injured players in active lineup.");
@@ -197,7 +202,10 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (data.injured_bench.length > 0) {
           lines.push("NOTE: Injured players on bench:");
           for (const p of data.injured_bench) {
-            lines.push("  BN   " + str(p.name).padEnd(25) + " [" + str(p.status) + "]" + pid(p.player_id));
+            const sev = p.injury_severity;
+            const emoji = sev ? " " + (SEV_EMOJI[sev] || "❓") + " " + sev : "";
+            const detail = p.injury_detail ? " — " + p.injury_detail : "";
+            lines.push("  BN   " + str(p.name).padEnd(25) + " [" + str(p.status) + "]" + emoji + pid(p.player_id) + detail);
           }
         }
         const ai_recommendation = generateInjuryInsight(data);
@@ -238,6 +246,14 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           lines.push("  " + str(p.name).padEnd(25) + str(p.team).padEnd(15) + str(p.games).padStart(5)
             + str(p.pct).padStart(6) + "  " + str(p.score.toFixed(1)).padStart(5)
             + twoStart + tier + streamScore + parkFactor + warning + "  (id:" + p.pid + ")");
+          if (p.context_line) lines.push("    " + p.context_line);
+        }
+        if (data.filtered && data.filtered.length > 0) {
+          lines.push("");
+          lines.push("Filtered from streaming:");
+          for (const f of data.filtered) {
+            lines.push("  " + str(f.name) + " — " + str(f.reason));
+          }
         }
         const ai_recommendation = generateStreamingInsight(data);
         return {
@@ -475,7 +491,9 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (data.injuries.length > 0) {
           sections.push("INJURIES (" + data.injuries.length + "):");
           for (const p of data.injuries) {
-            sections.push("  " + str(p.name).padEnd(25) + " [" + str(p.status) + "]" + pid(p.player_id));
+            const sev = p.injury_severity;
+            const sevStr = sev ? " " + sev : "";
+            sections.push("  " + str(p.name).padEnd(25) + " [" + str(p.status) + "]" + sevStr + pid(p.player_id));
           }
         }
         if (data.pending_trades.length > 0) {
@@ -948,6 +966,14 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
             if (move.categories_gained.length > 0) details.push("Gains: " + move.categories_gained.join(", "));
             if (move.categories_lost.length > 0) details.push("Loses: " + move.categories_lost.join(", "));
             if (details.length > 0) lines.push("      " + details.join("  |  "));
+            if (a.context_line) lines.push("      Context: " + a.context_line);
+          }
+          if (data.filtered_dealbreakers && data.filtered_dealbreakers.length > 0) {
+            lines.push("");
+            lines.push("Filtered (unavailable):");
+            for (const f of data.filtered_dealbreakers) {
+              lines.push("  " + str(f.name) + " — " + str(f.reason));
+            }
           }
           lines.push("");
           lines.push("Projected Z-Score After: " + str(data.projected_z_after) + " (+" + str(data.net_improvement) + ")");

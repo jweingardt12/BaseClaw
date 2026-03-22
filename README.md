@@ -6,7 +6,7 @@
 
 Your fantasy baseball team, managed by AI.
 
-BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league. Your roster, the waiver wire, Statcast data, trade analytics, prospect intelligence — 123 tools cover it. The important ones render interactive UI right inside Claude. The rest return text. Ask questions in plain English, or connect an agent and let it run your team on autopilot.
+BaseClaw is an MCP server that gives Claude full access to your Yahoo Fantasy Baseball league. Your roster, the waiver wire, Statcast data, trade analytics, prospect intelligence — 124 tools cover it. The important ones render interactive UI right inside Claude. The rest return text. Ask questions in plain English, or connect an agent and let it run your team on autopilot.
 
 ## Table of Contents
 
@@ -60,7 +60,7 @@ Complex questions chain 3-8 tool calls automatically. Simple lookups are one cal
 
 2. **Analytics engine** — Z-score valuations using the FVARz method (volume-weighted rate stats so part-timers don't inflate rankings). Projections are consensus blends (Steamer + ZiPS + Depth Charts) with per-category weighting, park-factor adjusted, and blended with live stats via a date-based decay curve (projections dominate early, actuals take over mid-season). Conditional catcher premium (2.0 for 2C leagues, 1.0 for 1C, auto-detected from league settings). ILP lineup optimizer (scipy) finds globally optimal player-to-slot assignments with greedy fallback. The engine also runs category gap analysis, research-backed punt strategy with viability ratings, matchup classification with category-specific volatility thresholds, trade evaluation with surplus value analysis (roster spot tax, category fit, consolidation premium, catcher scarcity, rival warnings), FAAB bid recommendations with budget pacing and contender detection, multi-factor streaming pitcher scoring (pitcher quality + park factor + opponent quality + Stuff+), and a trade finder that scans every team for complementary deals.
 
-3. **Player intelligence** — Every player surface pulls Statcast data (xwOBA, xERA, exit velocity, barrel rate, percentile rankings, pitch arsenal), Stuff+/Location+/Pitching+ metrics, platoon splits, historical comparisons, arsenal change detection, 7/14/30-day trend splits, FanGraphs plate discipline (SIERA, K-BB%, HR/FB%), Reddit sentiment from r/fantasybaseball, and MLB transaction alerts. A research-calibrated regression engine scores every qualified player from -100 (strong sell-high) to +100 (strong buy-low) using 6 hitter signals (xwOBA gap, career-regressed BABIP, HR/FB vs barrels, plate discipline via O-Swing%, hard-hit divergence, sprint speed) and 8 pitcher signals (ERA vs SIERA, K-BB% vs ERA, ERA vs xERA, K-rate adjusted BABIP, LOB%, HR/FB%, velocity trend, Stuff+ confidence modifier) — each with individual contribution breakdowns and confidence levels. API calls are cached with configurable TTL. Before the season starts, Savant data falls back to the prior year so intel surfaces stay populated during spring training.
+3. **Player intelligence** — Every player surface pulls Statcast data (xwOBA, xERA, exit velocity, barrel rate, percentile rankings, pitch arsenal), Stuff+/Location+/Pitching+ metrics, platoon splits, historical comparisons, arsenal change detection, 7/14/30-day trend splits, FanGraphs plate discipline (SIERA, K-BB%, HR/FB%), Reddit sentiment from r/fantasybaseball, and MLB transaction alerts. A research-calibrated regression engine scores every qualified player from -100 (strong sell-high) to +100 (strong buy-low) using 6 hitter signals (xwOBA gap, career-regressed BABIP, HR/FB vs barrels, plate discipline via O-Swing%, hard-hit divergence, sprint speed) and 8 pitcher signals (ERA vs SIERA, K-BB% vs ERA, ERA vs xERA, K-rate adjusted BABIP, LOB%, HR/FB%, velocity trend, Stuff+ confidence modifier) — each with individual contribution breakdowns and confidence levels. A qualitative intelligence layer enriches every recommendation with real-world context: injury severity classification (MINOR/MODERATE/SEVERE), dealbreaker detection (DFA'd, released, suspended, or retired players auto-filtered from recommendations), and one-line context summaries attached to every player surface. API calls are cached with configurable TTL. Before the season starts, Savant data falls back to the prior year so intel surfaces stay populated during spring training.
 
 4. **Browser automation** — Write operations (add, drop, trade, lineup changes) use Playwright to automate the Yahoo Fantasy website directly, since Yahoo's API no longer grants write scope to new developer apps. Read operations still use the fast OAuth API.
 
@@ -269,7 +269,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 
 ## MCP Tools
 
-123 tools across 11 tool files. Core dashboards and action tools (20) render interactive UI in Claude; the rest return text.
+124 tools across 11 tool files. Core dashboards and action tools (20) render interactive UI in Claude; the rest return text.
 
 <details>
 <summary><strong>Roster Management</strong> (16 tools)</summary>
@@ -363,7 +363,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 </details>
 
 <details>
-<summary><strong>Intelligence</strong> (7 tools)</summary>
+<summary><strong>Intelligence</strong> (8 tools)</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -373,6 +373,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 | `fantasy_prospect_watch` | Recent MLB prospect call-ups and roster moves |
 | `fantasy_transactions` | Recent fantasy-relevant MLB transactions (IL, call-up, DFA, trade) |
 | `yahoo_statcast_history` | Compare a player's Statcast profile now vs. 30/60 days ago |
+| `yahoo_player_intel` | Comprehensive qualitative intelligence briefing — news, injury severity, hot/cold streaks, role changes, Reddit buzz, ownership trends, and Statcast quality tier in one formatted report |
 | `fantasy_news_feed` | Real-time news from 16 sources (ESPN, FanGraphs, CBS, Yahoo, MLB.com, RotoWire, Pitcher List, Razzball, Google News, RotoBaller, Reddit, 5 Bluesky analyst feeds) — filter by source or player |
 
 </details>
@@ -504,7 +505,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 │  │  (Flask :8766)    │──│  (Express :4951)    │  │
 │  │                   │  │                     │  │
 │  │  yahoo_fantasy_api│  │  MCP SDK + ext-apps │  │
-│  │  pybaseball       │  │  123 tool defs      │  │
+│  │  pybaseball       │  │  124 tool defs      │  │
 │  │  MLB-StatsAPI     │  │  4 apps / 75 views  │  │
 │  │  Playwright       │  │  11 workflow tools  │  │
 │  │  CacheManager     │  │  11 tool files      │  │
@@ -521,7 +522,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 - **Read operations**: Yahoo Fantasy OAuth API (fast, reliable)
 - **Write operations**: Playwright browser automation against Yahoo Fantasy website
 - **Valuations**: FVARz z-scores with per-category projection blending (Steamer + ZiPS + Depth Charts), park-factor adjusted, date-based decay curve for in-season blending, conditional catcher premium. ILP lineup optimizer (scipy) with greedy fallback. Surplus value trade analysis, budget-paced FAAB, multi-factor streaming with Stuff+, research-backed punt viability
-- **Intelligence**: Statcast data, SIERA, Stuff+/Location+/Pitching+, platoon splits, arsenal changes, batted ball profiles, historical comparisons, research-calibrated regression scoring (-100 to +100) with 14 signals across hitters and pitchers. Prospect news sentiment layer blends qualitative signals from 16 news sources with stat-based call-up probabilities using Bayesian updating. Cached with configurable TTL
+- **Intelligence**: Statcast data, SIERA, Stuff+/Location+/Pitching+, platoon splits, arsenal changes, batted ball profiles, historical comparisons, research-calibrated regression scoring (-100 to +100) with 14 signals across hitters and pitchers. Qualitative intelligence layer enriches every recommendation with injury severity, dealbreaker filtering, and context lines. Prospect news sentiment layer blends qualitative signals from 16 news sources with stat-based call-up probabilities using Bayesian updating. Cached with configurable TTL
 - **MCP Apps**: Inline HTML UIs (React + Plex UI + Recharts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
 - **Workflow tools**: 11 aggregated endpoints that bundle 5-7+ API calls server-side to keep tool call counts low
 

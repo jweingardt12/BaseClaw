@@ -311,4 +311,120 @@ export function registerIntelTools(server: McpServer, distDir: string) {
     },
   );
 
+  // yahoo_player_intel
+  registerAppTool(
+    server,
+    "yahoo_player_intel",
+    {
+      description: "Comprehensive qualitative intelligence on a player — recent news, injury severity, hot/cold streak, role changes, Reddit buzz, and ownership trends. Synthesizes information from 6+ sources into one actionable briefing. Use this when you want to understand the full picture on a player beyond just their stats.",
+      inputSchema: { player: z.string().describe("Player name to research") },
+      annotations: { readOnlyHint: true },
+      _meta: { ui: { resourceUri: INTEL_URI } },
+    },
+    async ({ player }) => {
+      try {
+        const data = await apiGet<Record<string, unknown>>("/api/player-intel", { player });
+        const lines: string[] = [];
+        lines.push("Player Intel: " + str(data.player_name || player));
+
+        // Status + injury
+        if (data.status) {
+          lines.push("Status: " + str(data.status) + (data.status_reason ? " — " + str(data.status_reason) : ""));
+        }
+        if (data.injury_severity) {
+          const sev = str(data.injury_severity);
+          const icon = sev === "MINOR" ? " 🟢" : sev === "MODERATE" ? " 🟡" : sev === "SEVERE" ? " 🔴" : "";
+          lines.push("Injury: " + sev + icon);
+        }
+
+        // News context
+        const news = data.news_context as Record<string, unknown> | undefined;
+        if (news) {
+          const headlines = (news.headlines || []) as Array<Record<string, unknown>>;
+          if (headlines.length > 0) {
+            lines.push("");
+            lines.push("NEWS (" + headlines.length + " headlines):");
+            for (const h of headlines.slice(0, 5)) {
+              let line = "  • " + str(h.title);
+              if (h.source || h.date) {
+                line += " (" + [h.source, h.date].filter(Boolean).join(", ") + ")";
+              }
+              lines.push(line);
+            }
+          }
+          const flags = (news.flags || []) as Array<Record<string, unknown>>;
+          if (flags.length > 0) {
+            lines.push("");
+            lines.push("FLAGS:");
+            for (const f of flags) {
+              lines.push("  ⚠️ " + str(f.type) + ": " + str(f.message));
+            }
+          }
+          const txns = (news.transactions || []) as Array<Record<string, unknown>>;
+          if (txns.length > 0) {
+            lines.push("");
+            lines.push("TRANSACTIONS:");
+            for (const t of txns.slice(0, 3)) {
+              lines.push("  • " + str(t.description));
+            }
+          }
+          const reddit = news.reddit as Record<string, unknown> | undefined;
+          if (reddit && (reddit.mentions as number) > 0) {
+            lines.push("");
+            lines.push("REDDIT: " + str(reddit.mentions) + " mentions, sentiment: " + str(reddit.sentiment));
+            if (reddit.summary) lines.push("  " + str(reddit.summary));
+          }
+        }
+
+        // Statcast
+        const sc = data.statcast as Record<string, unknown> | undefined;
+        if (sc && sc.quality_tier) {
+          lines.push("");
+          const parts = [str(sc.quality_tier)];
+          if (sc.xwoba !== undefined) parts.push("xwOBA: " + str(sc.xwoba));
+          if (sc.barrel_pct !== undefined) parts.push("Barrel%: " + str(sc.barrel_pct));
+          if (sc.k_pct !== undefined) parts.push("K%: " + str(sc.k_pct));
+          if (sc.bb_pct !== undefined) parts.push("BB%: " + str(sc.bb_pct));
+          lines.push("STATCAST: " + parts.join(" | "));
+        }
+
+        // Trends
+        const trends = data.trends as Record<string, unknown> | undefined;
+        if (trends && trends.status) {
+          const parts = [str(trends.status)];
+          if (trends.avg_14d !== undefined) parts.push("14d AVG: " + str(trends.avg_14d));
+          if (trends.ops_14d !== undefined) parts.push("14d OPS: " + str(trends.ops_14d));
+          if (trends.era_14d !== undefined) parts.push("14d ERA: " + str(trends.era_14d));
+          lines.push("");
+          lines.push("TRENDS: " + parts.join(" | "));
+        }
+
+        // Yahoo trend
+        const yt = data.yahoo_trend as Record<string, unknown> | undefined;
+        if (yt && yt.direction) {
+          lines.push("");
+          let ytLine = "YAHOO TREND: " + str(yt.direction);
+          if (yt.rank !== undefined) ytLine += " | rank #" + str(yt.rank);
+          if (yt.delta !== undefined) ytLine += " (delta: " + str(yt.delta) + ")";
+          lines.push(ytLine);
+        }
+
+        // Role change
+        const rc = data.role_change as Record<string, unknown> | undefined;
+        if (rc) {
+          lines.push("");
+          if (rc.role_changed) {
+            lines.push("ROLE CHANGE: " + str(rc.change_type) + " — " + str(rc.description));
+          } else {
+            lines.push("ROLE: No change detected");
+          }
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+
 }

@@ -302,21 +302,25 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         // Player values
         lines.push("");
+        const te = data.trade_eval;
         lines.push("GIVING:");
         for (const [i, p] of (data.give_players || []).entries()) {
           const total = Number(p.z_scores?.Final ?? 0);
           const playerId = data.give_ids?.[i] || "?";
           lines.push("  " + str(p.name).padEnd(25) + "  (id:" + playerId + ") z-total=" + total.toFixed(2));
+          const tePlayer = (te && !("_error" in te)) ? (te.give_players || []).find((tp: any) => tp.name === p.name) : null;
+          if (tePlayer?.context_line) lines.push("    " + tePlayer.context_line);
         }
         lines.push("GETTING:");
         for (const [i, p] of (data.get_players || []).entries()) {
           const total = Number(p.z_scores?.Final ?? 0);
           const playerId = data.get_ids?.[i] || "?";
           lines.push("  " + str(p.name).padEnd(25) + "  (id:" + playerId + ") z-total=" + total.toFixed(2));
+          const tePlayer = (te && !("_error" in te)) ? (te.get_players || []).find((tp: any) => tp.name === p.name) : null;
+          if (tePlayer?.context_line) lines.push("    " + tePlayer.context_line);
         }
 
         // Trade eval if available
-        const te = data.trade_eval;
         if (te && !("_error" in te)) {
           // Check for estimated z-scores
           const estimatedPlayers = [...(te.give_players || []), ...(te.get_players || [])]
@@ -383,6 +387,13 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           }
           if (te.acceptance_likelihood === "VERY_LOW") {
             recommendation += " — but opponent unlikely to accept";
+          }
+          // Injury advisory
+          const allTePlayers = [...(te.give_players || []), ...(te.get_players || [])];
+          for (const tp of allTePlayers) {
+            if (tp.injury_severity) {
+              lines.push("  ⚠️ " + tp.name + " is injured (" + tp.injury_severity + ") — factor into trade timing");
+            }
           }
           lines.push("");
           lines.push("RECOMMENDATION: " + recommendation);

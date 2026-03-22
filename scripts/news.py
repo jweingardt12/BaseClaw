@@ -535,6 +535,10 @@ _INFO_KEYWORDS = [
     "named closer", "closing", "promoted", "return from",
 ]
 
+# Reddit sentiment keywords for player context
+_BULLISH_KW = ["add", "pickup", "breakout", "buy", "stash", "sleeper", "must-add", "fire"]
+_BEARISH_KW = ["drop", "sell", "bust", "avoid", "droppable", "overrated", "concern"]
+
 # Injury severity keywords
 SEVERITY_KEYWORDS = {
     "day-to-day": "MINOR", "dtd": "MINOR", "not serious": "MINOR",
@@ -645,11 +649,34 @@ def get_player_context(player_name, days=14):
         if injury_severity:
             break
 
+    # 5. Reddit sentiment
+    reddit = {"mentions": 0, "sentiment": "neutral", "summary": ""}
+    try:
+        from intel import _search_reddit_player
+        posts = _search_reddit_player(player_name)
+        if posts:
+            reddit["mentions"] = len(posts)
+            total_comments = sum(p.get("num_comments", 0) for p in posts)
+            bullish = sum(1 for p in posts if any(kw in p.get("title", "").lower() for kw in _BULLISH_KW))
+            bearish = sum(1 for p in posts if any(kw in p.get("title", "").lower() for kw in _BEARISH_KW))
+            if bullish > bearish:
+                reddit["sentiment"] = "bullish"
+            elif bearish > bullish:
+                reddit["sentiment"] = "bearish"
+            elif len(posts) >= 3:
+                reddit["sentiment"] = "mixed"
+            reddit["summary"] = (str(len(posts)) + " Reddit mentions, "
+                                + str(total_comments) + " comments, "
+                                + "sentiment: " + reddit.get("sentiment", "neutral"))
+    except Exception:
+        pass
+
     result = {
         "headlines": headlines,
         "transactions": transactions,
         "flags": flags,
         "injury_severity": injury_severity,
+        "reddit": reddit,
     }
     cache_set(_context_cache, cache_key, result)
     return result

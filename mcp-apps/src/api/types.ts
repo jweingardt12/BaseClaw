@@ -307,6 +307,8 @@ export interface InjuredPlayer {
   eligible_positions?: string[];
   status: string;
   injury_description?: string;
+  injury_severity?: string;
+  injury_detail?: string;
   mlb_id?: number;
   intel?: PlayerIntel;
 }
@@ -384,12 +386,14 @@ export interface StreamingRecommendation {
   warning?: string;
   news?: NewsHeadline[];
   context_flags?: ContextFlag[];
+  context_line?: string;
 }
 
 export interface StreamingResponse {
   week: number;
   team_games: Array<{ team: string; games: number }>;
   recommendations: StreamingRecommendation[];
+  filtered?: Array<{ name: string; reason: string }>;
 }
 
 // Python returns give_players/get_players (not giving/getting)
@@ -400,7 +404,9 @@ export interface TradePlayer {
   positions: string[];
   value: number;
   mlb_id?: number;
+  injury_severity?: string;
   intel?: PlayerIntel;
+  context_line?: string;
 }
 
 export interface TradeEvalResponse {
@@ -1071,6 +1077,7 @@ export interface WhatsNewInjury {
   player_id?: string;
   status: string;
   position: string;
+  injury_severity?: string;
   section: string;
 }
 
@@ -1676,6 +1683,7 @@ export interface OptimalMovePlayer {
   warning?: string;
   news?: NewsHeadline[];
   context_flags?: ContextFlag[];
+  context_line?: string;
 }
 
 export interface OptimalMove {
@@ -1692,6 +1700,7 @@ export interface OptimalMovesResponse {
   projected_z_after: number;
   net_improvement: number;
   moves: OptimalMove[];
+  filtered_dealbreakers?: Array<{ name: string; reason: string }>;
   summary: string;
 }
 

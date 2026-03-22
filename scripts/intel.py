@@ -695,6 +695,9 @@ def _search_reddit_player(player_name):
                 "num_comments": post.get("num_comments", 0),
                 "created_utc": post.get("created_utc", 0),
             })
+        # Filter to posts that actually mention the player
+        last_name = player_name.strip().split()[-1].lower()
+        posts = [p for p in posts if last_name in p.get("title", "").lower()]
         _cache_set(cache_key, posts)
         return posts
     except Exception as e:

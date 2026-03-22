@@ -506,13 +506,29 @@ def enrich_with_trends(players, count=None):
         pass
 
 
-def enrich_with_context(players, count=None):
-    """Add news context (warnings, headlines, flags) to a list of player dicts.
+def has_dealbreaker_flag(player):
+    """Check if a player dict has a DEALBREAKER context flag."""
+    for f in player.get("context_flags", []):
+        if f.get("type") == "DEALBREAKER":
+            return True
+    return False
+
+
+def enrich_with_context(players, count=None, filter_dealbreakers=False):
+    """Add qualitative context to a list of player dicts.
 
     Calls get_player_context for each player and attaches:
-        warning: str (first dealbreaker message, if any)
+        warning: str (first dealbreaker/warning message)
         news: list (top 2 headlines)
         context_flags: list (all flags)
+        injury_severity: str (MINOR/MODERATE/SEVERE) or None
+        role_change: dict (role_changed, change_type, description)
+        reddit: dict (mentions, sentiment, summary)
+        context_line: str (synthesized one-liner for display)
+
+    When filter_dealbreakers=True, removes players with DEALBREAKER flags
+    from the list in-place and returns {"filtered": [removed players]}.
+    Otherwise returns {}.
     """
     try:
         from news import get_player_context
@@ -521,20 +537,210 @@ def enrich_with_context(players, count=None):
             ctx = get_player_context(p.get("name", ""))
             if ctx.get("flags"):
                 p["context_flags"] = ctx["flags"]
-                # Promote dealbreakers and warnings to the warning field
                 for f in ctx["flags"]:
                     if f.get("type") in ("DEALBREAKER", "WARNING"):
                         p["warning"] = f.get("message", "")
                         break
             if ctx.get("headlines"):
                 p["news"] = ctx["headlines"][:2]
+            # Injury severity
+            if ctx.get("injury_severity"):
+                p["injury_severity"] = ctx["injury_severity"]
+                if ctx.get("headlines"):
+                    p["injury_detail"] = ctx["headlines"][0].get("title", "")
+            # Role change detection (pass cached ctx to avoid re-fetch)
+            role = detect_role_change(p.get("name", ""), ctx=ctx)
+            if role.get("role_changed"):
+                p["role_change"] = role
+            # Reddit sentiment
+            reddit = ctx.get("reddit", {})
+            if reddit.get("mentions", 0) >= 1:
+                p["reddit"] = reddit
+            # Build context_line
+            p["context_line"] = _build_context_line(p)
     except Exception:
         pass
 
+    if filter_dealbreakers:
+        filtered = []
+        i = 0
+        while i < len(players):
+            if has_dealbreaker_flag(players[i]):
+                filtered.append(players.pop(i))
+            else:
+                i += 1
+        if filtered:
+            return {"filtered": filtered}
+    return {}
+
+
+def detect_role_change(player_name, ctx=None):
+    """Check news/transactions for role changes (SP->RP, closer changes, etc.).
+
+    Args:
+        player_name: Player name to check.
+        ctx: Optional pre-fetched get_player_context() result to avoid re-fetch.
+
+    Returns dict: role_changed (bool), change_type (str), description (str).
+    """
+    result = {"role_changed": False, "change_type": "", "description": ""}
+    try:
+        if ctx is None:
+            from news import get_player_context
+            ctx = get_player_context(player_name)
+
+        # Gather all searchable text from headlines and transactions
+        texts = []
+        for h in ctx.get("headlines", []):
+            title = h.get("title", "")
+            if title:
+                texts.append(title)
+        for tx in ctx.get("transactions", []):
+            desc = tx.get("description", "")
+            if desc:
+                texts.append(desc)
+
+        if not texts:
+            return result
+
+        all_text = " ".join(texts).lower()
+
+        # Role change keyword groups: (change_type, keywords, exclusions)
+        role_checks = [
+            ("sp_to_rp", [
+                "bullpen", "relief role", "moved to relief",
+                "long relief", "begin in bullpen",
+            ], []),
+            ("rp_to_closer", [
+                "named closer", "closing duties",
+                "9th inning", "saves role",
+            ], []),
+            ("lost_closer", [
+                "loses closer", "lost closer", "removed from closer",
+            ], []),
+            ("added_to_rotation", [
+                "rotation", "starting rotation",
+                "named starter", "5th starter",
+            ], ["removed", "out of"]),
+            ("reduced_role", [
+                "benched", "platoon", "bench role",
+                "losing playing time",
+            ], []),
+        ]
+
+        for change_type, keywords, exclusions in role_checks:
+            for kw in keywords:
+                if kw in all_text:
+                    # Check exclusions
+                    excluded = False
+                    for ex in exclusions:
+                        if ex in all_text:
+                            excluded = True
+                            break
+                    if excluded:
+                        continue
+                    # Find the source text for description
+                    source = ""
+                    for t in texts:
+                        if kw in t.lower():
+                            source = t
+                            break
+                    label = change_type.replace("_", " ").title()
+                    desc = label + " — " + source if source else label
+                    return {
+                        "role_changed": True,
+                        "change_type": change_type,
+                        "description": desc,
+                    }
+    except Exception:
+        pass
+    return result
+
+
+def _build_context_line(player):
+    """Build a human-readable one-liner summarizing qualitative context.
+
+    Reads enrichment data already attached to the player dict by
+    enrich_with_context, enrich_with_intel, and enrich_with_trends.
+    """
+    parts = []
+
+    # Status flags (most important)
+    for f in player.get("context_flags", []):
+        ftype = f.get("type", "")
+        msg = f.get("message", "")
+        if ftype == "DEALBREAKER" and msg:
+            parts.append("DEALBREAKER: " + msg)
+            break
+        elif ftype == "WARNING" and msg:
+            parts.append("WARNING: " + msg)
+            break
+        elif ftype == "INFO" and msg:
+            parts.append(msg)
+            break
+
+    # Injury severity
+    severity = player.get("injury_severity")
+    if severity:
+        detail = player.get("injury_detail", "")
+        sev_part = "Injury: " + severity
+        if detail:
+            sev_part = sev_part + " — " + detail[:80]
+        parts.append(sev_part)
+
+    # Hot/cold streak from intel enrichment
+    intel = player.get("intel")
+    if intel and isinstance(intel, dict):
+        trends = intel.get("trends", {})
+        hot_cold = trends.get("status", "")
+        if hot_cold in ("hot", "warm"):
+            splits = trends.get("splits", {})
+            ops_14d = splits.get("ops_14d")
+            avg_14d = splits.get("avg_14d")
+            detail = ""
+            if ops_14d:
+                detail = str(ops_14d) + " OPS (14d)"
+            elif avg_14d:
+                detail = str(avg_14d) + " AVG (14d)"
+            parts.append("Hot streak" + (": " + detail if detail else ""))
+        elif hot_cold in ("cold", "ice"):
+            splits = trends.get("splits", {})
+            ops_14d = splits.get("ops_14d")
+            era_14d = splits.get("era_14d")
+            detail = ""
+            if era_14d:
+                detail = str(era_14d) + " ERA (14d)"
+            elif ops_14d:
+                detail = str(ops_14d) + " OPS (14d)"
+            parts.append("Cold streak" + (": " + detail if detail else ""))
+
+    # Role change
+    role = player.get("role_change")
+    if role and isinstance(role, dict) and role.get("role_changed"):
+        parts.append("Role change: " + role.get("description", "")[:80])
+
+    # Yahoo add/drop trend
+    trend = player.get("trend")
+    if trend and isinstance(trend, dict):
+        direction = trend.get("direction", "")
+        rank = trend.get("rank")
+        if direction == "added" and rank and rank <= 15:
+            parts.append("#" + str(rank) + " most-added in Yahoo")
+        elif direction == "dropped" and rank and rank <= 15:
+            parts.append("#" + str(rank) + " most-dropped in Yahoo")
+
+    # Reddit sentiment (only if notable)
+    reddit = player.get("reddit")
+    if reddit and isinstance(reddit, dict) and reddit.get("mentions", 0) >= 3:
+        parts.append("Reddit: " + reddit.get("summary", str(reddit.get("mentions")) + " mentions"))
+
+    return " | ".join(parts)
+
 
 def _attach_context_fields(rec, player):
-    """Copy optional context fields from enriched player dict to a rec output dict."""
-    for key in ("warning", "news", "context_flags"):
+    """Copy qualitative context fields from enriched player dict to output rec."""
+    for key in ("warning", "news", "context_flags", "context_line",
+                "injury_severity", "injury_detail", "role_change", "reddit"):
         val = player.get(key)
         if val:
             rec[key] = val

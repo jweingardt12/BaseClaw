@@ -51,6 +51,9 @@ export function waiverPairList(pairs: WaiverPair[]): string {
       + " (id:" + pair.add.player_id + " " + str(pair.add.percent_owned) + "% owned"
       + " score=" + str(pair.add.score) + ")"
       + " | improves: " + pair.weak_categories.join(", "));
+    if ((pair.add as any).context_line) {
+      lines.push("     " + (pair.add as any).context_line);
+    }
   }
   return lines.join("\n");
 }

@@ -1349,6 +1349,87 @@ def api_intel_transactions():
         return safe_jsonify({"error": str(e)}, 500)
 
 
+@app.route("/api/player-intel")
+def api_player_intel():
+    """Unified qualitative intelligence for a single player."""
+    player = request.args.get("player", "")
+    if not player:
+        return safe_jsonify({"error": "player parameter required"}, 400)
+
+    result = {"player": player}
+
+    # 1. News context (headlines, transactions, flags, injury severity, reddit)
+    try:
+        from news import get_player_context
+        ctx = get_player_context(player)
+        result["news_context"] = ctx
+    except Exception as e:
+        result["news_context"] = {"error": str(e)}
+
+    # 2. Statcast + game log trends (hot/cold, splits)
+    try:
+        from intel import batch_intel
+        intel_data = batch_intel([player], include=["statcast", "trends"])
+        player_intel = intel_data.get(player, {})
+        result["statcast"] = player_intel.get("statcast", {})
+        result["trends"] = player_intel.get("trends", {})
+    except Exception as e:
+        result["statcast"] = {"error": str(e)}
+        result["trends"] = {"error": str(e)}
+
+    # 3. Google News sentiment
+    try:
+        from shared import search_player_news
+        news_search = search_player_news(player, max_results=5)
+        result["news_sentiment"] = news_search
+    except Exception as e:
+        result["news_sentiment"] = {"error": str(e)}
+
+    # 4. Yahoo add/drop trends
+    try:
+        from shared import get_trend_lookup
+        trends_lookup = get_trend_lookup()
+        trend = trends_lookup.get(player)
+        result["yahoo_trend"] = trend or {"direction": "none", "note": "Not in top adds/drops"}
+    except Exception as e:
+        result["yahoo_trend"] = {"error": str(e)}
+
+    # 5. Role change detection
+    try:
+        from shared import detect_role_change
+        role = detect_role_change(player)
+        result["role_change"] = role
+    except Exception as e:
+        result["role_change"] = {"error": str(e)}
+
+    # 6. Build summary status
+    status = "active"
+    status_reason = ""
+    flags = result.get("news_context", {}).get("flags", [])
+    for flag in flags:
+        if flag.get("type") == "DEALBREAKER":
+            status = "dealbreaker"
+            status_reason = flag.get("message", "")
+            break
+        elif flag.get("type") == "WARNING" and status == "active":
+            status = "warning"
+            status_reason = flag.get("message", "")
+
+    hot_cold = result.get("trends", {}).get("status", "neutral")
+    if status == "active" and hot_cold in ("hot", "warm"):
+        status = "trending_up"
+        status_reason = "Recent performance: " + hot_cold
+    elif status == "active" and hot_cold in ("cold", "ice"):
+        status = "trending_down"
+        status_reason = "Recent performance: " + hot_cold
+
+    result["status"] = status
+    result["status_reason"] = status_reason
+    result["injury_severity"] = result.get("news_context", {}).get("injury_severity")
+
+    return safe_jsonify(result)
+
+
 @app.route("/api/intel/batch")
 def api_intel_batch():
     try:
@@ -1653,11 +1734,40 @@ def workflow_morning_briefing():
 
         # Include next lineup edit date
         edit_date = None
+        _lg = None
         try:
             _sc, _gm, _lg = yahoo_fantasy.get_league()
             edit_date = str(_lg.edit_date())
         except Exception:
             pass
+
+        # Roster player context (news/injuries/streaks for rostered players)
+        roster_context = []
+        try:
+            from news import get_player_context
+            if not _lg:
+                _sc, _gm, _lg = yahoo_fantasy.get_league()
+            _team2 = _lg.to_team(yahoo_fantasy.TEAM_ID)
+            _roster2 = _team2.roster()
+            for p in _roster2:
+                name = p.get("name", "")
+                if not name:
+                    continue
+                ctx = get_player_context(name)
+                if ctx.get("flags") or ctx.get("injury_severity"):
+                    entry = {"name": name, "status": p.get("status", "")}
+                    if ctx.get("flags"):
+                        entry["flags"] = ctx.get("flags")
+                    if ctx.get("injury_severity"):
+                        entry["injury_severity"] = ctx.get("injury_severity")
+                    if ctx.get("headlines"):
+                        entry["latest_headline"] = ctx.get("headlines", [{}])[0].get("title", "")
+                    reddit = ctx.get("reddit", {})
+                    if reddit.get("mentions", 0) >= 3:
+                        entry["reddit"] = reddit
+                    roster_context.append(entry)
+        except Exception as e:
+            print("Warning: roster context for morning briefing failed: " + str(e))
 
         return {
             "action_items": action_items,
@@ -1669,6 +1779,7 @@ def workflow_morning_briefing():
             "waiver_batters": waiver_b,
             "waiver_pitchers": waiver_p,
             "edit_date": edit_date,
+            "roster_context": roster_context,
         }
 
     try:
@@ -1792,6 +1903,7 @@ def _synthesize_waiver_pairs(waiver_b, waiver_p):
                     "positions": str(rec.get("positions", "")),
                     "score": rec.get("score", 0),
                     "percent_owned": rec.get("pct", 0),
+                    "context_line": rec.get("context_line", ""),
                 },
                 "pos_type": label,
                 "weak_categories": [
