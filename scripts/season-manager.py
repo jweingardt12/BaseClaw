@@ -50,6 +50,8 @@ _CATEGORY_CORRELATIONS = {
 }
 
 ROSTER_SPOT_VALUE = 2.5  # z-score value of an empty roster spot for trade eval
+CALLUP_IMMINENT_THRESHOLD = 70  # min call-up probability to inject into optimal moves FA pool
+READINESS_TO_Z_DIVISOR = 25.0  # prospect readiness->z conversion (80 readiness ~ 3.2 z)
 
 CATEGORY_VOLATILITY = {
     "R": 0.15, "H": 0.12, "HR": 0.20, "RBI": 0.15,
@@ -1957,6 +1959,88 @@ def _should_warn_rival_trade(lg, trade_partner_team_key):
         return {"is_rival": False}
 
 
+def _evaluate_trade_for_team(lg, team_key, give_evals, get_evals, give_players, get_players):
+    """Compute surplus value adjustments from a specific team's perspective.
+
+    Reuses existing functions:
+    - _get_team_category_ranks(lg, team_key) for category fit
+    - _grade_trade(adjusted_diff) for grading
+
+    Returns dict with: grade, net_value, adjusted_net_value, category_fit_bonus,
+    roster_spot_adj, consolidation_premium, catcher_premium, weak_cats, strong_cats
+    """
+    give_value = sum(e.get("z_final", 0) for e in give_evals)
+    get_value = sum(e.get("z_final", 0) for e in get_evals)
+    diff = get_value - give_value
+
+    roster_spot_adj = (len(give_players) - len(get_players)) * ROSTER_SPOT_VALUE
+
+    category_fit_bonus = 0
+    weak_cats = []
+    strong_cats = []
+    try:
+        cat_ranks_result = _get_team_category_ranks(lg, team_key)
+        if cat_ranks_result:
+            num_teams_val = len(lg.teams()) if hasattr(lg, "teams") else 12
+            if isinstance(cat_ranks_result, tuple) and len(cat_ranks_result) == 3:
+                _, weak_cats, strong_cats = cat_ranks_result
+            elif isinstance(cat_ranks_result, dict):
+                for cr_name, cr_info in cat_ranks_result.items():
+                    if isinstance(cr_info, dict):
+                        rank = cr_info.get("rank", 99)
+                        if rank >= num_teams_val - 2:
+                            weak_cats.append(cr_name)
+                        elif rank <= 3:
+                            strong_cats.append(cr_name)
+        for e in get_evals:
+            per_cat = e.get("per_category_zscores", {})
+            for cat_name, cat_z in per_cat.items():
+                if cat_name in weak_cats and cat_z > 0:
+                    category_fit_bonus += cat_z * 0.20
+                elif cat_name in strong_cats and cat_z > 0:
+                    category_fit_bonus -= cat_z * 0.05
+    except Exception as e:
+        print("Warning: category fit calculation failed: " + str(e))
+
+    consolidation_premium = 0
+    best_give = max((e.get("z_final", 0) for e in give_evals), default=0)
+    best_get = max((e.get("z_final", 0) for e in get_evals), default=0)
+    if best_get != best_give:
+        consolidation_premium = (best_get - best_give) * 0.15
+
+    catcher_premium = 0
+    give_has_catcher = any("C" in p.get("eligible_positions", []) for p in give_players)
+    get_has_catcher = any("C" in p.get("eligible_positions", []) for p in get_players)
+    if get_has_catcher and not give_has_catcher:
+        catcher_premium = 1.5
+
+    adjusted_diff = diff + roster_spot_adj + category_fit_bonus + consolidation_premium + catcher_premium
+    grade = _grade_trade(adjusted_diff)
+
+    # Which weak categories get filled by the incoming players
+    weak_cats_filled = []
+    for e in get_evals:
+        per_cat = e.get("per_category_zscores", {})
+        for cat_name, cat_z in per_cat.items():
+            if cat_name in weak_cats and cat_z > 0 and cat_name not in weak_cats_filled:
+                weak_cats_filled.append(cat_name)
+
+    return {
+        "grade": grade,
+        "give_value": round(give_value, 2),
+        "get_value": round(get_value, 2),
+        "net_value": round(diff, 2),
+        "adjusted_net_value": round(adjusted_diff, 2),
+        "category_fit_bonus": round(category_fit_bonus, 2),
+        "roster_spot_adj": round(roster_spot_adj, 2),
+        "consolidation_premium": round(consolidation_premium, 2),
+        "catcher_premium": round(catcher_premium, 2),
+        "weak_cats": weak_cats,
+        "strong_cats": strong_cats,
+        "weak_cats_filled": weak_cats_filled,
+    }
+
+
 def cmd_trade_eval(args, as_json=False):
     """Evaluate a potential trade using z-score valuations and tier system"""
     if len(args) < 2:
@@ -2055,9 +2139,17 @@ def cmd_trade_eval(args, as_json=False):
     give_evals = [_eval_player(p) for p in give_players]
     get_evals = [_eval_player(p) for p in get_players]
 
-    give_value = sum(e.get("z_final", 0) for e in give_evals)
-    get_value = sum(e.get("z_final", 0) for e in get_evals)
-    diff = get_value - give_value
+    # Evaluate from my perspective
+    my_side = _evaluate_trade_for_team(lg, TEAM_ID, give_evals, get_evals, give_players, get_players)
+    give_value = my_side.get("give_value", 0)
+    get_value = my_side.get("get_value", 0)
+    diff = my_side.get("net_value", 0)
+    adjusted_diff = my_side.get("adjusted_net_value", 0)
+    grade = my_side.get("grade", "F")
+    roster_spot_adj = my_side.get("roster_spot_adj", 0)
+    category_fit_bonus = my_side.get("category_fit_bonus", 0)
+    consolidation_premium = my_side.get("consolidation_premium", 0)
+    catcher_premium = my_side.get("catcher_premium", 0)
 
     # Warnings
     warnings = []
@@ -2068,60 +2160,30 @@ def cmd_trade_eval(args, as_json=False):
         elif tier == "Core":
             warnings.append("CAUTION: Trading away Core-tier " + e.get("name", "") + " (Z=" + str(e.get("z_final", 0)) + ")")
 
-    # Surplus value adjustments
-    roster_spot_adj = (len(give_players) - len(get_players)) * ROSTER_SPOT_VALUE
+    # Detect opponent team key
+    their_team_key = None
+    for p in get_players:
+        tk = p.get("_source_team_key")
+        if tk:
+            their_team_key = tk
+            break
 
-    # Category fit bonus
-    category_fit_bonus = 0
-    try:
-        weak_cats = []
-        strong_cats = []
-        cat_ranks_result = _get_team_category_ranks(lg, TEAM_ID)
-        if cat_ranks_result:
-            num_teams_val = len(lg.teams()) if hasattr(lg, "teams") else 12
-            # _get_team_category_ranks returns (dict, weak_list, strong_list) or dict
-            if isinstance(cat_ranks_result, tuple) and len(cat_ranks_result) == 3:
-                _, weak_cats, strong_cats = cat_ranks_result
-            elif isinstance(cat_ranks_result, dict):
-                for cr_name, cr_info in cat_ranks_result.items():
-                    if isinstance(cr_info, dict):
-                        rank = cr_info.get("rank", 99)
-                        if rank >= num_teams_val - 2:
-                            weak_cats.append(cr_name)
-                        elif rank <= 3:
-                            strong_cats.append(cr_name)
-        for e in get_evals:
-            per_cat = e.get("per_category_zscores", {})
-            for cat_name, cat_z in per_cat.items():
-                if cat_name in weak_cats and cat_z > 0:
-                    category_fit_bonus += cat_z * 0.20
-                elif cat_name in strong_cats and cat_z > 0:
-                    category_fit_bonus -= cat_z * 0.05
-    except Exception as e:
-        print("Warning: category fit calculation failed: " + str(e))
+    # Evaluate from their perspective (give/get flipped)
+    their_side = None
+    if their_team_key:
+        try:
+            their_side = _evaluate_trade_for_team(
+                lg, their_team_key,
+                get_evals, give_evals,
+                get_players, give_players
+            )
+        except Exception as e:
+            print("Warning: their-side evaluation failed: " + str(e))
 
-    # Consolidation premium
-    consolidation_premium = 0
-    best_give = max((e.get("z_final", 0) for e in give_evals), default=0)
-    best_get = max((e.get("z_final", 0) for e in get_evals), default=0)
-    if best_get != best_give:
-        consolidation_premium = (best_get - best_give) * 0.15
-
-    # Catcher premium
-    catcher_premium = 0
-    give_has_catcher = any("C" in p.get("eligible_positions", []) for p in give_players)
-    get_has_catcher = any("C" in p.get("eligible_positions", []) for p in get_players)
-    if get_has_catcher and not give_has_catcher:
-        catcher_premium = 1.5
-
-    # Rival warning — use trade partner key if known from get_players lookup
+    # Rival warning
     rival_info = {"is_rival": False}
-    if get_players and get_players[0].get("_source_team_key"):
-        rival_info = _should_warn_rival_trade(lg, get_players[0].get("_source_team_key", ""))
-
-    # Compute adjusted net value
-    adjusted_diff = diff + roster_spot_adj + category_fit_bonus + consolidation_premium + catcher_premium
-    grade = _grade_trade(adjusted_diff)
+    if their_team_key:
+        rival_info = _should_warn_rival_trade(lg, their_team_key)
 
     # SGP analysis (alongside z-score analysis)
     try:
@@ -2211,6 +2273,9 @@ def cmd_trade_eval(args, as_json=False):
                 "losing": list(losing),
                 "gaining": list(gaining),
             },
+            "their_side": their_side,
+            "fairness": _assess_fairness(grade, their_side.get("grade") if their_side else None),
+            "acceptance_likelihood": _assess_acceptance(their_side),
         }
 
     print("GIVING:")
@@ -3841,21 +3906,70 @@ def cmd_whats_new(args, as_json=False):
     except Exception as e:
         print("Warning: trending check failed: " + str(e))
 
-    # 5. Prospect call-ups
+    # 5. Prospect call-ups (enriched with prospect intelligence)
     try:
-        intel_mod = importlib.import_module("intel")
-        prospect_data = intel_mod.cmd_prospect_watch([], as_json=True)
-        prospects = []
-        for tx in prospect_data.get("transactions", [])[:5]:
-            prospects.append({
-                "player": tx.get("player", "?"),
+        raw_txs = []
+        try:
+            prospects_mod = importlib.import_module("prospects")
+            callup_data = prospects_mod.cmd_callup_wire(["14"], as_json=True)
+            raw_txs = callup_data.get("transactions", [])[:5]
+        except Exception:
+            intel_mod = importlib.import_module("intel")
+            prospect_data = intel_mod.cmd_prospect_watch([], as_json=True)
+            raw_txs = prospect_data.get("prospects", [])[:5]
+        prospect_list = []
+        for tx in raw_txs:
+            entry = {
+                "player": tx.get("player_name", tx.get("player", "?")),
                 "type": tx.get("type", "?"),
                 "team": tx.get("team", ""),
                 "description": tx.get("description", ""),
-            })
-        result["prospects"] = prospects
+            }
+            if tx.get("fantasy_relevance"):
+                entry["fantasy_relevance"] = tx.get("fantasy_relevance")
+            if tx.get("prospect_rank"):
+                entry["prospect_rank"] = tx.get("prospect_rank")
+            prospect_list.append(entry)
+        result["prospects"] = prospect_list
     except Exception as e:
         print("Warning: prospect check failed: " + str(e))
+
+    # 6. Prospect news alerts (strong signals from news sentiment layer)
+    try:
+        prospect_news_mod = importlib.import_module("prospect_news")
+        prospects_mod = importlib.import_module("prospects")
+        rankings = prospects_mod._load_prospect_rankings()
+        news_alerts = []
+        # Check watchlist prospects + top-ranked prospects
+        watch_names = set()
+        try:
+            watch_db = get_db()
+            rows = watch_db.execute(
+                "SELECT name FROM prospect_watchlist"
+            ).fetchall()
+            watch_names = set(r[0] for r in rows)
+        except Exception:
+            pass
+        # Also include top 10 ranked prospects
+        for rk in rankings[:10]:
+            watch_names.add(rk.get("name", ""))
+        for pname in watch_names:
+            if not pname:
+                continue
+            stored = prospect_news_mod.get_stored_signals(pname, days=3)
+            strong = [s for s in stored if s.get("signal_type") in (
+                "confirmed", "imminent", "likely", "negative")]
+            if strong:
+                best = strong[0]
+                news_alerts.append({
+                    "player": pname,
+                    "signal_type": best.get("signal_type", ""),
+                    "description": best.get("description", ""),
+                    "source_tier": best.get("source_tier", 4),
+                })
+        result["prospect_news_alerts"] = news_alerts
+    except Exception as e:
+        print("Warning: prospect news alerts failed: " + str(e))
 
     # Update last check time
     try:
@@ -6774,6 +6888,34 @@ def cmd_optimal_moves(args, as_json=False):
                 "pos_type": pt,
             })
 
+    # 2b. Check for imminent call-up prospects as add candidates
+    try:
+        prospects_mod = importlib.import_module("prospects")
+        stash_data = prospects_mod.cmd_stash_advisor(["3"], as_json=True)
+        for rec in stash_data.get("recommendations", []):
+            if rec.get("callup_probability", 0) >= CALLUP_IMMINENT_THRESHOLD:
+                p_name = rec.get("name", "")
+                p_pos = rec.get("position", "Util")
+                # Check if already in fa_pool
+                already_in = any(fa.get("name") == p_name for fa in fa_pool)
+                if not already_in and p_name:
+                    # Estimate z-score from readiness with a prospect boost
+                    readiness = rec.get("readiness_score", 50)
+                    estimated_z = round(readiness / READINESS_TO_Z_DIVISOR, 2)
+                    fa_pool.append({
+                        "name": p_name,
+                        "player_id": "",
+                        "z_score": estimated_z,
+                        "tier": "Prospect",
+                        "per_category_zscores": {},
+                        "eligible_positions": [p_pos, "Util"] if p_pos != "P" else [p_pos, "SP", "RP"],
+                        "percent_owned": 0,
+                        "pos_type": "P" if p_pos in ("SP", "RP", "P") else "B",
+                        "is_prospect_callup": True,
+                    })
+    except Exception as e:
+        print("Warning: prospect callup check for optimal moves failed: " + str(e))
+
     # 3. Determine position compatibility for each roster player vs each FA
     # A FA can replace a roster player if they share at least one eligible position
     def positions_compatible(roster_eligible, fa_eligible):
@@ -8913,6 +9055,37 @@ def _grade_trade(net_z):
     return "F"
 
 
+_GRADE_VALUES = {"A+": 7, "A": 6, "B+": 5, "B": 4, "C": 3, "D": 2, "F": 1}
+
+
+def _assess_fairness(my_grade, their_grade):
+    """Assess trade fairness based on grade gap between the two sides."""
+    if not their_grade:
+        return "UNKNOWN"
+    my_val = _GRADE_VALUES.get(my_grade, 0)
+    their_val = _GRADE_VALUES.get(their_grade, 0)
+    gap = my_val - their_val
+    if abs(gap) <= 1:
+        return "FAIR"
+    elif gap > 1:
+        return "LOPSIDED_FOR_ME"
+    return "LOPSIDED_FOR_THEM"
+
+
+def _assess_acceptance(their_side):
+    """Estimate likelihood the opponent accepts based on their grade."""
+    if not their_side:
+        return "UNKNOWN"
+    g = their_side.get("grade", "F")
+    if g in ("A+", "A"):
+        return "HIGH"
+    elif g in ("B+", "B"):
+        return "MEDIUM"
+    elif g == "C":
+        return "LOW"
+    return "VERY_LOW"
+
+
 def cmd_game_day_manager(args, as_json=False):
     """Game-day pipeline: schedule, weather, injuries, lineup, streaming"""
     mlb = importlib.import_module("mlb-data")
@@ -9081,6 +9254,8 @@ def cmd_trade_pipeline(args, as_json=False):
 
             net_value = get_value - give_value
             grade = _grade_trade(net_value)
+            their_net = -net_value
+            their_grade = _grade_trade(their_net)
 
             # Simulate category impact for the first get player
             category_impact = []
@@ -9088,15 +9263,18 @@ def cmd_trade_pipeline(args, as_json=False):
                 sim = _safe(cmd_category_simulate, get_names[:1])
                 category_impact, _ = _extract_category_impact(sim)
 
-            proposals.append({
-                "give": give_names,
-                "get": get_names,
-                "give_value": round(give_value, 2),
-                "get_value": round(get_value, 2),
-                "net_value": round(net_value, 2),
-                "grade": grade,
-                "category_impact": category_impact,
-            })
+            # Only include proposals where both sides grade C or better
+            if _GRADE_VALUES.get(grade, 0) >= 3 and _GRADE_VALUES.get(their_grade, 0) >= 3:
+                proposals.append({
+                    "give": give_names,
+                    "get": get_names,
+                    "give_value": round(give_value, 2),
+                    "get_value": round(get_value, 2),
+                    "net_value": round(net_value, 2),
+                    "grade": grade,
+                    "their_grade": their_grade,
+                    "category_impact": category_impact,
+                })
 
         partners.append({
             "team": team_name,

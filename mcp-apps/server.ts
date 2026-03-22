@@ -11,6 +11,7 @@ import { registerMlbTools } from "./src/tools/mlb-tools.js";
 import { registerIntelTools } from "./src/tools/intel-tools.js";
 import { registerWorkflowTools } from "./src/tools/workflow-tools.js";
 import { registerStrategyTools } from "./src/tools/strategy-tools.js";
+import { registerProspectTools } from "./src/tools/prospect-tools.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = __dirname;
@@ -42,6 +43,7 @@ export function createServer(): McpServer {
   registerIntelTools(server, DIST_DIR);
   registerWorkflowTools(server, WRITES_ENABLED);
   registerStrategyTools(server);
+  registerProspectTools(server);
 
   return server;
 }

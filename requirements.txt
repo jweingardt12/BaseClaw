@@ -19,3 +19,6 @@ flask>=3.0.0
 
 # Automation config
 PyYAML>=6.0
+
+# News intelligence
+feedparser>=6.0.0

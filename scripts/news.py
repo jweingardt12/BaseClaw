@@ -32,7 +32,7 @@ TTL_ANALYSIS = 1800  # 30 minutes (analysis/editorial sources)
 
 # Injury keywords to detect in titles and descriptions
 INJURY_KEYWORDS = [
-    "injury", "injured", "il", "disabled list", "day-to-day", "dtd",
+    "injury", "injured", "disabled list", "day-to-day", "dtd",
     "out for", "miss", "surgery", "rehab", "strain", "sprain", "fracture",
     "torn", "inflammation", "concussion", "oblique", "hamstring", "shoulder",
     "elbow", "knee", "ankle", "back", "wrist", "tommy john", "ucl",
@@ -222,12 +222,18 @@ def _extract_player_name(title):
     return ""
 
 
+_IL_RE = re.compile(r"\bil\b", re.I)
+
+
 def _detect_injury(title, description):
     """Check if the news item is injury-related"""
     text = ((title or "") + " " + (description or "")).lower()
     for keyword in INJURY_KEYWORDS:
         if keyword in text:
             return True
+    # Check "IL" separately with word boundary to avoid matching "likely" etc.
+    if _IL_RE.search(text):
+        return True
     return False
 
 

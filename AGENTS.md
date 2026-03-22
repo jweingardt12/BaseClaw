@@ -108,6 +108,25 @@ Before any add/drop/trade decision, check regression signals:
 - Time decay: player value decreases as season progresses — ROS projections shrink the value window
 - Trade grades: A+ (net >= 4.0), A (>= 2.5), B+ (>= 1.5), B (>= 0.5), C (>= -0.5), D (>= -1.5), F (< -1.5)
 
+## Prospect Intelligence
+
+- **K% is king for hitter prospects**: K% below league average for their level is the strongest indicator of MLB readiness. ISO (power = SLG - AVG) is the second-most predictive metric
+- **Age context matters**: a 21-year-old in AA is more impressive than a 25-year-old in AAA. Age-for-level is weighted 25% in prospect evaluation
+- **Pitcher prospects fail 77% of the time**: weight pitcher prospect stashes lower than hitters. K-BB% is the best single predictor of pitcher success
+- **Call-up probability signals** (in priority order): 40-man roster status > service time window > statistical readiness > org contention > roster need
+- **Service time manipulation**: watch the mid-April date (Super Two cutoff) — teams hold top prospects until then. Call-up probability spikes after this date
+- **Stash strategy by format**: redraft leagues — only stash IMMINENT call-ups. Keeper leagues — stash LIKELY+ call-ups in NA slots. Dynasty — stash broadly
+- **September call-ups**: expanded rosters create a wave of fantasy-relevant additions. Boost call-up probability starting September 1
+- **Common prospect mistakes to flag**: stashing pitchers over hitters (lower success rate), holding too many NA players when competing, ignoring 40-man status
+- **Available tools**: `prospect_report` (deep dive on one prospect), `prospect_rankings` (filterable list), `callup_wire` (recent moves), `stash_advisor` (NA slot recommendations), `prospect_compare` (side-by-side), `prospect_buzz` (Reddit discussion), `eta_tracker` (probability changes), `prospect_trade_targets` (league-specific targets)
+- **News intelligence**: `fantasy_prospect_news` provides qualitative signal analysis. Check before stash/trade decisions for breaking news that stats alone miss
+- **Signal reliability hierarchy**: Official transactions (Tier 1) > Tier 1-2 reporters (Passan, Rosenthal, MLBTR) > Beat reporters (FanGraphs) > Aggregators (ESPN, Google News) > Community (Reddit)
+- **Critical nuance -- consolation language is BEARISH**: "Bright future ahead" and "long career" are what managers say when sending players DOWN, not when promoting them
+- **Incumbent injury is the strongest actionable signal**: When an MLB starter hits the IL, the call-up usually follows within 0-2 days
+- **Out of options forces action**: A 40-man player with no options MUST be kept on the 26-man or risk being claimed on waivers
+- **News overrides stats when signals are strong**: The ensemble model gives 65% weight to stats, 35% to news by default. Confirmed/imminent signals increase news weight to 50%
+- **Multiple sources agreeing is much stronger than one**: Consensus signals get boosted through Bayesian updating
+
 ## Statcast Decision Rules
 
 When evaluating any player, these Statcast thresholds indicate real-talent changes:

@@ -421,6 +421,22 @@ export interface TradeEvalResponse {
   sgp_get?: number;
   sgp_net?: number;
   warnings?: string[];
+  their_side?: {
+    grade: string;
+    give_value: number;
+    get_value: number;
+    net_value: number;
+    adjusted_net_value: number;
+    category_fit_bonus: number;
+    roster_spot_adj: number;
+    consolidation_premium: number;
+    catcher_premium: number;
+    weak_cats?: string[];
+    strong_cats?: string[];
+    weak_cats_filled?: string[];
+  };
+  fairness?: string;
+  acceptance_likelihood?: string;
 }
 
 export interface DailyUpdateResponse {
@@ -1078,6 +1094,13 @@ export interface WhatsNewProspect {
   description: string;
 }
 
+export interface WhatsNewProspectNewsAlert {
+  player: string;
+  signal_type: string;
+  description: string;
+  source_tier?: number;
+}
+
 export interface WhatsNewResponse {
   last_check: string;
   check_time: string;
@@ -1086,6 +1109,7 @@ export interface WhatsNewResponse {
   league_activity: WhatsNewActivity[];
   trending: WhatsNewTrending[];
   prospects: WhatsNewProspect[];
+  prospect_news_alerts?: WhatsNewProspectNewsAlert[];
 }
 
 // Trade Finder response
@@ -1846,6 +1870,7 @@ export interface TradePipelineProposal {
   get_value: number;
   net_value: number;
   grade: string;
+  their_grade?: string;
   category_impact: string[];
 }
 
@@ -1889,5 +1914,202 @@ export interface SeasonCheckpointResponse {
   playoff_planner: PlayoffPlannerResponse | { _error?: string };
   category_trends: CategoryTrendsResponse | { _error?: string };
   trade_finder: TradeFinderResponse | { _error?: string };
+}
+
+// --- Prospect Intelligence response types ---
+
+export interface ProspectEvaluation {
+  readiness_score: number;
+  strengths: string[];
+  concerns: string[];
+  grade: string;
+}
+
+export interface CallupProbability {
+  probability: number;
+  classification: string;
+  factors: string[];
+}
+
+export interface StashRecommendation {
+  action: string;
+  confidence: number;
+  reasons: string[];
+}
+
+export interface ProspectMiLBStats {
+  level: string;
+  games: number;
+  [key: string]: unknown;
+}
+
+export interface ProspectReportResponse {
+  name: string;
+  mlb_id?: number;
+  age?: number;
+  position?: string;
+  organization?: string;
+  current_level?: string;
+  on_40_man?: boolean;
+  milb_stats?: ProspectMiLBStats[];
+  evaluation?: ProspectEvaluation;
+  callup_probability?: CallupProbability;
+  stash_recommendation?: StashRecommendation;
+  fv_grade?: number;
+  overall_rank?: number;
+  eta?: string;
+  error?: string;
+}
+
+export interface ProspectRankingEntry {
+  name: string;
+  mlb_id?: number;
+  position?: string;
+  organization?: string;
+  overall_rank?: number;
+  fv_grade?: number;
+  current_level?: string;
+  eta?: string;
+  on_40_man?: boolean;
+  callup_probability?: number;
+  classification?: string;
+  readiness_score?: number;
+}
+
+export interface ProspectRankingsResponse {
+  prospects: ProspectRankingEntry[];
+  count: number;
+  filters?: Record<string, string>;
+}
+
+export interface CallupWireEntry {
+  player_name: string;
+  team: string;
+  type: string;
+  date: string;
+  description: string;
+  fantasy_relevance?: number;
+  prospect_rank?: number;
+  creates_opportunity?: string[];
+}
+
+export interface CallupWireResponse {
+  transactions: CallupWireEntry[];
+  days: number;
+  count: number;
+}
+
+export interface StashAdvisorEntry {
+  name: string;
+  mlb_id?: number;
+  position?: string;
+  organization?: string;
+  action: string;
+  confidence: number;
+  reasons: string[];
+  callup_probability?: number;
+  classification?: string;
+  readiness_score?: number;
+  fv_grade?: number;
+}
+
+export interface StashAdvisorResponse {
+  recommendations: StashAdvisorEntry[];
+  count: number;
+}
+
+export interface ProspectCompareResponse {
+  player1: ProspectReportResponse;
+  player2: ProspectReportResponse;
+}
+
+export interface ProspectBuzzPost {
+  title: string;
+  score: number;
+  num_comments: number;
+  url?: string;
+  subreddit?: string;
+  prospect_match?: string;
+}
+
+export interface ProspectBuzzResponse {
+  posts: ProspectBuzzPost[];
+  count: number;
+}
+
+export interface EtaTrackerEntry {
+  name: string;
+  mlb_id?: number;
+  current_probability: number;
+  previous_probability: number;
+  change: number;
+  classification: string;
+  flagged: boolean;
+}
+
+export interface EtaTrackerResponse {
+  prospects: EtaTrackerEntry[];
+  count: number;
+}
+
+export interface ProspectTradeTarget {
+  name: string;
+  mlb_id?: number;
+  position?: string;
+  organization?: string;
+  owner?: string;
+  owner_team_key?: string;
+  overall_rank?: number;
+  fv_grade?: number;
+  callup_probability?: number;
+  callup_classification?: string;
+  urgency?: string;
+  eta?: string;
+  trade_suggestion?: string;
+}
+
+export interface ProspectTradeTargetsResponse {
+  targets: ProspectTradeTarget[];
+  count: number;
+}
+
+// Prospect News Intelligence types
+export interface ProspectNewsSignal {
+  signal_type: string;
+  description: string;
+  source: string;
+  decay_factor: number;
+  probability_delta: number;
+}
+
+export interface ProspectNewsArticle {
+  title: string;
+  source: string;
+  date: string;
+  url: string;
+  signals: string[];
+  sentiment: string;
+}
+
+export interface ProspectNewsSentiment {
+  label: string;
+  emoji: string;
+  score: number;
+}
+
+export interface ProspectNewsResponse {
+  prospect_name: string;
+  articles_found: number;
+  signals_extracted: number;
+  article_summaries: ProspectNewsArticle[];
+  overall_sentiment: ProspectNewsSentiment;
+  ensemble_probability?: number;
+  stat_based_probability?: number;
+  news_adjusted_probability?: number;
+  news_delta?: number;
+  news_weight_used?: number;
+  signal_contributions?: ProspectNewsSignal[];
+  has_strong_signal?: boolean;
+  error?: string;
 }
 

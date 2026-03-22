@@ -22,6 +22,8 @@ import history
 import intel
 import news
 import yahoo_browser
+import prospects
+import prospect_news
 
 app = Flask(__name__)
 
@@ -96,6 +98,20 @@ def _startup_projections():
 
 _proj_thread = threading.Thread(target=_startup_projections, daemon=True)
 _proj_thread.start()
+
+
+def _startup_news_tables():
+    """Background thread to initialize prospect news tables"""
+    import time
+    time.sleep(3)
+    try:
+        prospect_news.init_news_tables()
+        print("Prospect news tables initialized")
+    except Exception as e:
+        print("Prospect news tables init failed: " + str(e))
+
+_news_thread = threading.Thread(target=_startup_news_tables, daemon=True)
+_news_thread.start()
 
 
 def _startup_catcher_premium():
@@ -1356,6 +1372,187 @@ def api_intel_statcast_history():
             return safe_jsonify({"error": "Missing name parameter"}, 400)
         days = request.args.get("days", "30")
         result = intel.cmd_statcast_compare([name, days], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+# --- Prospect Intelligence ---
+
+@app.route("/api/prospects/report")
+def api_prospect_report():
+    try:
+        name = request.args.get("name", "")
+        if not name:
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
+        result = prospects.cmd_prospect_report([name], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/rankings")
+def api_prospect_rankings():
+    try:
+        args = []
+        position = request.args.get("position", "")
+        if position:
+            args.append("--position=" + position)
+        level = request.args.get("level", "")
+        if level:
+            args.append("--level=" + level)
+        team = request.args.get("team", "")
+        if team:
+            args.append("--team=" + team)
+        count = request.args.get("count", "")
+        if count:
+            args.append("--count=" + count)
+        result = prospects.cmd_prospect_rankings(args, as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/callup-wire")
+def api_prospect_callup_wire():
+    try:
+        days = request.args.get("days", "14")
+        result = prospects.cmd_callup_wire([days], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/stash-advisor")
+def api_prospect_stash_advisor():
+    try:
+        count = request.args.get("count", "5")
+        result = prospects.cmd_stash_advisor([count], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/compare")
+def api_prospect_compare():
+    try:
+        p1 = request.args.get("player1", "")
+        p2 = request.args.get("player2", "")
+        if not p1 or not p2:
+            return safe_jsonify({"error": "Missing player1 and/or player2 parameters"}, 400)
+        result = prospects.cmd_prospect_compare([p1, p2], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/buzz")
+def api_prospect_buzz():
+    try:
+        result = prospects.cmd_prospect_buzz([], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/eta-tracker")
+def api_prospect_eta_tracker():
+    try:
+        result = prospects.cmd_eta_tracker([], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/trade-targets")
+def api_prospect_trade_targets():
+    try:
+        result = prospects.cmd_prospect_trade_targets([], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/watch-add")
+def api_prospect_watch_add():
+    try:
+        name = request.args.get("name", "")
+        if not name:
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
+        action = request.args.get("action", "add")
+        args = [name]
+        if action == "remove":
+            args.append("remove")
+        result = prospects.cmd_prospect_watch_add(args, as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/prospects/news")
+def api_prospect_news():
+    try:
+        name = request.args.get("name", "")
+        if not name:
+            return safe_jsonify({"error": "Missing name parameter"}, 400)
+        days = int(request.args.get("days", "7"))
+
+        # Load prospect DB for name matching
+        prospect_db = prospects._load_prospect_rankings()
+
+        # Fetch and analyze news
+        news_report = prospect_news.get_prospect_news(
+            name, prospect_db, days=days)
+
+        # Store signals for future reference (signals carry all needed metadata)
+        prospect_news.store_signals(
+            name,
+            news_report.get("active_signals", []),
+            [])
+
+        # Get stat-only probability (skip_news avoids redundant news overlay)
+        stat_prob = 30.0
+        try:
+            from mlb_id_cache import get_mlb_id
+            from shared import normalize_player_name
+            pid = get_mlb_id(name)
+            if pid:
+                rk = prospects._get_rank_lookup().get(
+                    normalize_player_name(name))
+                eval_data = prospects._evaluate_prospect_by_id(
+                    pid, rk, skip_news=True)
+                if eval_data:
+                    stat_prob = eval_data.get("callup", {}).get(
+                        "probability", 30.0)
+        except Exception:
+            pass
+
+        # Compute ensemble
+        active_signals = news_report.get("active_signals", [])
+        ensemble = {}
+        if active_signals:
+            ensemble = prospect_news.compute_ensemble_callup_probability(
+                stat_based_probability=stat_prob,
+                news_signals=active_signals,
+            )
+
+        result = {
+            "prospect_name": news_report.get("prospect_name", name),
+            "articles_found": news_report.get("articles_found", 0),
+            "signals_extracted": news_report.get("signals_extracted", 0),
+            "article_summaries": news_report.get("article_summaries", []),
+            "overall_sentiment": news_report.get("overall_sentiment", {}),
+        }
+
+        if ensemble:
+            result["ensemble_probability"] = ensemble.get("ensemble_probability")
+            result["stat_based_probability"] = ensemble.get("stat_based_probability")
+            result["news_adjusted_probability"] = ensemble.get("news_adjusted_probability")
+            result["news_delta"] = ensemble.get("news_delta")
+            result["news_weight_used"] = ensemble.get("news_weight_used")
+            result["signal_contributions"] = ensemble.get("signal_contributions", [])
+            result["has_strong_signal"] = ensemble.get("has_strong_signal", False)
+
         return safe_jsonify(result)
     except Exception as e:
         return safe_jsonify({"error": str(e)}, 500)

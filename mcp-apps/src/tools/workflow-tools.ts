@@ -78,6 +78,17 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           lines.push(compactSection("LEAGUE", activity.map((a) => str(a.type) + " " + str(a.player) + " -> " + str(a.team))));
         }
 
+        // Prospect news alerts
+        const newsAlerts = whatsNew.prospect_news_alerts;
+        if (newsAlerts && newsAlerts.length > 0) {
+          lines.push("");
+          lines.push("PROSPECT NEWS:");
+          for (const alert of newsAlerts) {
+            const icon = alert.signal_type === "negative" ? "[-]" : alert.signal_type === "confirmed" || alert.signal_type === "imminent" ? "[!]" : "[+]";
+            lines.push("  " + icon + " " + str(alert.player) + " — " + str(alert.description));
+          }
+        }
+
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { type: "morning-briefing", ...data },
@@ -343,6 +354,21 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
             lines.push("SGP (Standings Points):");
             lines.push("  Give: " + str(te.sgp_give) + " | Get: " + str(te.sgp_get) + " | Net: " + str(te.sgp_net));
           }
+          // Their side evaluation
+          const theirSide = te.their_side;
+          if (theirSide) {
+            lines.push("");
+            lines.push("THEIR SIDE:");
+            lines.push("  Grade: " + str(theirSide.grade) + " | Net: " + str(theirSide.adjusted_net_value));
+            if (theirSide.weak_cats_filled && theirSide.weak_cats_filled.length > 0) {
+              lines.push("  Fills their needs: " + theirSide.weak_cats_filled.join(", "));
+            }
+          }
+          // Fairness + acceptance
+          if (te.fairness) {
+            lines.push("");
+            lines.push("FAIRNESS: " + str(te.fairness) + " | ACCEPTANCE: " + str(te.acceptance_likelihood));
+          }
           // Recommendation (driven by grade — the authoritative source from the backend)
           const grade = str(te.grade);
           let recommendation = "";
@@ -354,6 +380,9 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
             recommendation = "CLOSE — marginal difference";
           } else {
             recommendation = "REJECT — net loss of value";
+          }
+          if (te.acceptance_likelihood === "VERY_LOW") {
+            recommendation += " — but opponent unlikely to accept";
           }
           lines.push("");
           lines.push("RECOMMENDATION: " + recommendation);
@@ -627,7 +656,8 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
             lines.push("  " + (i + 1) + ". Give: " + prop.give.join(", ") + " (" + prop.give_value + "z)"
               + " -> Get: " + prop.get.join(", ") + " (" + prop.get_value + "z)"
               + " | Net: " + (prop.net_value >= 0 ? "+" : "") + prop.net_value + "z"
-              + " | Grade: " + prop.grade);
+              + " | Grade: " + prop.grade
+              + (prop.their_grade ? " (theirs: " + prop.their_grade + ")" : ""));
             if (prop.category_impact.length > 0) {
               lines.push("     impact: " + prop.category_impact.join(", "));
             }
