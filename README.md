@@ -10,7 +10,7 @@ Ask Claude about your Yahoo Fantasy Baseball league in plain English. Get instan
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-1.0-green.svg)](https://modelcontextprotocol.io)
-[![Tools](https://img.shields.io/badge/tools-123-orange.svg)](#all-tools-reference)
+[![Tools](https://img.shields.io/badge/tools-125-orange.svg)](#all-tools-reference)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/products/docker-desktop/)
 [![Yahoo Fantasy](https://img.shields.io/badge/Yahoo-Fantasy%20Baseball-7B0099.svg)](https://baseball.fantasysports.yahoo.com)
 
@@ -393,6 +393,7 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
 | `LEAGUE_ID` | Yes | — | Yahoo Fantasy league key (e.g., `469.l.16960`) |
 | `TEAM_ID` | Yes | — | Your team key (e.g., `469.l.16960.t.12`) |
 | `ENABLE_WRITE_OPS` | No | `false` | Enable write operation tools (add, drop, trade, lineup) |
+| `MCP_TOOLSET` | No | `default` | Tool profile to load: `default` (~26 tools), `full` (~50), `draft-day`, `analysis`, `automation`, or `all` (123). Comma-separate individual toolsets: `core,trades,intel` |
 | `AGENT_AUTONOMY` | No | `semi-auto` | Agent autonomy level: `full-auto`, `semi-auto`, or `manual` |
 | `ENABLE_HISTORY` | No | `false` | Enable league history tools (8 tools, requires `config/league-history.json`) |
 | `ENABLE_PREVIEW` | No | `false` | Serve the preview dashboard at `/preview` |
@@ -486,7 +487,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 <details>
 <summary><strong>All tools reference</strong></summary>
 
-123 tools across 11 tool files. Core dashboards and action tools (20) render interactive UI in Claude; the rest return text.
+125 tools across 12 tool files. Default profile loads ~26 tools; set `MCP_TOOLSET` to load more (see env vars). Core dashboards and action tools (20) render interactive UI in Claude; the rest return text.
 
 **Roster Management** (16 tools)
 
@@ -647,6 +648,13 @@ Aggregated tools that bundle 5-7+ API calls server-side so the agent gets a comp
 | `yahoo_trade_pipeline` | End-to-end trade search: complementary partners, package values, category impact, and graded proposals |
 | `yahoo_weekly_digest` | End-of-week summary: matchup result, standings, transactions, achievements, and prose narrative |
 | `yahoo_season_checkpoint` | Monthly assessment: rank, playoff probability, category trajectory, punt strategy, and trade targets |
+
+**Meta** (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `discover_capabilities` | Browse available tool categories and find tools for specific tasks. Call with no arguments to see all categories, or with a category name to list its tools |
+| `get_tool_details` | Get full description and parameters for any tool by name — including tools not loaded in the current toolset profile |
 
 **Write operations** (12 tools, requires `ENABLE_WRITE_OPS=true`)
 
