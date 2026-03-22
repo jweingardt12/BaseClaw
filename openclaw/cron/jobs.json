@@ -1,0 +1,178 @@
+[
+  {
+    "jobId": "baseclaw-morning-briefing",
+    "name": "Morning Briefing and Lineup",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 9 * * *",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-daily",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use the yahoo_morning_briefing tool to get today's full situational report. Then use yahoo_auto_lineup to optimize today's lineup. Summarize any urgent issues and actions taken.",
+      "model": "anthropic/claude-haiku-4-5-20251001"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-pre-lock",
+    "name": "Pre-Lock Game Day Check",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "30 10 * * *",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-daily",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use the yahoo_game_day_manager tool to check pre-game conditions. Flag any weather risks, late scratches, or lineup issues. Make adjustments if needed.",
+      "model": "anthropic/claude-haiku-4-5-20251001"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-matchup-plan",
+    "name": "Weekly Matchup Strategy",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 8 * * 1",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-weekly",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use yahoo_league_landscape then yahoo_matchup_strategy to analyze this week's matchup. Provide a game plan: which categories to target, which to punt, and any streaming/waiver moves to consider.",
+      "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-waiver-deadline",
+    "name": "Waiver Wire Deadline Prep",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 20 * * 2",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-weekly",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use yahoo_waiver_deadline_prep to analyze the waiver wire. Rank top claims with recommended FAAB bids. If write operations are enabled, submit the top priority claim.",
+      "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-streaming",
+    "name": "Streaming Pitcher Recommendations",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 9 * * 4",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-daily",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use yahoo_streaming to find the best streaming pitcher options for the upcoming days. Recommend the top add.",
+      "model": "anthropic/claude-haiku-4-5-20251001"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-roster-audit",
+    "name": "Weekend Roster Health Check",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 9 * * 6",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-weekly",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use yahoo_roster_health_check to audit the roster. Flag any IL waste, bust candidates, or active roster issues.",
+      "model": "anthropic/claude-haiku-4-5-20251001"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-weekly-digest",
+    "name": "Sunday Weekly Digest",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 21 * * 0",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-weekly",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use yahoo_weekly_digest to produce a narrative recap of the week's results, key moves, and standings changes.",
+      "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-season-checkpoint",
+    "name": "Monthly Season Checkpoint",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 10 1 * *",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "session:baseclaw-season",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Use yahoo_season_checkpoint to provide a monthly strategic assessment with playoff path analysis and trade deadline strategy.",
+      "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  }
+]

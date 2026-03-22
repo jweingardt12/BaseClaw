@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "baseclaw": {
+      "baseUrl": "{{BASECLAW_URL}}",
+      "headers": {
+        "Authorization": "Bearer {{BASECLAW_AUTH_TOKEN}}"
+      }
+    }
+  }
+}

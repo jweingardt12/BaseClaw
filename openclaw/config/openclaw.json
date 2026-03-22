@@ -1,0 +1,85 @@
+{
+  // BaseClaw - Yahoo Fantasy Baseball MCP Server
+  // OpenClaw configuration for automated fantasy baseball management
+
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-20250514",
+        "fallbacks": ["anthropic/claude-haiku-4-5-20251001"]
+      },
+      "heartbeat": {
+        "every": "30m",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "lightContext": true,
+        "isolatedSession": true,
+        "target": "last",
+        "ackMaxChars": 300,
+        "activeHours": {
+          "start": "08:00",
+          "end": "24:00",
+          "timezone": "{{TIMEZONE}}"
+        }
+      },
+      "bootstrapMaxChars": 20000,
+      "bootstrapTotalMaxChars": 150000,
+      "contextTokens": 200000,
+      "timeoutSeconds": 600,
+      "compaction": {
+        "mode": "safeguard",
+        "reserveTokensFloor": 24000,
+        "memoryFlush": { "enabled": true, "softThresholdTokens": 6000 }
+      },
+      "memorySearch": {
+        "query": {
+          "hybrid": {
+            "enabled": true,
+            "vectorWeight": 0.7,
+            "textWeight": 0.3,
+            "candidateMultiplier": 4,
+            "mmr": { "enabled": true, "lambda": 0.7 },
+            "temporalDecay": { "enabled": true, "halfLifeDays": 30 }
+          }
+        }
+      }
+    }
+  },
+
+  "session": {
+    "dmScope": "main",
+    "reset": { "mode": "idle", "idleMinutes": 240 },
+    "resetByType": {
+      "direct": { "mode": "idle", "idleMinutes": 240 },
+      "group": { "mode": "idle", "idleMinutes": 120 }
+    },
+    "maintenance": { "mode": "enforce", "pruneAfter": "30d", "maxEntries": 500 }
+  },
+
+  "hooks": {
+    "enabled": true,
+    "token": "{{WEBHOOK_TOKEN}}",
+    "path": "/hooks",
+    "defaultSessionKey": "hook:baseclaw",
+    "allowRequestSessionKey": true,
+    "allowedSessionKeyPrefixes": ["hook:baseclaw"],
+    "allowedAgentIds": ["main"],
+    "mappings": [],
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "baseclaw-roster-alerts": { "enabled": true },
+        "baseclaw-memory-flush": { "enabled": true },
+        "baseclaw-health": { "enabled": true }
+      }
+    }
+  },
+
+  "tools": {
+    "alsoAllow": ["lobster"]
+  },
+
+  "cron": {
+    "enabled": true,
+    "maxConcurrentRuns": 2
+  }
+}

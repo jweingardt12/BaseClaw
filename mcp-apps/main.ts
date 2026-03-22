@@ -1,5 +1,6 @@
 import { createServer } from "./server.js";
 import { resolveToolset } from "./src/toolsets.js";
+import { createWebhookRouter } from "./src/webhooks.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
@@ -80,6 +81,12 @@ async function main() {
     app.get("/health", (_req, res) => {
       res.json({ ok: true, writes_enabled: process.env.ENABLE_WRITE_OPS === "true" });
     });
+
+    // Webhook endpoints — own auth via WEBHOOK_TOKEN, registered before MCP auth
+    if (process.env.WEBHOOK_TOKEN) {
+      app.use(createWebhookRouter());
+      console.log("Webhook endpoints enabled at /hooks/wake and /hooks/agent");
+    }
 
     app.use(mcpAuthRouter({
       provider,

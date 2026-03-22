@@ -250,24 +250,62 @@ In Claude.ai: Settings > Integrations > Add MCP Server > enter `https://your-dom
 
 ## Automate with OpenClaw
 
-Connect BaseClaw to an agent orchestrator and it runs your team. Lineups get set every morning, injuries get monitored, opponents get scouted, waiver pickups get found. You check in when you want to.
+Connect BaseClaw to [OpenClaw](https://github.com/openclaw/openclaw) and it runs your team autonomously. Lineups get set every morning, injuries get monitored, opponents get scouted, waiver pickups get found. You check in when you want to.
 
-Any MCP-compatible orchestrator works (OpenClaw, LangChain, CrewAI, etc.). Or tell your OpenClaw agent: **"install github.com/jweingardt12/baseclaw"**
+```bash
+cd openclaw && bash install.sh
+```
+
+The installer copies workspace files, configures the OpenClaw Gateway, registers 8 cron jobs, installs 3 event hooks, and sets up 4 Lobster workflows with human-in-the-loop approval gates.
+
+### What gets installed
+
+| Component | What it does |
+|-----------|-------------|
+| **Workspace files** | `AGENTS.md`, `SOUL.md`, `TOOLS.md`, `HEARTBEAT.md`, `MEMORY.md`, `USER.md` — agent persona, tool conventions, memory system |
+| **Cron jobs** (8) | Morning briefing, pre-lock check, matchup plan, waiver deadline, streaming, roster audit, weekly digest, season checkpoint |
+| **Lobster workflows** (4) | `waiver-claim.lobster`, `trade-proposal.lobster`, `roster-cleanup.lobster`, `morning-routine.lobster` — multi-step pipelines with approval gates |
+| **Event hooks** (3) | Roster alerts (injury/trade push notifications), memory flush (persists context before compaction), health check (verifies BaseClaw on startup) |
+| **Config** | `openclaw.json` (Gateway config), `mcporter.json` (MCP server registration) |
 
 ### Cron schedule
 
-All times Eastern, configurable in `openclaw-cron-examples.json`:
+All times Eastern, configurable in `openclaw/cron/jobs.json`:
 
-| Schedule | Task | Tools called |
-|----------|------|-------------|
-| Daily 9am | Lineup + briefing | `yahoo_morning_briefing` + `yahoo_auto_lineup` |
-| Daily 10:30am | Pre-lock check | `yahoo_game_day_manager` |
-| Monday 8am | Matchup plan | `yahoo_league_landscape` + `yahoo_matchup_strategy` |
-| Tuesday 8pm | Waiver deadline prep | `yahoo_waiver_deadline_prep` |
-| Thursday 9am | Streaming check | `yahoo_streaming` |
-| Saturday 9am | Roster audit | `yahoo_roster_health_check` |
-| Sunday 9pm | Weekly digest | `yahoo_weekly_digest` |
-| 1st of month 10am | Season checkpoint | `yahoo_season_checkpoint` |
+| Schedule | Task | Session | Tools called |
+|----------|------|---------|-------------|
+| Daily 9am | Lineup + briefing | `baseclaw-daily` | `yahoo_morning_briefing` + `yahoo_auto_lineup` |
+| Daily 10:30am | Pre-lock check | `baseclaw-daily` | `yahoo_game_day_manager` |
+| Monday 8am | Matchup plan | `baseclaw-weekly` | `yahoo_league_landscape` + `yahoo_matchup_strategy` |
+| Tuesday 8pm | Waiver deadline prep | `baseclaw-weekly` | `yahoo_waiver_deadline_prep` |
+| Thursday 9am | Streaming check | `baseclaw-daily` | `yahoo_streaming` |
+| Saturday 9am | Roster audit | `baseclaw-weekly` | `yahoo_roster_health_check` |
+| Sunday 9pm | Weekly digest | `baseclaw-weekly` | `yahoo_weekly_digest` |
+| 1st of month 10am | Season checkpoint | `baseclaw-season` | `yahoo_season_checkpoint` |
+
+Jobs sharing a session (`baseclaw-daily`, `baseclaw-weekly`) retain context across runs — the morning briefing knows what the pre-lock check found.
+
+### Lobster workflows
+
+Multi-step pipelines with human-in-the-loop approval gates. Run from chat: "run the waiver-claim workflow."
+
+| Workflow | Steps | Approval gate |
+|----------|-------|---------------|
+| `waiver-claim.lobster` | Analyze waivers, rank targets with FAAB bids, approve, submit claims | Before submitting claims |
+| `trade-proposal.lobster` | Scan trade pipeline, evaluate z-score impact, approve, send proposal | Before sending trade |
+| `roster-cleanup.lobster` | Audit roster health, plan IL/drop moves, approve, execute changes | Before making changes |
+| `morning-routine.lobster` | Run briefing, optimize lineup, summarize | None (safe operations) |
+
+### Webhook endpoints
+
+BaseClaw exposes OpenClaw-compatible webhook endpoints for external event triggers. Set `WEBHOOK_TOKEN` in `.env` to enable.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /hooks/wake` | Lightweight event nudge — accepts `{text, mode}` |
+| `POST /hooks/agent` | Isolated agent turn — accepts `{message, name?, sessionKey?}` |
+
+Auth via `Authorization: Bearer <token>` or `x-openclaw-token: <token>` header. Rate-limited after 5 failed attempts.
 
 ### Autonomy levels
 
@@ -278,40 +316,6 @@ All times Eastern, configurable in `openclaw-cron-examples.json`:
 | **manual** | Never executes writes, only reports recommendations | Users who want full control |
 
 Set `AGENT_AUTONOMY` in `.env`. The agent auto-detects your league configuration — FAAB vs. priority waivers, scoring format, stat categories — and skips irrelevant tools.
-
-<details>
-<summary><strong>Manual OpenClaw setup</strong></summary>
-
-The one-command installer handles OpenClaw configuration automatically. To set it up manually:
-
-```bash
-~/.baseclaw/scripts/setup-openclaw.sh
-```
-
-This registers the MCP server in mcporter, installs the skill files, and optionally sets up 8 scheduled cron jobs.
-
-**Step-by-step** (if you prefer):
-
-1. Register the MCP server:
-   ```bash
-   npx mcporter config add baseclaw --url http://localhost:4951/mcp
-   ```
-
-2. Copy the skill files:
-   ```bash
-   mkdir -p ~/.openclaw/workspace/skills/baseclaw
-   cp SKILL.md AGENTS.md ~/.openclaw/workspace/skills/baseclaw/
-   ```
-
-3. Register cron jobs through your agent: "Set up BaseClaw scheduled jobs"
-
-**Uninstall from OpenClaw:**
-
-```bash
-~/.baseclaw/scripts/remove-openclaw.sh
-```
-
-</details>
 
 <details>
 <summary><strong>Agent persona</strong></summary>
@@ -362,8 +366,9 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
     Yahoo Fantasy API        MCP Clients (stdio/HTTP)
     Yahoo Website (browser)  ├── Claude Code / Desktop
     FanGraphs (projections)  ├── Claude.ai (remote)
-    Baseball Savant (intel)  └── Agent orchestrators
-                                 (OpenClaw, cron-scheduled)
+    Baseball Savant (intel)  ├── Agent orchestrators
+                             │    (OpenClaw, cron-scheduled)
+                             └── Webhooks (/hooks/wake, /hooks/agent)
 ```
 
 - **Read operations**: Yahoo Fantasy OAuth API (fast, reliable)
@@ -404,6 +409,7 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
 | `AGENT_AUTONOMY` | No | `semi-auto` | Agent autonomy level: `full-auto`, `semi-auto`, or `manual` |
 | `ENABLE_HISTORY` | No | `false` | Enable league history tools (8 tools, requires `config/league-history.json`) |
 | `ENABLE_PREVIEW` | No | `false` | Serve the preview dashboard at `/preview` |
+| `WEBHOOK_TOKEN` | For OpenClaw | — | Bearer token for `/hooks/wake` and `/hooks/agent` webhook endpoints |
 | `MCP_SERVER_URL` | For Claude.ai | — | Public HTTPS URL for remote access |
 | `MCP_AUTH_PASSWORD` | For Claude.ai | — | Password for the OAuth login page |
 
@@ -425,7 +431,28 @@ baseclaw/
 ├── yf                              # CLI helper script (with --json and api modes)
 ├── SKILL.md                        # ClawHub manifest (install metadata + overview)
 ├── AGENTS.md                       # Agent persona for autonomous GM
-├── openclaw-cron-examples.json     # OpenClaw cron schedule (8 jobs, API-ready format)
+├── openclaw/                       # OpenClaw integration package
+│   ├── install.sh                  # OpenClaw workspace installer
+│   ├── AGENTS.md                   # Agent operational framework
+│   ├── SOUL.md                     # Agent persona and identity
+│   ├── TOOLS.md                    # MCP tool conventions and profiles
+│   ├── HEARTBEAT.md                # Proactive check checklist
+│   ├── MEMORY.md                   # Persistent memory template
+│   ├── USER.md                     # User preferences
+│   ├── config/
+│   │   ├── openclaw.json           # Gateway configuration template
+│   │   └── mcporter.json           # MCP server registration
+│   ├── cron/
+│   │   └── jobs.json               # 8 scheduled cron jobs
+│   ├── workflows/
+│   │   ├── waiver-claim.lobster    # Waiver claim pipeline with approval
+│   │   ├── trade-proposal.lobster  # Trade proposal pipeline with approval
+│   │   ├── roster-cleanup.lobster  # Roster cleanup pipeline with approval
+│   │   └── morning-routine.lobster # Daily briefing + lineup
+│   └── hooks/
+│       ├── baseclaw-roster-alerts/ # Push notifications for injuries/trades
+│       ├── baseclaw-memory-flush/  # Pre-compaction memory persistence
+│       └── baseclaw-health/        # Gateway startup health check
 ├── config/
 │   ├── yahoo_oauth.json            # OAuth credentials + tokens (gitignored, auto-generated from env vars)
 │   ├── yahoo_session.json          # Browser session (gitignored, for write ops)
@@ -458,9 +485,10 @@ baseclaw/
 │   └── remove-openclaw.sh          # OpenClaw integration removal
 └── mcp-apps/                       # TypeScript MCP server + UI apps
     ├── server.ts                   # MCP server setup + tool registration
-    ├── main.ts                     # Entry point (stdio + HTTP)
+    ├── main.ts                     # Entry point (stdio + HTTP + webhooks)
     ├── assets/logo-128.png         # Server icon (pixel-art baseball)
     ├── src/tools/                  # 12 tool files, 129 MCP tools
+    ├── src/webhooks.ts             # Native webhook endpoints (/hooks/wake, /hooks/agent)
     ├── src/api/                    # Python API client + type definitions
     └── ui/                         # 4 inline HTML apps, 75+ views (React + Plex UI + Recharts)
 ```
