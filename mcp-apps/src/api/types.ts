@@ -391,6 +391,9 @@ export interface TradeEvalResponse {
   consolidation_premium?: number;
   catcher_premium?: number;
   rival_warning?: { is_rival: boolean; warning?: string; my_position?: number; partner_position?: number; gap?: number };
+  sgp_give?: number;
+  sgp_get?: number;
+  sgp_net?: number;
   warnings?: string[];
 }
 
