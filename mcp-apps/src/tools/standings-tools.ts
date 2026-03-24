@@ -204,7 +204,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     server,
     "yahoo_transactions",
     {
-      description: "Use this to see recent league transactions (adds, drops, trades). Filter by trans_type or leave empty for all types. Returns player names, transaction types, and team involved. Use yahoo_transaction_trends instead for league-wide most-added/dropped players, or yahoo_league_pulse for per-team activity counts.",
+      description: "Use this to see recent transactions in YOUR league — the actual adds, drops, and trades made by managers in your league. This is the right tool when someone asks about league transactions, recent moves, or who picked up/dropped whom. Filter by trans_type or leave empty for all types. Returns player names, transaction types, and the fantasy team involved.",
       inputSchema: {
         trans_type: z.string().describe("Transaction type: add, drop, trade, or empty for all").default(""),
         count: z.number().describe("Number of transactions to return").default(25),
@@ -251,7 +251,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     server,
     "yahoo_transaction_trends",
     {
-      description: "Use this to see the most-added and most-dropped players across all Yahoo Fantasy leagues with ownership deltas. Identifies the hottest pickups trending league-wide. Use yahoo_transactions instead when you want to see moves specific to your league, or yahoo_waiver_recommendations for personalized add/drop suggestions.",
+      description: "Use this to see the most-added and most-dropped players across ALL of Yahoo Fantasy (not your league). Shows global ownership trends and deltas. Only use this when the user explicitly asks about Yahoo-wide trends, most popular pickups globally, or ownership percentages. If they ask about 'league transactions' or 'recent moves', use yahoo_transactions instead — that shows YOUR league's actual moves.",
       inputSchema: {
         limit: z.number().default(20).describe("Max results per list to return (default 20)"),
         offset: z.number().default(0).describe("Offset for pagination"),
