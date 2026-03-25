@@ -8,6 +8,8 @@
 
 Ask Claude about your Yahoo Fantasy Baseball league in plain English. Get instant advice on trades, lineups, waiver pickups, and strategy — powered by your actual league data.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/VgXCOg?referralCode=LLHRAk&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-1.0-green.svg)](https://modelcontextprotocol.io)
 [![Tools](https://img.shields.io/badge/tools-130-orange.svg)](#all-tools-reference)
