@@ -17,6 +17,7 @@ import { PastDraftView } from "../history-app/past-draft-view";
 import { PastTeamsView } from "../history-app/past-teams-view";
 import { PastTradesView } from "../history-app/past-trades-view";
 import { PastMatchupView } from "../history-app/past-matchup-view";
+import { PlayerReportView } from "../intel-app/player-report-view";
 import "../globals.css";
 
 function StandingsApp() {
@@ -42,6 +43,7 @@ function StandingsApp() {
           case "past-teams": return <PastTeamsView data={data} app={app} navigate={navigate} />;
           case "past-trades": return <PastTradesView data={data} app={app} navigate={navigate} />;
           case "past-matchup": return <PastMatchupView data={data} app={app} navigate={navigate} />;
+          case "intel-player": return <PlayerReportView data={data} app={app} navigate={navigate} />;
           default: return <div className="p-4 text-muted-foreground">Unknown view: {toolName}</div>;
         }
       }}

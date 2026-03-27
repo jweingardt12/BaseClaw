@@ -8,6 +8,7 @@ import { WhoOwnsView } from "./who-owns-view";
 import { RankingsView } from "../valuations-app/rankings-view";
 import { CompareView } from "../valuations-app/compare-view";
 import { ValueView } from "../valuations-app/value-view";
+import { PlayerReportView } from "../intel-app/player-report-view";
 import "../globals.css";
 
 function RosterApp() {
@@ -28,6 +29,7 @@ function RosterApp() {
           case "rankings": return <RankingsView data={data} app={app} navigate={navigate} />;
           case "compare": return <CompareView data={data} app={app} navigate={navigate} />;
           case "value": return <ValueView data={data} app={app} navigate={navigate} />;
+          case "intel-player": return <PlayerReportView data={data} app={app} navigate={navigate} />;
           default: return <div className="p-4 text-muted-foreground">Unknown view: {toolName}</div>;
         }
       }}

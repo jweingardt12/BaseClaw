@@ -33,6 +33,7 @@ import { FaabRecommendView } from "./faab-recommend-view";
 import { OwnershipTrendsView } from "./ownership-trends-view";
 import { RosterStatsView } from "./roster-stats-view";
 import { WorkflowSummaryView } from "./workflow-summary-view";
+import { PlayerReportView } from "../intel-app/player-report-view";
 import "../globals.css";
 
 function SeasonApp() {
@@ -85,6 +86,7 @@ function SeasonApp() {
           case "weekly-digest":
           case "season-checkpoint":
             return <WorkflowSummaryView data={data} />;
+          case "intel-player": return <PlayerReportView data={data} app={app} navigate={navigate} />;
           default: return <div className="p-4 text-muted-foreground">Unknown view: {toolName}</div>;
         }
       }}
