@@ -25,20 +25,21 @@ export function PlayerName({ name, playerId, mlbId, app: appProp, navigate: navP
     ? <Avatar className="size-7"><AvatarImage src={mlbHeadshotUrl(mlbId)} /><AvatarFallback>{name.charAt(0)}</AvatarFallback></Avatar>
     : null;
 
-  var callTool = ctx?.callTool;
-  var handleClick = callTool && navigate ? async function () {
+  // Only make clickable if we have both app AND navigate
+  var handleClick = app && navigate ? async function () {
     if (loading) return;
     setLoading(true);
     try {
-      try {
-        var result = await callTool("yahoo_player_intel", { player: name });
-        if (result && result.structuredContent) {
-          navigate(result.structuredContent);
-          return;
-        }
-      } catch (_e) { /* tool may not be in active toolset */ }
-      if (app && app.sendMessage) {
-        app.sendMessage("Tell me about " + name + " — stats, news, and fantasy outlook");
+      // Call yahoo_player_intel — now in core toolset
+      var result = await app.callServerTool({ name: "yahoo_player_intel", arguments: { player: name } });
+      if (result && result.structuredContent) {
+        navigate(result.structuredContent);
+      }
+    } catch (_e) {
+      // Tool call failed — open FanGraphs as fallback
+      var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      if (app.openLink) {
+        app.openLink("https://www.fangraphs.com/players/" + slug);
       }
     } finally {
       setLoading(false);

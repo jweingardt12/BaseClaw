@@ -226,9 +226,9 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
     return { ...p, posType: posType, impact: impact };
   }).sort(function (a, b) { return b.impact - a.impact; });
 
-  // Roster context — news headlines for my players
+  // Roster context — only show players with actual news headlines (flags are unreliable for common names)
   var rosterNews = (data.roster_context || []).filter(function (p) {
-    return p.latest_headline || (p.flags && p.flags.length > 0);
+    return p.latest_headline;
   });
 
   var handleRefresh = async function () {
@@ -340,10 +340,6 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
                     <span className="font-medium">
                       <PlayerName name={p.name} context="roster" />
                     </span>
-                    {p.flags && p.flags.map(function (f: any, fi: number) {
-                      var label = typeof f === "string" ? f : (f.message || f.type || "flag");
-                      return <Badge key={fi} variant="secondary" className="ml-1">{label}</Badge>;
-                    })}
                     {p.latest_headline && (
                       <p className="text-xs text-muted-foreground mt-0.5">{p.latest_headline}</p>
                     )}

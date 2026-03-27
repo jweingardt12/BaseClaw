@@ -22,6 +22,7 @@ export const TOOLSETS: Record<string, string[]> = {
     "yahoo_whats_new",
     "yahoo_weekly_digest",
     "yahoo_weather",
+    "yahoo_player_intel",
   ],
 
   // Lineup management (~6 tools)
