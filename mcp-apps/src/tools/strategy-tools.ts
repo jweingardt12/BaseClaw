@@ -31,7 +31,6 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         if (pitchers.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No probable pitchers found for next " + days + " days" }],
-            structuredContent: { type: "probable-pitchers", ai_recommendation: null, ...data },
           };
         }
         const lines = ["Probable Pitchers (next " + days + " days):"];
@@ -43,7 +42,6 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "probable-pitchers", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -75,7 +73,6 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         lines.push("  Density rating:  " + str(data.density_rating));
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "schedule-analysis", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -141,7 +138,6 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "regression-candidates", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -179,7 +175,6 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "travel-fatigue", ...data },
         };
       } catch (e) { return toolError(e); }
     },

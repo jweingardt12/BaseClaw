@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
+import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
 import { tkey } from "../api/format-text.js";
 import {
   generateStandingsInsight,
@@ -32,28 +33,19 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     server,
     "Standings View",
     STANDINGS_URI,
-    {
-      description: "League standings, matchups, and scoreboard",
-      _meta: {
-        ui: {
-          csp: {
-            resourceDomains: [
-              "img.mlbstatic.com",
-              "www.mlbstatic.com",
-              "s.yimg.com",
-              "securea.mlb.com",
-            ],
-          },
-          permissions: { clipboardWrite: {} },
-          prefersBorder: true,
-        },
-      },
-    },
+    { description: "League standings, matchups, and scoreboard" },
     async () => ({
       contents: [{
         uri: STANDINGS_URI,
         mimeType: RESOURCE_MIME_TYPE,
         text: await fs.readFile(path.join(distDir, "standings.html"), "utf-8"),
+        _meta: {
+          ui: {
+            csp: {
+              resourceDomains: APP_RESOURCE_DOMAINS,
+            },
+          },
+        },
       }],
     }),
   );
@@ -191,7 +183,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-context", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -229,16 +220,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         var ai_recommendation: string | null = data.transactions.length + " recent transaction" + (data.transactions.length === 1 ? "" : "s") + ". Monitor league activity for waiver targets.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "transactions",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: (data.transactions || []).length,
-              offset: offset,
-              has_more: (data.transactions || []).length >= limit,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -280,16 +261,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         var trendCount = addedCount > droppedCount ? addedCount : droppedCount;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "transaction-trends",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: trendCount,
-              offset: offset,
-              has_more: trendCount >= limit,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -324,7 +295,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
           : null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-pulse", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -365,7 +335,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
           : "Power rankings loaded.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "power-rankings", ai_recommendation, rankings: data.power_rankings },
         };
       } catch (e) { return toolError(e); }
     },
@@ -535,7 +504,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-intel", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -571,7 +539,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         const ai_recommendation = generateSeasonPaceInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "season-pace", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -606,7 +573,6 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         const ai_recommendation = "Review positional ranks to identify where your team is weak and find trade partners who are strong in those positions.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "positional-ranks", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

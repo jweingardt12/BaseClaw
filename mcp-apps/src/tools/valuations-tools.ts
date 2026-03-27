@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
-import { generateRankingsInsight, generateCompareInsight } from "../insights.js";
 import { str, type RankingsResponse, type CompareResponse, type ValueResponse } from "../api/types.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
@@ -35,19 +34,8 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
             const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
             return "  " + String(p.rank).padStart(3) + ". " + str(p.name).padEnd(25) + " " + str(p.pos).padEnd(8) + " z=" + p.z_score.toFixed(2) + tier;
           }).join("\n");
-        var ai_recommendation = generateRankingsInsight(data);
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "rankings",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: (data.players || []).length,
-              offset: offset,
-              has_more: (data.players || []).length >= effectiveCount,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -83,15 +71,8 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
           cats2[cat] = scores.player2;
           lines.push("  " + str(cat).padEnd(12) + str(scores.player1.toFixed(2)).padStart(8) + "  vs  " + str(scores.player2.toFixed(2)).padStart(8));
         }
-        var ai_recommendation = generateCompareInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: {
-            type: "compare",
-            ai_recommendation,
-            player1: { name: data.player1.name, z_score: final1, categories: cats1 },
-            player2: { name: data.player2.name, z_score: final2, categories: cats2 },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -116,7 +97,6 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         if (!p) {
           return {
             content: [{ type: "text" as const, text: "Player not found" }],
-            structuredContent: { type: "value", name: "Unknown", z_final: 0, categories: [] },
           };
         }
         const zFinal = p.z_scores["Final"] || 0;
@@ -132,20 +112,8 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
           categories.push({ category: cat, z_score: Number(z), raw_stat: rawStat });
           lines.push("  " + str(cat).padEnd(12) + " z=" + Number(z).toFixed(2) + (rawStat != null ? "  (" + rawStat + ")" : ""));
         }
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: {
-            type: "value",
-            ai_recommendation,
-            name: p.name,
-            team: p.team,
-            pos: p.pos,
-            player_type: p.type,
-            z_final: zFinal,
-            park_factor: pf || null,
-            categories,
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -176,7 +144,6 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "projections-update", proj_type, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -203,7 +170,6 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         if (note) {
           return {
             content: [{ type: "text" as const, text: note }],
-            structuredContent: { type: "zscore-shifts", note },
           };
         }
         var shifts = data.shifts || [];
@@ -222,7 +188,6 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "zscore-shifts", baseline_date: baseline, shifts },
         };
       } catch (e) { return toolError(e); }
     },
@@ -257,7 +222,6 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "projection-disagreements", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -292,7 +256,6 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "projection-confidence", ...data },
         };
       } catch (e) { return toolError(e); }
     },

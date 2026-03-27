@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
+import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
 import { pid } from "../api/format-text.js";
 import {
   generateLineupInsight,
@@ -65,28 +66,19 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     server,
     "Season Manager View",
     SEASON_URI,
-    {
-      description: "In-season management: lineup, waivers, injuries, streaming",
-      _meta: {
-        ui: {
-          csp: {
-            resourceDomains: [
-              "img.mlbstatic.com",
-              "www.mlbstatic.com",
-              "s.yimg.com",
-              "securea.mlb.com",
-            ],
-          },
-          permissions: { clipboardWrite: {} },
-          prefersBorder: true,
-        },
-      },
-    },
+    { description: "In-season management: lineup, waivers, injuries, streaming" },
     async () => ({
       contents: [{
         uri: SEASON_URI,
         mimeType: RESOURCE_MIME_TYPE,
         text: await fs.readFile(path.join(distDir, "season.html"), "utf-8"),
+        _meta: {
+          ui: {
+            csp: {
+              resourceDomains: APP_RESOURCE_DOMAINS,
+            },
+          },
+        },
       }],
     }),
   );
@@ -168,7 +160,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateCategoryInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "category-check", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -267,7 +258,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateStreamingInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "streaming", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -300,7 +290,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateScoutInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "scout-opponent", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -336,7 +325,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateMatchupInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "matchup-strategy", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -372,7 +360,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "set-lineup", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -397,7 +384,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         if (!data.trades || data.trades.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No pending trade proposals" }],
-            structuredContent: { type: "pending-trades", ai_recommendation: null, ...data },
           };
         }
         const lines = ["Pending Trade Proposals:"];
@@ -412,7 +398,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "pending-trades", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -444,7 +429,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         });
         return {
           content: [{ type: "text" as const, text: data.message || "Trade proposal result: " + JSON.stringify(data) }],
-          structuredContent: { type: "propose-trade", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -467,7 +451,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const data = await apiPost<TradeActionResponse>("/api/accept-trade", { transaction_key, note });
         return {
           content: [{ type: "text" as const, text: data.message || "Accept trade result: " + JSON.stringify(data) }],
-          structuredContent: { type: "accept-trade", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -490,7 +473,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const data = await apiPost<TradeActionResponse>("/api/reject-trade", { transaction_key, note });
         return {
           content: [{ type: "text" as const, text: data.message || "Reject trade result: " + JSON.stringify(data) }],
-          structuredContent: { type: "reject-trade", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -545,7 +527,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateWhatsNewInsight(data);
         return {
           content: [{ type: "text" as const, text: sections.join("\n") }],
-          structuredContent: { type: "whats-new", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -581,7 +562,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateWeekPlannerInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "week-planner", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -627,7 +607,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateCloserInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "closer-monitor", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -664,7 +643,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generatePitcherMatchupInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "pitcher-matchup", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -710,7 +688,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = playerCount + " player" + (playerCount === 1 ? "" : "s") + " with " + data.period + " stats. Compare individual contributions to identify underperformers.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "roster-stats", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -771,7 +748,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           + (data.improving_categories.length > 0 ? " Improves: " + data.improving_categories.join(", ") + "." : "");
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "faab-recommend", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -811,7 +787,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           : "No ownership history available yet for " + str(data.player_name) + ".";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "ownership-trends", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -856,7 +831,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
           : "No category history available yet. Run category-check during the season to build history.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "category-trends", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -913,7 +887,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = data.strategy_summary || "No strategy recommendation available.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "punt-advisor", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -967,7 +940,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = generateILStashInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "il-stash-advisor", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -1032,7 +1004,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = generateOptimalMovesInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "optimal-moves", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -1095,7 +1066,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = generatePlayoffPlannerInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "playoff-planner", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -1130,7 +1100,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         lines.push("Featured: " + data.featured_line);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "trash-talk", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -1201,7 +1170,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = generateRivalHistoryInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "rival-history", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -1238,7 +1206,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = generateAchievementsInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "achievements", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -1290,7 +1257,6 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = generateWeeklyNarrativeInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "weekly-narrative", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

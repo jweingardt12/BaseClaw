@@ -340,8 +340,9 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
                     <span className="font-medium">
                       <PlayerName name={p.name} context="roster" />
                     </span>
-                    {p.flags && p.flags.map(function (f) {
-                      return <Badge key={f} variant="secondary" className="ml-1">{f}</Badge>;
+                    {p.flags && p.flags.map(function (f: any, fi: number) {
+                      var label = typeof f === "string" ? f : (f.message || f.type || "flag");
+                      return <Badge key={fi} variant="secondary" className="ml-1">{label}</Badge>;
                     })}
                     {p.latest_headline && (
                       <p className="text-xs text-muted-foreground mt-0.5">{p.latest_headline}</p>
@@ -367,12 +368,47 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
           <CardContent>
             <div className="space-y-2">
               {actions.map(function (item, idx) {
+                var actionButton = null;
+                if (app) {
+                  if (item.type === "injury" && item.player_id) {
+                    actionButton = (
+                      <Button variant="outline" size="xs" onClick={function () { callTool("yahoo_injury_report"); }}>
+                        View Injuries
+                      </Button>
+                    );
+                  } else if (item.type === "lineup") {
+                    actionButton = (
+                      <Button variant="outline" size="xs" className="bg-sem-info-subtle" onClick={function () { callTool("yahoo_auto_lineup"); }}>
+                        Fix Lineup
+                      </Button>
+                    );
+                  } else if (item.type === "waiver" && item.player_id) {
+                    actionButton = (
+                      <Button variant="outline" size="xs" onClick={function () { handleAdd(item.player_id!); }}>
+                        <UserPlus className="h-3 w-3" /> Add
+                      </Button>
+                    );
+                  } else if (item.type === "trade") {
+                    actionButton = (
+                      <Button variant="outline" size="xs" onClick={function () { callTool("yahoo_pending_trades"); }}>
+                        Review
+                      </Button>
+                    );
+                  } else if (item.type === "il_activation" && item.player_id) {
+                    actionButton = (
+                      <Button variant="outline" size="xs" onClick={function () { callTool("yahoo_injury_report"); }}>
+                        Activate
+                      </Button>
+                    );
+                  }
+                }
                 return (
-                  <div key={idx} className="flex items-start gap-2">
-                    <Badge className={"shrink-0 mt-0.5 " + priorityColor(item.priority)}>
+                  <div key={idx} className="flex items-center gap-2">
+                    <Badge className={"shrink-0 " + priorityColor(item.priority)}>
                       {priorityLabel(item.priority)}
                     </Badge>
-                    <span className="text-sm">{item.message}</span>
+                    <span className="flex-1 text-sm">{item.message}</span>
+                    {actionButton}
                   </div>
                 );
               })}

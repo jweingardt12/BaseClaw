@@ -169,7 +169,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-landscape", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -201,7 +200,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "roster-health", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -233,7 +231,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "waiver-recommendations", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -280,7 +277,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "auto-lineup", injury, lineup },
         };
       } catch (e) { return toolError(e); }
     },
@@ -548,7 +544,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "trade-analysis", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -601,7 +596,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "game-day-manager", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -653,7 +647,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "waiver-deadline-prep", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -694,7 +687,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "trade-pipeline", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -731,7 +723,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "weekly-digest", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -784,7 +775,6 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "season-checkpoint", ...data },
         };
       } catch (e) { return toolError(e); }
     },

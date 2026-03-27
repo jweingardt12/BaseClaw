@@ -37,7 +37,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         ).join("\n");
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-teams", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -63,7 +62,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         ).join("\n");
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-roster", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -92,7 +90,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
           + "  MLB ID: " + data.mlb_id;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-player", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -119,7 +116,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "mlb-stats", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -146,7 +142,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
           : "No injuries reported (may be offseason)";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-injuries", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -175,7 +170,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "mlb-standings", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -203,7 +197,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         ).join("\n");
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "mlb-schedule", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -229,7 +222,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         if (data.note) {
           return {
             content: [{ type: "text" as const, text: data.note }],
-            structuredContent: { type: "mlb-draft", ai_recommendation: null, ...data },
           };
         }
         var lines = ["MLB Draft " + (data.year || year) + ":"];
@@ -245,7 +237,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "mlb-draft", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -293,7 +284,6 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
         lines.push("Dome: " + data.dome_count + "  Outdoor: " + data.outdoor_count);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "weather", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

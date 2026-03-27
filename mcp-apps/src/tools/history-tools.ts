@@ -40,7 +40,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "league-history", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -75,7 +74,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "record-book", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -102,7 +100,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-standings", ai_recommendation: null, year, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -129,7 +126,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-draft", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -156,7 +152,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-teams", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -191,7 +186,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-trades", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -218,7 +212,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "past-matchup", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -249,7 +242,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         if (!week && !date) {
           return {
             content: [{ type: "text" as const, text: "Error: provide either week or date parameter" }],
-            structuredContent: { type: "_error", message: "Missing week or date parameter" },
             isError: true as const,
           };
         }
@@ -264,7 +256,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         const ai_recommendation = players.length + " player" + (players.length === 1 ? "" : "s") + " on roster for " + data.label + ".";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "roster-history", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

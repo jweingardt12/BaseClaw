@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, toolError } from "../api/python-client.js";
-import { generateDraftInsight } from "../insights.js";
 import {
   str,
   type DraftStatusResponse,
@@ -31,10 +30,8 @@ export function registerDraftTools(server: McpServer) {
           + "  Your Round: " + data.current_round + "\n"
           + "  Hitters: " + data.hitters + "\n"
           + "  Pitchers: " + data.pitchers;
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "draft-status", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -67,10 +64,8 @@ export function registerDraftTools(server: McpServer) {
           const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
           lines.push("  " + str(p.name).padEnd(25) + " " + str((p.positions || []).join(",")).padEnd(12) + " z=" + (p.z_score != null ? p.z_score.toFixed(2) : "N/A") + tier);
         }
-        var ai_recommendation = generateDraftInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "draft-recommend", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -109,10 +104,8 @@ export function registerDraftTools(server: McpServer) {
             lines.push("  " + o.name + ": " + o.tendency);
           }
         }
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "draft-cheatsheet", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -136,10 +129,8 @@ export function registerDraftTools(server: McpServer) {
           const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
           return "  " + String(p.rank).padStart(3) + ". " + str(p.name).padEnd(25) + " " + str((p.positions || []).join(",")).padEnd(12) + " z=" + (p.z_score != null ? p.z_score.toFixed(2) : "N/A") + tier;
         }).join("\n");
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "best-available", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -168,7 +159,6 @@ export function registerDraftTools(server: McpServer) {
         }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "draft-board", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },

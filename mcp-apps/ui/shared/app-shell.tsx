@@ -5,6 +5,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { LoadingIndicator } from "@/shared/loading-indicator";
 import { Maximize2, Minimize2 } from "@/shared/icons";
 import { useHostLayout } from "./use-host-layout";
+import { AppContextProvider } from "./app-context";
 
 var TOOL_LABELS: Record<string, string> = {
   "yahoo_roster": "roster",
@@ -187,7 +188,7 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
   // Timeout for waiting state
   useEffect(function () {
     if (data || !app) return;
-    var timer = setTimeout(function () { setTimedOut(true); }, 5000);
+    var timer = setTimeout(function () { setTimedOut(true); }, 20000);
     return function () { clearTimeout(timer); };
   }, [data, app]);
 
@@ -297,9 +298,11 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
           </Button>
         </div>
       )}
-      <div key={toolName} className="animate-slide-up">
-        {children({ data, toolName, app, navigate })}
-      </div>
+      <AppContextProvider app={app} navigate={navigate}>
+        <div key={toolName} className="animate-slide-up">
+          {children({ data, toolName, app, navigate })}
+        </div>
+      </AppContextProvider>
     </div>
   );
 }

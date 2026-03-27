@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
-import { generatePlayerReportInsight } from "../insights.js";
+import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
 import {
   str,
   type IntelPlayerReportResponse,
@@ -26,28 +26,19 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     server,
     "Intelligence Dashboard",
     INTEL_URI,
-    {
-      description: "Player intelligence: Statcast, trends, Reddit buzz, breakouts, prospects",
-      _meta: {
-        ui: {
-          csp: {
-            resourceDomains: [
-              "img.mlbstatic.com",
-              "www.mlbstatic.com",
-              "s.yimg.com",
-              "securea.mlb.com",
-            ],
-          },
-          permissions: { clipboardWrite: {} },
-          prefersBorder: true,
-        },
-      },
-    },
+    { description: "Player intelligence: Statcast, trends, Reddit buzz, breakouts, prospects" },
     async () => ({
       contents: [{
         uri: INTEL_URI,
         mimeType: RESOURCE_MIME_TYPE,
         text: await fs.readFile(path.join(distDir, "intel.html"), "utf-8"),
+        _meta: {
+          ui: {
+            csp: {
+              resourceDomains: APP_RESOURCE_DOMAINS,
+            },
+          },
+        },
       }],
     }),
   );
@@ -108,10 +99,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           if (d.bb_rate != null) lines.push("  BB%: " + d.bb_rate);
           if (d.k_rate != null) lines.push("  K%: " + d.k_rate);
         }
-        var ai_recommendation = generatePlayerReportInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-player", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -137,10 +126,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           const flair = p.flair ? "[" + p.flair + "] " : "";
           lines.push("  " + flair + p.title + " (score:" + p.score + ", comments:" + p.num_comments + ")");
         }
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-reddit", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -165,10 +152,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           lines.push("  " + p.title + " (score:" + p.score + ", comments:" + p.num_comments + ")");
         }
         if ((data.posts || []).length === 0) lines.push("  No trending player posts found.");
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-trending", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -193,10 +178,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           lines.push("  " + str(t.type).padEnd(12) + " " + str(t.player).padEnd(25) + " " + str(t.team || ""));
         }
         if ((data.transactions || []).length === 0) lines.push("  No recent prospect moves found.");
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-prospects", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -222,10 +205,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           lines.push("  " + str(t.type).padEnd(12) + " " + str(t.player).padEnd(25) + " " + str(t.team || "") + (t.description ? " - " + t.description : ""));
         }
         if ((data.transactions || []).length === 0) lines.push("  No transactions found.");
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-transactions", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -275,10 +256,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           lines.push("");
           lines.push("Note: " + data.note);
         }
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "intel-statcast-history", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -321,7 +300,6 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
         if ((data.entries || []).length === 0) lines.push("  No news found.");
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "news-feed", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -440,6 +418,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "intel-player", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -472,7 +451,6 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "bat-tracking-breakouts", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -505,7 +483,6 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "pitch-mix-breakouts", ...data },
         };
       } catch (e) { return toolError(e); }
     },

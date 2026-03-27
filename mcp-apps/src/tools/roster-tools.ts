@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
+import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
 import { pid } from "../api/format-text.js";
 import { str, type RosterResponse, type FreeAgentsResponse, type PlayerListResponse, type SearchResponse, type ActionResponse, type WaiverClaimResponse, type WaiverClaimSwapResponse, type WhoOwnsResponse, type PercentOwnedResponse, type ChangeTeamNameResponse, type ChangeTeamLogoResponse, type PlayerStatsResponse, type WaiversResponse, type TakenPlayersResponse } from "../api/types.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
@@ -17,28 +18,19 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     server,
     "Roster View",
     ROSTER_URI,
-    {
-      description: "Interactive roster management view",
-      _meta: {
-        ui: {
-          csp: {
-            resourceDomains: [
-              "img.mlbstatic.com",
-              "www.mlbstatic.com",
-              "s.yimg.com",
-              "securea.mlb.com",
-            ],
-          },
-          permissions: { clipboardWrite: {} },
-          prefersBorder: true,
-        },
-      },
-    },
+    { description: "Interactive roster management view" },
     async () => ({
       contents: [{
         uri: ROSTER_URI,
         mimeType: RESOURCE_MIME_TYPE,
         text: await fs.readFile(path.join(distDir, "roster.html"), "utf-8"),
+        _meta: {
+          ui: {
+            csp: {
+              resourceDomains: APP_RESOURCE_DOMAINS,
+            },
+          },
+        },
       }],
     }),
   );
@@ -117,16 +109,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "free-agents",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: (data.players || []).length,
-              offset: offset,
-              has_more: (data.players || []).length >= limit,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -172,16 +154,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "player-list",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: (data.players || []).length,
-              offset: offset,
-              has_more: (data.players || []).length >= limit,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -213,7 +185,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "search", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -239,7 +210,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = data.success ? "Player added successfully. Check your lineup for optimal positioning." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Add result: " + JSON.stringify(data) }],
-          structuredContent: { type: "add", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -263,7 +233,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = data.success ? "Player dropped. Consider picking up a replacement from free agents." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Drop result: " + JSON.stringify(data) }],
-          structuredContent: { type: "drop", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -287,7 +256,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = data.success ? "Swap completed. Verify lineup positioning for the new player." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Swap result: " + JSON.stringify(data) }],
-          structuredContent: { type: "swap", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -314,7 +282,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           var ai_recommendation: string | null = data.message ? "Waiver claim with drop submitted. Results process at the next waiver period." : null;
           return {
             content: [{ type: "text" as const, text: data.message || "Waiver claim+drop result: " + JSON.stringify(data) }],
-            structuredContent: { type: "waiver-claim-swap", ai_recommendation, ...data },
           };
         } else {
           const body: Record<string, string> = { player_id };
@@ -323,7 +290,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           var ai_recommendation2: string | null = data.message ? "Waiver claim submitted. Results process at the next waiver period." : null;
           return {
             content: [{ type: "text" as const, text: data.message || "Waiver claim result: " + JSON.stringify(data) }],
-            structuredContent: { type: "waiver-claim", ai_recommendation: ai_recommendation2, ...data },
           };
         }
       } catch (e) { return toolError(e); }
@@ -350,7 +316,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation = data.valid ? null : "Browser session expired. Run './yf browser-login' to enable write operations.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "browser-status", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -374,7 +339,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: data.message || "Result: " + JSON.stringify(data) }],
-          structuredContent: { type: "change-team-name", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -398,7 +362,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: data.message || "Result: " + JSON.stringify(data) }],
-          structuredContent: { type: "change-team-logo", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -439,7 +402,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "who-owns", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -463,7 +425,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         if (!data.players || data.players.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No ownership data returned" }],
-            structuredContent: { type: "percent-owned", ai_recommendation: null, players: [] },
           };
         }
         var lines = ["Percent Owned:"];
@@ -472,7 +433,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "percent-owned", ai_recommendation: null, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -511,7 +471,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = "Review " + data.player_name + "'s stats to evaluate roster value and trade potential.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "player-stats", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -548,16 +507,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           : null;
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "waivers",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: players.length,
-              offset: offset,
-              has_more: players.length >= limit,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
@@ -595,16 +544,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = data.count + " players rostered" + (position ? " at " + position : "") + " across the league. Use this to understand player pool availability.";
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: {
-            type: "all-rostered",
-            ai_recommendation,
-            ...data,
-            _pagination: {
-              returned: players.length,
-              offset: offset,
-              has_more: players.length >= limit,
-            },
-          },
         };
       } catch (e) { return toolError(e); }
     },
