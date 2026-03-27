@@ -6,6 +6,7 @@ services:
       - ./config:/app/config
       - ./data:/app/data
       - ./scripts:/app/scripts
+      - ./dashboard/dist:/app/dashboard/dist
     environment:
       - YAHOO_CONSUMER_KEY=${YAHOO_CONSUMER_KEY}
       - YAHOO_CONSUMER_SECRET=${YAHOO_CONSUMER_SECRET}
@@ -16,7 +17,6 @@ services:
       - MCP_SERVER_URL=${MCP_SERVER_URL}
       - MCP_AUTH_PASSWORD=${MCP_AUTH_PASSWORD}
       - ENABLE_WRITE_OPS=${ENABLE_WRITE_OPS:-false}
-      - ENABLE_PREVIEW=${ENABLE_PREVIEW:-false}
       - PORT=4951
     ports:
       - "4951:4951"

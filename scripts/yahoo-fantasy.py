@@ -1201,7 +1201,7 @@ def cmd_transactions(args, as_json=False):
             transactions = []
             for t in ["add", "drop", "trade"]:
                 try:
-                    results = lg.transactions(t, 10)
+                    results = lg.transactions(t, min(count, 25))
                     if results:
                         transactions.extend(results)
                 except Exception:
@@ -1217,16 +1217,55 @@ def cmd_transactions(args, as_json=False):
     if as_json:
         trans_list = []
         for t in transactions:
-            if isinstance(t, dict):
-                trans_list.append(
-                    {
-                        "type": t.get("type", "?"),
-                        "player": t.get("player", t.get("name", "Unknown")),
-                        "team": t.get("team", ""),
-                    }
-                )
-            else:
+            if not isinstance(t, dict):
                 trans_list.append({"raw": str(t)})
+                continue
+            tx_type = t.get("type", "?")
+            timestamp = t.get("timestamp", "")
+            players_data = t.get("players", {})
+            player_count = int(players_data.get("count", 0))
+            players = []
+            for pi in range(player_count):
+                p = players_data.get(str(pi), {}).get("player", [])
+                name = "Unknown"
+                player_id = ""
+                position = ""
+                mlb_team = ""
+                action = ""
+                team_name = ""
+                if isinstance(p, list) and len(p) > 0:
+                    meta = p[0] if isinstance(p[0], list) else []
+                    for item in meta:
+                        if isinstance(item, dict):
+                            if "name" in item:
+                                name = item.get("name", {}).get("full", "Unknown")
+                            if "player_id" in item:
+                                player_id = str(item.get("player_id", ""))
+                            if "display_position" in item:
+                                position = item.get("display_position", "")
+                            if "editorial_team_abbr" in item:
+                                mlb_team = item.get("editorial_team_abbr", "")
+                    if len(p) > 1 and isinstance(p[1], dict):
+                        td = p[1].get("transaction_data", {})
+                        if isinstance(td, list):
+                            td = td[0] if td else {}
+                        action = td.get("type", "")
+                        team_name = td.get("destination_team_name", "") or td.get("source_team_name", "")
+                mlb_id = get_mlb_id(name) if name != "Unknown" else None
+                players.append({
+                    "name": name,
+                    "player_id": player_id,
+                    "mlb_id": mlb_id,
+                    "position": position,
+                    "mlb_team": mlb_team,
+                    "action": action,
+                    "fantasy_team": team_name,
+                })
+            trans_list.append({
+                "type": tx_type,
+                "timestamp": timestamp,
+                "players": players,
+            })
         return {"type": label, "transactions": trans_list}
 
     if not transactions:

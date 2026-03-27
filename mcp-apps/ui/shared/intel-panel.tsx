@@ -27,13 +27,13 @@ function PercentileRow({ label, value, rank, invert }: { label: string; value: s
   if (rank == null) return null;
   const displayRank = invert ? (100 - rank) : rank;
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground w-24 shrink-0">{label}</span>
-      <div className="flex-1">
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      <span className="text-xs text-muted-foreground w-16 sm:w-24 shrink-0 truncate">{label}</span>
+      <div className="flex-1 min-w-0">
         <StatBar value={displayRank} max={100} barClassName={rankBarClass(displayRank)} />
       </div>
-      <span className="text-xs font-mono w-16 text-right shrink-0">{value}</span>
-      <span className={"text-xs font-mono w-12 text-right shrink-0 " + (rankBarClass(displayRank).replace("bg-", "text-").replace("-500", "-600").replace("-400", "-500"))}>
+      <span className="text-xs font-mono w-12 sm:w-16 text-right shrink-0">{value}</span>
+      <span className={"hidden sm:inline text-xs font-mono w-12 text-right shrink-0 " + (rankBarClass(displayRank).replace("bg-", "text-").replace("-500", "-600").replace("-400", "-500"))}>
         {"(" + ordinal(Math.round(rank)) + ")"}
       </span>
     </div>

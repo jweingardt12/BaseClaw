@@ -145,7 +145,7 @@ export function PlayerRow({ player, columns, statKeys, app, navigate, context, a
           </TableCell>
         )}
 
-        <TableCell className="font-medium">
+        <TableCell className="font-medium min-w-0">
           <PlayerCell player={player} app={app} navigate={navigate} context={context} />
         </TableCell>
 

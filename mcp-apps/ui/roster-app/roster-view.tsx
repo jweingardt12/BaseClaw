@@ -88,11 +88,11 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
             <Table className="w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead style={{ width: 60, paddingLeft: 12, paddingRight: 8 }}>Pos</TableHead>
-                  <TableHead style={{ paddingLeft: 8, paddingRight: 8 }}>Player</TableHead>
-                  <TableHead style={{ width: 88, paddingLeft: 8, paddingRight: 8 }}>Today</TableHead>
-                  <TableHead style={{ width: 96, paddingLeft: 8, paddingRight: 8 }}>Signal</TableHead>
-                  <TableHead style={{ width: 88, paddingLeft: 8, paddingRight: 12 }}>Status</TableHead>
+                  <TableHead className="w-12 sm:w-14">Pos</TableHead>
+                  <TableHead>Player</TableHead>
+                  <TableHead className="hidden sm:table-cell w-20">Today</TableHead>
+                  <TableHead className="w-20 sm:w-24">Signal</TableHead>
+                  <TableHead className="w-16 sm:w-20">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

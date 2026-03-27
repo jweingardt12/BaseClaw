@@ -242,8 +242,14 @@ button, a, [role="button"] {
    ═══════════════════════════════════════════════════ */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--app-space-3);
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--app-space-2);
+}
+@media (min-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--app-space-3);
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -384,14 +390,18 @@ button, a, [role="button"] {
   min-width: 44px;
 }
 
-@media (max-width: 360px) {
+@media (max-width: 400px) {
   body {
     padding: max(2px, env(safe-area-inset-top)) max(2px, env(safe-area-inset-right)) max(2px, env(safe-area-inset-bottom)) max(2px, env(safe-area-inset-left));
   }
 
   .mcp-app-root {
-    padding: 10px;
+    padding: 8px;
     border-radius: 10px;
+  }
+
+  .kpi-grid {
+    gap: 6px;
   }
 }
 

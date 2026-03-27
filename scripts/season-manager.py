@@ -4197,19 +4197,20 @@ def cmd_whats_new(args, as_json=False):
     except Exception as e:
         print("Warning: league activity check failed: " + str(e))
 
-    # 4. Trending players (high ownership delta)
+    # 4. Trending players — surface low-rostered players gaining traction
     try:
         trend_lookup = get_trend_lookup()
         trending = []
-        for name, info in sorted(trend_lookup.items(), key=lambda x: x[1].get("rank", 99)):
-            if info.get("direction") == "added" and info.get("rank", 99) <= 10:
+        for name, info in sorted(trend_lookup.items(), key=lambda x: abs(float(x[1].get("delta", "0").replace("+", "").replace("%", "") or 0)), reverse=True):
+            pct = info.get("percent_owned", 0)
+            if info.get("direction") == "added" and pct < 50:
                 trending.append({
                     "name": name,
                     "direction": "added",
                     "delta": info.get("delta", ""),
-                    "percent_owned": info.get("percent_owned", 0),
+                    "percent_owned": pct,
                 })
-        result["trending"] = trending[:10]
+        result["trending"] = trending[:8]
     except Exception as e:
         print("Warning: trending check failed: " + str(e))
 
@@ -6671,6 +6672,7 @@ def cmd_roster_stats(args, as_json=False):
     """Show stats for every player on a roster for a given period"""
     period = "season"
     week = None
+    date = None
     team_key = None
 
     for arg in args:
@@ -6678,10 +6680,14 @@ def cmd_roster_stats(args, as_json=False):
             period = arg.split("=", 1)[1]
         elif arg.startswith("--week="):
             week = arg.split("=", 1)[1]
+        elif arg.startswith("--date="):
+            date = arg.split("=", 1)[1]
         elif arg.startswith("--team="):
             team_key = arg.split("=", 1)[1]
 
-    if period == "week" and week:
+    if period == "date" and date:
+        req_type = "date"
+    elif period == "week" and week:
         req_type = "week"
     else:
         req_type = period
@@ -6720,7 +6726,9 @@ def cmd_roster_stats(args, as_json=False):
 
         # Fetch stats in batch
         kwargs = {"req_type": req_type}
-        if req_type == "week" and week:
+        if req_type == "date" and date:
+            kwargs["date"] = date
+        elif req_type == "week" and week:
             kwargs["week"] = int(week)
 
         stats = lg.player_stats(player_ids, **kwargs)

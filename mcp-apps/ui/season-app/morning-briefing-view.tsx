@@ -124,6 +124,24 @@ interface MorningBriefingData {
   waiver_pitchers: any;
   edit_date?: string | null;
   ai_recommendation?: string | null;
+  yesterday?: {
+    players: Array<{
+      name: string;
+      position: string;
+      mlb_id?: number;
+      stats: Record<string, any>;
+    }>;
+    period?: string;
+    date?: string;
+  };
+  roster_context?: Array<{
+    name: string;
+    status: string;
+    flags?: string[];
+    injury_severity?: string;
+    latest_headline?: string;
+    reddit?: { mentions: number; sentiment?: string };
+  }>;
 }
 
 function priorityColor(priority: number): string {
@@ -192,6 +210,27 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
   });
   if (contestedCats.length === 0) contestedCats = categories.slice(0, 6);
 
+  // Yesterday's performance — filter to players who actually played, sort by impact
+  var yesterdayPlayers = (data.yesterday?.players || []).filter(function (p) {
+    var s = p.stats || {};
+    return s["H/AB"] && s["H/AB"] !== "-/-" && s["H/AB"] !== "0";
+  }).map(function (p) {
+    var s = p.stats || {};
+    var posType = s.position_type || (["SP","RP","P"].some(function(x) { return (p.position || "").indexOf(x) >= 0; }) ? "P" : "B");
+    var impact = 0;
+    if (posType === "P") {
+      impact = (Number(s.IP) || 0) * 2 + (Number(s.W) || 0) * 5 + (Number(s.QS) || 0) * 4 + (Number(s.K) || 0) - (Number(s.ER) || 0) * 2;
+    } else {
+      impact = (Number(s.HR) || 0) * 4 + (Number(s.RBI) || 0) * 2 + (Number(s.R) || 0) * 2 + (Number(s.H) || 0) + (Number(s.TB) || 0) * 0.5 - (Number(s.K) || 0);
+    }
+    return { ...p, posType: posType, impact: impact };
+  }).sort(function (a, b) { return b.impact - a.impact; });
+
+  // Roster context — news headlines for my players
+  var rosterNews = (data.roster_context || []).filter(function (p) {
+    return p.latest_headline || (p.flags && p.flags.length > 0);
+  });
+
   var handleRefresh = async function () {
     var result = await callTool("yahoo_morning_briefing");
     if (result && result.structuredContent && navigate) {
@@ -237,6 +276,83 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
           </Button>
         )}
       </div>
+
+      {/* Yesterday's Performance */}
+      {yesterdayPlayers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base">Yesterday's Performance</CardTitle>
+              <Badge variant="secondary">{yesterdayPlayers.length} played</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {yesterdayPlayers.slice(0, 8).map(function (p) {
+                var s = p.stats || {};
+                var line = "";
+                if (p.posType === "P") {
+                  var parts: string[] = [];
+                  if (s.IP) parts.push(s.IP + " IP");
+                  if (s.K) parts.push(s.K + " K");
+                  if (s.W) parts.push("W");
+                  if (s.QS) parts.push("QS");
+                  if (s.ER) parts.push(s.ER + " ER");
+                  if (s.HLD) parts.push("HLD");
+                  line = parts.join(", ");
+                } else {
+                  var parts2: string[] = [];
+                  if (s["H/AB"]) parts2.push(s["H/AB"]);
+                  if (s.R) parts2.push(s.R + " R");
+                  if (s.HR) parts2.push(s.HR + " HR");
+                  if (s.RBI) parts2.push(s.RBI + " RBI");
+                  if (s.TB && Number(s.TB) > Number(s.H || 0)) parts2.push(s.TB + " TB");
+                  if (s.NSB && Number(s.NSB) > 0) parts2.push(s.NSB + " SB");
+                  line = parts2.join(", ");
+                }
+                var isGood = p.impact > 3;
+                var isBad = p.impact < 0;
+                return (
+                  <div key={p.name} className="flex items-center gap-2 text-sm py-0.5">
+                    <PlayerName name={p.name} context="roster" />
+                    <span className="text-xs text-muted-foreground">{p.position}</span>
+                    <span className={"text-xs font-mono ml-auto " + (isGood ? "text-sem-success" : isBad ? "text-sem-risk" : "text-muted-foreground")}>{line}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Roster News */}
+      {rosterNews.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-base">Player News</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1.5">
+              {rosterNews.slice(0, 5).map(function (p) {
+                return (
+                  <div key={p.name} className="text-sm">
+                    <span className="font-medium">
+                      <PlayerName name={p.name} context="roster" />
+                    </span>
+                    {p.flags && p.flags.map(function (f) {
+                      return <Badge key={f} variant="secondary" className="ml-1">{f}</Badge>;
+                    })}
+                    {p.latest_headline && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.latest_headline}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Items */}
       {actions.length > 0 && (
@@ -520,26 +636,26 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
         </Card>
       )}
 
-      {/* Trending Players */}
+      {/* Waiver Wire Risers — low-owned players gaining traction */}
       {(whatsNew.trending || []).length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Trending Players</CardTitle>
+            <div className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base">Waiver Wire Risers</CardTitle>
+              <Badge variant="secondary">{"<50% owned"}</Badge>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-1.5">
               {(whatsNew.trending || []).slice(0, 6).map(function (t: WhatsNewTrending) {
                 return (
                   <div key={t.name} className="flex items-center gap-2 text-sm">
-                    {t.direction === "added"
-                      ? <TrendingUp className="h-3.5 w-3.5 text-sem-success" />
-                      : <TrendingDown className="h-3.5 w-3.5 text-sem-risk" />}
+                    <TrendingUp className="h-3.5 w-3.5 text-sem-success" />
                     <span className="font-medium">
                       <PlayerName name={t.name} context="waivers" />
                     </span>
-                    <span className={"text-xs " + (t.direction === "added" ? "text-sem-success" : "text-sem-risk")}>
-                      {t.delta}
-                    </span>
+                    <span className="text-xs text-sem-success">{t.delta}</span>
                     <span className="text-xs text-muted-foreground ml-auto">{t.percent_owned}% owned</span>
                   </div>
                 );

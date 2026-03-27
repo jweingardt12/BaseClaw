@@ -282,6 +282,86 @@ def api_standings():
         lambda: yahoo_fantasy.cmd_standings([], as_json=True), 60)
 
 
+@app.route("/api/standings-detailed")
+def api_standings_detailed():
+    """Standings with per-team category stat values from current week matchups."""
+    def _build():
+        from shared import get_league
+        sc, gm, lg = get_league()
+        sid_map = lg.stats_id_map
+
+        # Get stat categories to know which stats are scoring categories
+        cats = lg.stat_categories()
+        scoring_names = [c.get("display_name", "") for c in cats]
+
+        # Build reverse map: stat_id -> display_name (only for scoring cats)
+        scoring_set = set(scoring_names)
+        id_to_name = {str(sid): name for sid, name in sid_map.items() if name in scoring_set}
+
+        # Get standings for W-L and rank
+        standings_raw = yahoo_fantasy.cmd_standings([], as_json=True)
+        standings_list = standings_raw.get("standings", [])
+        team_map = {}
+        for s in standings_list:
+            team_map[s.get("team_key", "")] = s
+
+        # Get current week matchups for team stats
+        raw = lg.matchups()
+        fc = raw.get("fantasy_content", {}).get("league", [{}])
+        scoreboard = {}
+        for block in fc:
+            if isinstance(block, dict) and "scoreboard" in block:
+                scoreboard = block.get("scoreboard", {})
+                break
+
+        # Extract all team stats from matchups
+        team_stats = {}
+        matchups_data = scoreboard.get("0", {}).get("matchups", {})
+        for i in range(int(matchups_data.get("count", 20))):
+            matchup_wrapper = matchups_data.get(str(i))
+            if matchup_wrapper is None:
+                break
+            matchup = matchup_wrapper.get("matchup", {})
+            teams_block = matchup.get("0", {}).get("teams", {})
+            for ti in range(2):
+                team_entry = teams_block.get(str(ti))
+                if team_entry is None:
+                    break
+                team_info = team_entry.get("team", [])
+                team_key = ""
+                stats = {}
+                for block in team_info:
+                    if isinstance(block, list):
+                        for item in block:
+                            if isinstance(item, dict) and "team_key" in item:
+                                team_key = item.get("team_key", "")
+                    if isinstance(block, dict) and "team_stats" in block:
+                        raw_stats = block.get("team_stats", {}).get("stats", [])
+                        for stat_entry in raw_stats:
+                            stat = stat_entry.get("stat", {})
+                            sid = str(stat.get("stat_id", ""))
+                            val = stat.get("value", "0")
+                            if sid in id_to_name:
+                                name = id_to_name[sid]
+                                try:
+                                    stats[name] = float(val) if val != "-" else 0
+                                except (ValueError, TypeError):
+                                    stats[name] = 0
+                if team_key:
+                    team_stats[team_key] = stats
+
+        # Merge standings with stats
+        result = []
+        for s in standings_list:
+            tk = s.get("team_key", "")
+            entry = dict(s)
+            entry["stats"] = team_stats.get(tk, {})
+            result.append(entry)
+
+        return {"standings": result, "categories": scoring_names}
+    return _cached_endpoint("standings-detailed", _build, 120)
+
+
 @app.route("/api/info")
 def api_info():
     try:
@@ -413,11 +493,7 @@ def api_transactions():
     tx_type = request.args.get("type", "")
     count = request.args.get("count", "")
     cache_key = "transactions:" + tx_type + ":" + count
-    args = []
-    if tx_type:
-        args.append(tx_type)
-    if count:
-        args.append(count)
+    args = [tx_type or "", count or "25"]
     return _cached_endpoint(cache_key,
         lambda: yahoo_fantasy.cmd_transactions(args, as_json=True), 60)
 
@@ -1791,7 +1867,10 @@ def _synthesize_morning_actions(injury, lineup, whats_new, waiver_b, waiver_p):
 
 
 def _run_briefing():
-    # Run all 7 sub-calls in parallel (dedicated pool to avoid starving _timeout_pool)
+    import datetime
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+
+    # Run all sub-calls in parallel (dedicated pool to avoid starving _timeout_pool)
     futures = {
         "injury": _workflow_pool.submit(_safe_call, season_manager.cmd_injury_report),
         "lineup": _workflow_pool.submit(_safe_call, season_manager.cmd_lineup_optimize),
@@ -1800,6 +1879,7 @@ def _run_briefing():
         "whats_new": _workflow_pool.submit(_safe_call, season_manager.cmd_whats_new),
         "waiver_b": _workflow_pool.submit(_safe_call, season_manager.cmd_waiver_analyze, ["B", "5"]),
         "waiver_p": _workflow_pool.submit(_safe_call, season_manager.cmd_waiver_analyze, ["P", "5"]),
+        "yesterday": _workflow_pool.submit(_safe_call, season_manager.cmd_roster_stats, ["--period=date", "--date=" + yesterday]),
     }
     injury = _get_future(futures["injury"])
     lineup = _get_future(futures["lineup"])
@@ -1808,6 +1888,7 @@ def _run_briefing():
     whats_new = _get_future(futures["whats_new"])
     waiver_b = _get_future(futures["waiver_b"])
     waiver_p = _get_future(futures["waiver_p"])
+    yesterday_stats = _get_future(futures["yesterday"])
 
     action_items = _synthesize_morning_actions(
         injury, lineup, whats_new, waiver_b, waiver_p
@@ -1863,6 +1944,7 @@ def _run_briefing():
         "waiver_pitchers": waiver_p,
         "edit_date": edit_date,
         "roster_context": roster_context,
+        "yesterday": yesterday_stats,
     }
 
 

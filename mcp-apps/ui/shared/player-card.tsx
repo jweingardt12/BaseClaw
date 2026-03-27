@@ -21,9 +21,9 @@ export function PlayerCard({ name, position, positions, status, team, mlbId, per
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
         {mlbId && <Avatar><AvatarImage src={mlbHeadshotUrl(mlbId)} /><AvatarFallback>{name.charAt(0)}</AvatarFallback></Avatar>}
-        <span className="font-medium">{name}</span>
+        <span className="font-medium truncate">{name}</span>
         {posArray.map((p) => <Badge key={p} variant="secondary">{p}</Badge>)}
         {status && status !== "Healthy" && <Badge variant="destructive">{status}</Badge>}
       </div>

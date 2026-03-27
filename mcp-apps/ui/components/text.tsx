@@ -5,7 +5,7 @@ export function Text({ className, ...props }: React.ComponentPropsWithoutRef<'p'
     <p
       data-slot="text"
       {...props}
-      className={cn('text-base/6 text-muted-foreground sm:text-sm/6', className)}
+      className={cn('text-sm/6 text-muted-foreground sm:text-base/6', className)}
     />
   )
 }

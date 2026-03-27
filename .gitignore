@@ -27,3 +27,5 @@ skills/
 skills-lock.json
 data/projections_*.csv
 research_yahoo_write_workaround/
+dashboard/node_modules/
+dashboard/dist/

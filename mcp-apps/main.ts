@@ -80,30 +80,37 @@ async function main() {
       var app = express();
       app.set("trust proxy", 1);
 
-      // Preview app — gated by ENABLE_PREVIEW env var (defaults to false)
-      var enablePreview = process.env.ENABLE_PREVIEW === "true";
       var __dirname = path.dirname(fileURLToPath(import.meta.url));
-      var previewDir = path.join(__dirname, "preview");
 
-      if (enablePreview) {
-        app.use("/preview", express.static(previewDir));
-        app.get("/preview", (_req, res) => {
-          res.sendFile(path.join(previewDir, "preview.html"));
+      // Dashboard app — serve built React SPA at /dashboard
+      var dashboardDir = path.join(__dirname, "..", "dashboard", "dist");
+      if (fs.existsSync(dashboardDir)) {
+        app.use("/dashboard", express.static(dashboardDir));
+        app.get("/dashboard/*", (_req, res) => {
+          res.sendFile(path.join(dashboardDir, "index.html"));
         });
-
-        // API proxy — before auth since Flask binds to 127.0.0.1 (container-internal only)
-        app.use("/api", express.json(), (req, res) => {
-          var url = "http://localhost:8766" + req.originalUrl;
-          var proxyReq = http.request(url, { method: req.method, headers: { "Content-Type": "application/json" } }, (proxyRes) => {
-            res.status(proxyRes.statusCode || 500);
-            proxyRes.pipe(res);
-          });
-          proxyReq.on("error", () => res.status(502).json({ error: "Python API unavailable" }));
-          if (req.method === "POST" && req.body) proxyReq.write(JSON.stringify(req.body));
-          proxyReq.end();
-        });
-        console.log("Preview app enabled at /preview");
+        console.log("Dashboard app enabled at /dashboard");
       }
+
+      // API proxy to Python backend (before auth — Flask binds to 127.0.0.1)
+      app.use("/api", (req, res) => {
+        var url = "http://localhost:8766" + req.originalUrl;
+        var fwd = Object.assign({}, req.headers);
+        delete fwd.host;
+        delete fwd["content-length"];
+        delete fwd["transfer-encoding"];
+        var proxyReq = http.request(url, { method: req.method, headers: fwd }, (proxyRes) => {
+          res.status(proxyRes.statusCode || 500);
+          for (var h of ["content-type", "cache-control", "content-length"]) {
+            if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h] as string);
+          }
+          proxyRes.pipe(res);
+        });
+        proxyReq.on("error", () => {
+          if (!res.headersSent) res.status(502).json({ error: "Python API unavailable" });
+        });
+        req.pipe(proxyReq);
+      });
 
       app.use(express.json());
 

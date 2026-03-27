@@ -22,7 +22,7 @@ export function ComparisonBar({ label, leftValue, rightValue, result, leftLabel,
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between gap-1 text-xs">
         <span className={"font-medium " + colors.leftText}>
           {leftLabel ? leftLabel + " " : ""}{leftValue}
         </span>

@@ -1,3 +1,12 @@
+# Stage 0: Build dashboard React app
+FROM node:22-slim AS dashboard-build
+
+WORKDIR /app/dashboard
+COPY dashboard/package.json dashboard/package-lock.json ./
+RUN npm ci
+COPY dashboard/ .
+RUN npm run build
+
 # Stage 1: Build TypeScript MCP server + UI apps
 FROM node:22-slim AS build
 
@@ -9,8 +18,7 @@ RUN npm ci
 COPY mcp-apps/tsconfig.json mcp-apps/vite.config.ts mcp-apps/build-ui.js ./
 COPY mcp-apps/src/ src/
 COPY mcp-apps/ui/ ui/
-COPY mcp-apps/server.ts mcp-apps/main.ts mcp-apps/preview.html ./
-COPY mcp-apps/vite.preview.build.config.ts ./
+COPY mcp-apps/server.ts mcp-apps/main.ts ./
 COPY mcp-apps/assets/ assets/
 
 RUN npm run build
@@ -42,6 +50,9 @@ RUN cd /app/mcp-apps && npm ci --omit=dev
 
 # Copy built Node artifacts
 COPY --from=build /app/mcp-apps/dist /app/mcp-apps/dist
+
+# Copy built dashboard
+COPY --from=dashboard-build /app/dashboard/dist /app/dashboard/dist
 
 # Copy Python scripts
 COPY scripts/ /app/scripts/

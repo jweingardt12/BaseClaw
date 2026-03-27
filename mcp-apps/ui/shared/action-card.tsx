@@ -22,7 +22,7 @@ interface ActionCardProps {
 
 export function ActionCard({ icon, title, description, buttonText, onClick, urgency = "info", loading, className, children }: ActionCardProps) {
   return (
-    <div className={cn("surface-card p-4 border-l-4", URGENCY_BORDER[urgency] || URGENCY_BORDER.info, className)}>
+    <div className={cn("surface-card px-3 py-2.5 sm:p-4 border-l-4", URGENCY_BORDER[urgency] || URGENCY_BORDER.info, className)}>
       <div className="flex items-center gap-3">
         {icon && <div className="shrink-0">{icon}</div>}
         <div className="flex-1 min-w-0">

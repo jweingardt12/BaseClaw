@@ -10,7 +10,7 @@ export function Heading({ className, level = 1, ...props }: HeadingProps) {
   return (
     <Element
       {...props}
-      className={cn('text-2xl/8 font-semibold text-foreground sm:text-xl/8', className)}
+      className={cn('text-lg/7 font-semibold text-foreground sm:text-xl/8', className)}
     />
   )
 }
@@ -21,7 +21,7 @@ export function Subheading({ className, level = 2, ...props }: HeadingProps) {
   return (
     <Element
       {...props}
-      className={cn('text-base/7 font-semibold text-foreground sm:text-sm/6', className)}
+      className={cn('text-sm/6 font-semibold text-foreground sm:text-base/7', className)}
     />
   )
 }

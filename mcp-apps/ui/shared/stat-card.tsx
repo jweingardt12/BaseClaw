@@ -36,14 +36,14 @@ export function StatCard({
   return (
     <div
       className={
-        "rounded-lg border border-border bg-card p-3 " + borderCls +
+        "rounded-lg border border-border bg-card px-3 py-2.5 min-w-0 " + borderCls +
         (className ? " " + className : "")
       }
     >
-      <div className="text-2xl font-bold leading-none tabular-nums">
+      <div className="truncate text-xs text-muted-foreground">{label}</div>
+      <div className="text-xl font-bold leading-tight tabular-nums mt-0.5">
         {value}
       </div>
-      <div className="text-xs text-muted-foreground mt-1.5">{label}</div>
       {trend && (
         <div className={
           "text-xs font-medium mt-1 " +
