@@ -896,6 +896,235 @@ def _optimize_lineup_greedy(roster, active_slots, day_scores):
     }
 
 
+# ============================================================
+# Strategic Intelligence Helpers
+# ============================================================
+
+def _get_category_trajectory(db):
+    """Analyze category rank trends from stored history.
+    Returns dict: {cat_name: {current_rank, trend, projected_rank, weeks_declining, alert, values}}
+    """
+    rows = db.execute(
+        "SELECT week, category, value, rank FROM category_history ORDER BY week"
+    ).fetchall()
+    if not rows:
+        return {}
+
+    # Group by category
+    by_cat = {}
+    for week, cat, value, rank in rows:
+        if cat not in by_cat:
+            by_cat[cat] = []
+        by_cat[cat].append({"week": week, "value": value, "rank": rank})
+
+    result = {}
+    for cat, points in by_cat.items():
+        if len(points) < 1:
+            continue
+        current = points[-1]
+        current_rank = current["rank"]
+
+        # Trend: compare last 3 data points
+        if len(points) >= 3:
+            recent = [p["rank"] for p in points[-3:]]
+            if recent[-1] < recent[0]:
+                trend = "improving"
+            elif recent[-1] > recent[0]:
+                trend = "declining"
+            else:
+                trend = "stable"
+        elif len(points) >= 2:
+            if points[-1]["rank"] < points[-2]["rank"]:
+                trend = "improving"
+            elif points[-1]["rank"] > points[-2]["rank"]:
+                trend = "declining"
+            else:
+                trend = "stable"
+        else:
+            trend = "stable"
+
+        # Projected rank at season end (simple linear regression on rank)
+        projected_rank = current_rank
+        if len(points) >= 3:
+            n = len(points)
+            x_vals = list(range(n))
+            y_vals = [p["rank"] for p in points]
+            x_mean = sum(x_vals) / n
+            y_mean = sum(y_vals) / n
+            num = sum((x_vals[i] - x_mean) * (y_vals[i] - y_mean) for i in range(n))
+            den = sum((x_vals[i] - x_mean) ** 2 for i in range(n))
+            if den > 0:
+                slope = num / den
+                # Project forward ~10 more weeks
+                projected_rank = max(1, min(12, round(y_mean + slope * (n + 10 - x_mean))))
+
+        # Count consecutive declining weeks
+        weeks_declining = 0
+        for i in range(len(points) - 1, 0, -1):
+            if points[i]["rank"] > points[i - 1]["rank"]:
+                weeks_declining += 1
+            else:
+                break
+
+        alert = weeks_declining >= 3 or (trend == "declining" and projected_rank >= 10)
+
+        result[cat] = {
+            "current_rank": current_rank,
+            "current_value": current["value"],
+            "trend": trend,
+            "projected_rank": projected_rank,
+            "weeks_declining": weeks_declining,
+            "alert": alert,
+            "history": [{"week": p["week"], "rank": p["rank"]} for p in points[-8:]],
+        }
+
+    return result
+
+
+def _get_season_context(lg):
+    """Return season phase context for weighting recommendations.
+    Phases: observation (weeks 1-4), adjustment (5-12), midseason, stretch (last 6 weeks).
+    """
+    try:
+        current_week = lg.current_week()
+    except Exception:
+        current_week = 1
+    try:
+        settings = lg.settings()
+        end_week = int(settings.get("end_week", 22))
+    except Exception:
+        end_week = 22
+
+    weeks_remaining = max(1, end_week - current_week)
+    total_weeks = max(1, end_week)
+    pct_complete = round((current_week / total_weeks) * 100)
+
+    if current_week <= 4:
+        phase = "observation"
+        patience = "high"
+        urgency = "low"
+        phase_note = ("Week " + str(current_week) + " (observation): Small sample sizes "
+                      + "— resist overreacting to early stats. Focus on building roster "
+                      + "depth and identifying buy-low targets.")
+        min_pa = 150
+        z_threshold = 0.5
+    elif current_week <= 12:
+        phase = "adjustment"
+        patience = "medium"
+        urgency = "medium"
+        phase_note = ("Week " + str(current_week) + " (adjustment): Buy-low window is open "
+                      + "— target underperformers with strong underlying metrics. "
+                      + "Trade for players others are giving up on too early.")
+        min_pa = 100
+        z_threshold = 0.3
+    elif weeks_remaining <= 6:
+        phase = "stretch"
+        patience = "low"
+        urgency = "high"
+        phase_note = ("Week " + str(current_week) + " (stretch run): Every move matters for "
+                      + "playoff positioning. Target immediate contributors. "
+                      + str(weeks_remaining) + " weeks remaining.")
+        min_pa = 0
+        z_threshold = 0.1
+    else:
+        phase = "midseason"
+        patience = "medium"
+        urgency = "medium"
+        phase_note = ("Week " + str(current_week) + " (midseason): Balance long-term value "
+                      + "with current needs. Monitor category trends closely.")
+        min_pa = 50
+        z_threshold = 0.2
+
+    return {
+        "phase": phase,
+        "week": current_week,
+        "end_week": end_week,
+        "weeks_remaining": weeks_remaining,
+        "pct_complete": pct_complete,
+        "patience": patience,
+        "urgency": urgency,
+        "phase_note": phase_note,
+        "min_pa": min_pa,
+        "z_threshold": z_threshold,
+    }
+
+
+def _compute_sgp_values(standings, categories):
+    """Compute standings-gain-point value for each category.
+    SGP = average gap between adjacent teams for each stat.
+    Returns dict: {cat_name: {sgp, marginal_value, my_rank, gap_to_next}}.
+    """
+    if not standings or not categories:
+        return {}
+
+    # Build per-team category values from standings
+    all_stats = {}
+    my_team_stats = {}
+    for t in standings:
+        team_name = t.get("name", "")
+        stats = t.get("stats", {})
+        if stats:
+            all_stats[team_name] = stats
+            # Detect if this is the user's team (first in standings usually has a marker)
+            if t.get("is_mine"):
+                my_team_stats = stats
+
+    if not all_stats:
+        return {}
+
+    result = {}
+    num_teams = len(all_stats)
+    for cat in categories:
+        vals = []
+        for team_name, stats in all_stats.items():
+            v = stats.get(cat)
+            if v is not None:
+                try:
+                    vals.append(float(v))
+                except (ValueError, TypeError):
+                    pass
+
+        if len(vals) < 2:
+            continue
+
+        vals_sorted = sorted(vals, reverse=True)
+        # SGP = average gap between adjacent teams
+        gaps = [vals_sorted[i] - vals_sorted[i + 1] for i in range(len(vals_sorted) - 1)]
+        sgp = sum(gaps) / len(gaps) if gaps else 1.0
+        marginal = 1.0 / sgp if sgp > 0.001 else 0
+
+        # Where does my team rank?
+        my_val = 0
+        if my_team_stats:
+            try:
+                my_val = float(my_team_stats.get(cat, 0))
+            except (ValueError, TypeError):
+                pass
+
+        my_rank = 1
+        for v in vals_sorted:
+            if my_val < v:
+                my_rank += 1
+            else:
+                break
+
+        # Gap to next position up
+        gap_to_next = 0
+        if my_rank > 1 and my_rank <= len(vals_sorted):
+            gap_to_next = round(vals_sorted[my_rank - 2] - my_val, 2)
+
+        result[cat] = {
+            "sgp": round(sgp, 3),
+            "marginal_value": round(marginal, 2),
+            "my_rank": my_rank,
+            "my_value": my_val,
+            "gap_to_next": gap_to_next,
+            "num_teams": num_teams,
+        }
+
+    return result
+
+
 def cmd_lineup_optimize(args, as_json=False):
     """Cross-reference roster with MLB schedule to find off-day players"""
     apply_changes = "--apply" in args
@@ -1757,6 +1986,21 @@ def cmd_waiver_analyze(args, as_json=False):
                 bonus = POS_BONUS.get(pos_str, 0)
                 if bonus > 0:
                     score += bonus * 3.0
+
+            # Season phase adjustment
+            try:
+                ctx = _get_season_context(lg)
+                if ctx.get("phase") == "observation":
+                    # Early season: penalize small-sample players, prefer proven talent
+                    score *= 0.85  # Slight discount — don't churn roster early
+                elif ctx.get("phase") == "stretch":
+                    # Stretch run: boost immediate contributors
+                    if pct and float(pct) > 50:
+                        score *= 1.15  # Widely rostered = more proven
+                    if status and status not in ("", "Healthy"):
+                        score *= 0.3  # Don't add injured players in stretch
+            except Exception:
+                pass
         else:
             # Fallback: use ownership as rough proxy
             score = float(pct) if pct else 0
@@ -1856,12 +2100,20 @@ def cmd_waiver_analyze(args, as_json=False):
                 recs_clean.append(rec)
         recs = recs_clean
 
+        # Season phase context for UI
+        season_ctx = {}
+        try:
+            season_ctx = _get_season_context(lg)
+        except Exception:
+            pass
+
         return {
             "pos_type": pos_type,
             "weak_categories": weak_list,
             "recommendations": recs,
             "drop_candidates": drop_candidates[:5],
             "filtered_dealbreakers": filtered_waiver,
+            "season_context": season_ctx,
         }
 
     print("Top " + str(count) + " Waiver Recommendations (Z-Score Based):")

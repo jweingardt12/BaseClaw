@@ -1942,6 +1942,39 @@ def _run_briefing():
     except Exception as e:
         print("Warning: roster context for morning briefing failed: " + str(e))
 
+    # Season phase context
+    season_ctx = {}
+    try:
+        if not _lg:
+            _sc, _gm, _lg = yahoo_fantasy.get_league()
+        season_ctx = season_manager._get_season_context(_lg)
+    except Exception as e:
+        season_ctx = {"phase": "midseason", "phase_note": "", "week": 1}
+        print("Warning: season context failed: " + str(e))
+
+    # Category trajectory from stored history
+    cat_trajectory = {}
+    try:
+        db = season_manager._get_db()
+        cat_trajectory = season_manager._get_category_trajectory(db)
+    except Exception as e:
+        print("Warning: category trajectory failed: " + str(e))
+
+    # Add trajectory-based alerts to action items
+    for cat_name, traj in cat_trajectory.items():
+        if traj.get("alert"):
+            action_items.append({
+                "priority": 2,
+                "type": "category_alert",
+                "message": cat_name + " rank declining for "
+                    + str(traj.get("weeks_declining", 0)) + " weeks ("
+                    + str(traj.get("history", [{}])[0].get("rank", "?"))
+                    + " -> " + str(traj.get("current_rank", "?"))
+                    + "). Projected: " + str(traj.get("projected_rank", "?"))
+                    + "th by season end. Target " + cat_name + " contributors.",
+            })
+    action_items.sort(key=lambda a: a.get("priority", 99))
+
     return {
         "action_items": action_items,
         "injury": injury,
@@ -1954,6 +1987,8 @@ def _run_briefing():
         "edit_date": edit_date,
         "roster_context": roster_context,
         "yesterday": yesterday_stats,
+        "season_context": season_ctx,
+        "category_trajectory": cat_trajectory,
     }
 
 

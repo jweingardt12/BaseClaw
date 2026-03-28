@@ -11,7 +11,7 @@ import { TeamLogo } from "../shared/team-logo";
 import { IntelBadge } from "../shared/intel-badge";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
-import { ComparisonBar } from "../shared/comparison-bar";
+import { CategoryTable } from "../shared/comparison-bar";
 import {
   Swords, AlertTriangle, CheckSquare, Target, Shield, Lock, XCircle,
   TrendingUp, TrendingDown, ArrowRightLeft, UserPlus, Loader2, RefreshCw,
@@ -98,6 +98,10 @@ interface MorningBriefingData {
     week: string | number;
     my_team: string;
     opponent: string;
+    my_team_logo?: string;
+    opp_team_logo?: string;
+    my_manager_image?: string;
+    opp_manager_image?: string;
     score: { wins: number; losses: number; ties: number };
     categories: MatchupCategory[];
   };
@@ -124,6 +128,21 @@ interface MorningBriefingData {
   waiver_pitchers: any;
   edit_date?: string | null;
   ai_recommendation?: string | null;
+  season_context?: {
+    phase: string;
+    week: number;
+    weeks_remaining: number;
+    pct_complete: number;
+    urgency: string;
+    phase_note: string;
+  };
+  category_trajectory?: Record<string, {
+    current_rank: number;
+    trend: string;
+    projected_rank: number;
+    weeks_declining: number;
+    alert: boolean;
+  }>;
   yesterday?: {
     players: Array<{
       name: string;
@@ -191,6 +210,8 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
   var injury = data.injury || {} as any;
   var lineup = data.lineup || {} as any;
   var whatsNew = data.whats_new || {} as any;
+  var seasonCtx = data.season_context || {} as any;
+  var catTrajectory = data.category_trajectory || {};
 
   var score = matchup.score || { wins: 0, losses: 0, ties: 0 };
   var strat = (strategy.strategy || { target: [], protect: [], concede: [], lock: [] }) as { target: string[]; protect: string[]; concede: string[]; lock: string[] };
@@ -254,14 +275,22 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
       {matchup.opponent && (
         <Card>
           <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{"Week " + (matchup.week || "")}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">vs. <span className="font-semibold text-foreground">{matchup.opponent}</span></p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold text-center mb-2">{"Week " + (matchup.week || "")}</p>
+            <div className="flex items-center justify-between gap-2">
+              {/* My team */}
+              <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
+                {matchup.my_team_logo && <img src={matchup.my_team_logo} alt="" className="w-10 h-10 rounded-md" />}
+                <span className="text-[10px] font-semibold text-muted-foreground truncate max-w-[80px] text-center">{matchup.my_team || "You"}</span>
               </div>
-              <div className={"flex flex-col items-center rounded-lg px-3 py-1.5 border " + (score.wins > score.losses ? "bg-sem-success-subtle border-sem-success-border" : score.losses > score.wins ? "bg-sem-risk-subtle border-sem-risk-border" : "bg-sem-warning-subtle border-sem-warning-border")}>
+              {/* Score */}
+              <div className={"flex flex-col items-center rounded-lg px-3 py-1.5 border shrink-0 " + (score.wins > score.losses ? "bg-sem-success-subtle border-sem-success-border" : score.losses > score.wins ? "bg-sem-risk-subtle border-sem-risk-border" : "bg-sem-warning-subtle border-sem-warning-border")}>
                 <span className={"text-2xl font-bold font-mono leading-none tabular-nums " + (score.wins > score.losses ? "text-sem-success" : score.losses > score.wins ? "text-sem-risk" : "text-sem-warning")}>{score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "")}</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">{score.wins > score.losses ? "Leading" : score.losses > score.wins ? "Trailing" : "Tied"}</span>
+              </div>
+              {/* Opponent */}
+              <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
+                {matchup.opp_team_logo && <img src={matchup.opp_team_logo} alt="" className="w-10 h-10 rounded-md" />}
+                <span className="text-[10px] font-semibold text-muted-foreground truncate max-w-[80px] text-center">{matchup.opponent || "Opp"}</span>
               </div>
             </div>
             {/* Compact alerts row */}
@@ -283,12 +312,52 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
         </Card>
       )}
 
+      {/* Season Phase Note */}
+      {seasonCtx.phase_note && (
+        <p className="text-xs text-muted-foreground leading-relaxed italic">{seasonCtx.phase_note}</p>
+      )}
+
+      {/* Category Trajectory Alerts */}
+      {Object.keys(catTrajectory).length > 0 && (function () {
+        var declining = Object.entries(catTrajectory).filter(function (e) { return e[1].alert || e[1].trend === "declining"; });
+        if (declining.length === 0) return null;
+        return (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="h-4 w-4 text-sem-risk" />
+                <Subheading>Category Trends</Subheading>
+              </div>
+              <div className="space-y-1.5">
+                {declining.map(function (entry) {
+                  var cat = entry[0];
+                  var t = entry[1];
+                  return (
+                    <div key={cat} className={"flex items-center justify-between py-1 border-b border-border/30 last:border-0 " + (t.alert ? "text-sem-risk" : "text-sem-warning")}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold">{cat}</span>
+                        <span className="text-[10px] text-muted-foreground">{t.weeks_declining > 0 ? t.weeks_declining + "w declining" : "declining"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-mono">{t.current_rank + "th"}</span>
+                        <span className="text-muted-foreground">{"\u2192"}</span>
+                        <span className={"font-mono font-bold " + (t.projected_rank >= 10 ? "text-sem-risk" : "")}>{t.projected_rank + "th"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-primary" />
           <Subheading>Morning Briefing</Subheading>
-          {matchup.week && <Badge variant="secondary">Week {matchup.week}</Badge>}
+          {matchup.week && <Badge variant="secondary">{"Wk " + matchup.week + (seasonCtx.phase ? " \u00B7 " + seasonCtx.phase.charAt(0).toUpperCase() + seasonCtx.phase.slice(1) : "")}</Badge>}
         </div>
         {app && (
           <Button variant="outline" size="xs" onClick={handleRefresh} disabled={loading}>
@@ -442,21 +511,7 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
               <Swords className="h-4 w-4 text-primary" />
               <Subheading>Categories</Subheading>
             </div>
-            <div className="space-y-1.5">
-              {categories.map(function (c) {
-                return (
-                  <ComparisonBar
-                    key={c.name}
-                    label={c.name}
-                    leftValue={c.my_value}
-                    rightValue={c.opp_value}
-                    result={c.result}
-                    leftLabel="You"
-                    rightLabel="Opp"
-                  />
-                );
-              })}
-            </div>
+            <CategoryTable categories={categories} myTeam={matchup.my_team} opponent={matchup.opponent} myLogo={matchup.my_team_logo} oppLogo={matchup.opp_team_logo} />
           </CardContent>
         </Card>
       )}

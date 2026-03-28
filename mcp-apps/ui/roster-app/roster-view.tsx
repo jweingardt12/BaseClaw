@@ -9,8 +9,6 @@ import { EmptyMessage } from "@/shared/empty-message";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerRowData } from "../shared/player-row";
 import { TeamLogo } from "../shared/team-logo";
-import { IntelPanel } from "../shared/intel-panel";
-import { mlbHeadshotUrl } from "../shared/mlb-images";
 
 /* ── Position color map ──────────────────────────────────── */
 
@@ -44,8 +42,8 @@ interface RosterData {
 
 export function RosterView({ data, app, navigate }: { data: RosterData; app: any; navigate: (data: any) => void }) {
   var { callTool, loading } = useCallTool(app);
-  var [selectedPlayer, setSelectedPlayer] = useState<PlayerRowData | null>(null);
   var [dropTarget, setDropTarget] = useState<PlayerRowData | null>(null);
+  var [loadingPlayer, setLoadingPlayer] = useState<string | null>(null);
   var [activeTab, setActiveTab] = useState("batters");
 
   var players = data.players || [];
@@ -60,8 +58,26 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
     if (!dropTarget) return;
     var result = await callTool("yahoo_drop", { player_id: dropTarget.player_id });
     setDropTarget(null);
-    setSelectedPlayer(null);
     if (result) { navigate(result.structuredContent); }
+  };
+
+  var handlePlayerTap = async function (p: PlayerRowData) {
+    if (loadingPlayer) return;
+    setLoadingPlayer(p.name);
+    try {
+      var result = await app.callServerTool({ name: "yahoo_player_intel", arguments: { player: p.name } });
+      if (result && result.structuredContent) {
+        navigate(result.structuredContent);
+      }
+    } catch (_e) {
+      // Fallback: open FanGraphs
+      if (app && app.openLink) {
+        var slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        app.openLink("https://www.fangraphs.com/players/" + slug);
+      }
+    } finally {
+      setLoadingPlayer(null);
+    }
   };
 
   return (
@@ -110,8 +126,8 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
                     <TableRow
                       key={p.player_id || p.name}
                       style={{ minHeight: 52, cursor: "pointer" }}
-                      onClick={function () { setSelectedPlayer(p); }}
-                      className="hover:bg-[var(--color-surface-2)] transition-colors"
+                      onClick={function () { handlePlayerTap(p); }}
+                      className={"hover:bg-[var(--color-surface-2)] transition-colors " + (loadingPlayer === p.name ? "opacity-60" : "")}
                     >
                       <TableCell style={{ paddingLeft: 12, paddingRight: 8, verticalAlign: "middle" }}>
                         <Badge
@@ -126,7 +142,10 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
                         <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
                           {p.team && <TeamLogo abbrev={p.team} size={20} />}
                           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                            <span style={{ fontWeight: 500 }}>{p.name}</span>
+                            <span style={{ fontWeight: 500 }}>
+                              {loadingPlayer === p.name && <LoadingIndicator size={12} className="inline mr-1" />}
+                              {p.name}
+                            </span>
                             {elig.length > 0 && (
                               <span style={{ fontSize: 11, color: "var(--color-text-tertiary)", lineHeight: 1 }}>
                                 {elig.join(", ")}
@@ -181,26 +200,6 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
         {injuredCount > 0 ? " \u00B7 " + injuredCount + " injured" : ""}
       </div>
 
-      {/* Player card dialog */}
-      <Dialog
-        open={selectedPlayer !== null}
-        onOpenChange={function (open) { if (!open) setSelectedPlayer(null); }}
-      >
-        {selectedPlayer && (
-          <DialogContent className="max-w-[520px]">
-            <PlayerCard
-              player={selectedPlayer}
-              app={app}
-              navigate={navigate}
-              onDrop={function () {
-                setDropTarget(selectedPlayer);
-              }}
-              loading={loading}
-            />
-          </DialogContent>
-        )}
-      </Dialog>
-
       {/* Drop confirmation */}
       <Dialog open={dropTarget !== null} onOpenChange={function (open) { if (!open) setDropTarget(null); }}>
         <DialogContent>
@@ -225,123 +224,6 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
   );
 }
 
-/* ── Player card (shown in dialog) ───────────────────────── */
-
-function PlayerCard({ player, app, navigate, onDrop, loading }: {
-  player: PlayerRowData;
-  app: any;
-  navigate: (data: any) => void;
-  onDrop: () => void;
-  loading: boolean;
-}) {
-  var pos = player.position || "?";
-  var elig = player.eligible_positions || [];
-  var hasStatus = player.status && player.status !== "Healthy";
-  var tier = player.intel && player.intel.statcast && player.intel.statcast.quality_tier || null;
-  var hotCold = player.intel && player.intel.trends && player.intel.trends.hot_cold || null;
-  var trendInfo = hotCold && TREND_DISPLAY[hotCold] ? TREND_DISPLAY[hotCold] : null;
-  var stats = player.stats || {};
-  var statKeys = Object.keys(stats);
-  var headshot = player.mlb_id ? mlbHeadshotUrl(player.mlb_id) : null;
-
-  return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex gap-3 items-start px-4 pt-4">
-        <div className="size-14 rounded-xl overflow-hidden shrink-0 bg-muted flex items-center justify-center">
-          {headshot ? (
-            <img src={headshot} alt={player.name} className="size-14 object-cover" onError={function (e: any) { e.target.style.display = "none"; }} />
-          ) : player.team ? (
-            <TeamLogo abbrev={player.team} size={40} />
-          ) : (
-            <span className="text-2xl font-bold text-muted-foreground">{player.name.charAt(0)}</span>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-lg font-bold leading-tight truncate">{player.name}</p>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            {player.team && <TeamLogo abbrev={player.team} size={16} />}
-            <span className="text-sm text-muted-foreground">{player.team || ""}</span>
-            <span className="text-sm text-muted-foreground">{"\u00B7"}</span>
-            <Badge variant="secondary" className="font-mono font-bold">{pos}</Badge>
-            {elig.length > 0 && (
-              <span className="text-xs text-muted-foreground">{"(" + elig.join(", ") + ")"}</span>
-            )}
-          </div>
-          <div className="flex gap-1.5 mt-2 flex-wrap">
-            {hasStatus && <Badge variant="destructive">{player.status}</Badge>}
-            {tier && <Badge variant="secondary" className="font-mono uppercase">{tier}</Badge>}
-            {trendInfo && <Badge variant={trendInfo.variant}>{trendInfo.label}</Badge>}
-            {player.opponent && <Badge variant="outline">{player.opponent}</Badge>}
-          </div>
-        </div>
-      </div>
-
-      {/* Ownership row */}
-      {(player.percent_owned != null || player.preseason_pick != null) && (
-        <div className="flex items-center gap-4 px-4 flex-wrap">
-          {player.percent_owned != null && (
-            <span className="text-xs"><span className="text-muted-foreground">Owned: </span><span className="font-semibold">{player.percent_owned + "%"}</span></span>
-          )}
-          {player.percent_started != null && (
-            <span className="text-xs"><span className="text-muted-foreground">Started: </span><span className="font-semibold">{player.percent_started + "%"}</span></span>
-          )}
-          {player.preseason_pick != null && (
-            <span className="text-xs"><span className="text-muted-foreground">ADP: </span><span className="font-semibold">{player.preseason_pick}</span></span>
-          )}
-        </div>
-      )}
-
-      {/* Season stats */}
-      {statKeys.length > 0 && (
-        <div className="px-4">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Season Stats</h4>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-1.5">
-            {statKeys.map(function (key) {
-              return (
-                <div key={key} className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
-                  <div className="text-sm font-bold tabular-nums">{String(stats[key])}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{key}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Intel panel */}
-      {player.intel && (
-        <div className="px-4">
-          <IntelPanel intel={player.intel} defaultExpanded={true} />
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 px-4 pb-4 flex-wrap">
-        {app && app.sendMessage && (
-          <Button variant="secondary" size="sm" onClick={function () {
-            app.sendMessage("Tell me about " + player.name + " — Statcast, trends, and fantasy outlook");
-          }}>Ask Claude</Button>
-        )}
-        {app && app.openLink && player.player_id && (
-          <Button variant="outline" size="sm" onClick={function () {
-            app.openLink("https://sports.yahoo.com/mlb/players/" + player.player_id);
-          }}>Yahoo</Button>
-        )}
-        {app && app.openLink && player.mlb_id && (
-          <Button variant="outline" size="sm" onClick={function () {
-            app.openLink("https://baseballsavant.mlb.com/savant-player/" + player.mlb_id);
-          }}>Savant</Button>
-        )}
-        <div className="flex-1" />
-        <Button variant="ghost" size="sm" className="text-sem-risk" onClick={onDrop} disabled={loading}>
-          {loading ? <LoadingIndicator size={14} /> : null}
-          Drop
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 /* ── Opponent display ────────────────────────────────────── */
 
