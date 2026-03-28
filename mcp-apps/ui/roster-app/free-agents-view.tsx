@@ -18,6 +18,63 @@ function getPositions(p: PlayerRowData): string {
   return "";
 }
 
+function dig(obj: any, path: string): any {
+  var parts = path.split(".");
+  var cur = obj;
+  for (var i = 0; i < parts.length; i++) {
+    if (cur == null) return null;
+    cur = cur[parts[i]];
+  }
+  return cur;
+}
+
+function fmt(val: any, decimals?: number): string {
+  if (val == null) return "-";
+  if (typeof val === "number") return decimals != null ? val.toFixed(decimals) : String(val);
+  return String(val);
+}
+
+/* ── Stat view definitions ────────────────────────────────── */
+
+interface StatDef { label: string; path: string; decimals?: number; suffix?: string; pctPath?: string }
+
+var BATTER_STATCAST: StatDef[] = [
+  { label: "xwOBA", path: "intel.statcast.expected.xwoba", decimals: 3, pctPath: "intel.statcast.expected.xwoba_pct" },
+  { label: "EV", path: "intel.statcast.batted_ball.avg_exit_velo", decimals: 1 },
+  { label: "Brl%", path: "intel.statcast.batted_ball.barrel_pct", decimals: 1, suffix: "%", pctPath: "intel.statcast.batted_ball.barrel_pct_rank" },
+  { label: "Spd", path: "intel.statcast.speed.sprint_speed", decimals: 1 },
+  { label: "BatSpd", path: "intel.statcast.bat_tracking.bat_speed", decimals: 1 },
+];
+
+var PITCHER_STATCAST: StatDef[] = [
+  { label: "xwOBA", path: "intel.statcast.expected.xwoba", decimals: 3, pctPath: "intel.statcast.expected.xwoba_pct" },
+  { label: "EV", path: "intel.statcast.batted_ball.avg_exit_velo", decimals: 1 },
+  { label: "Brl%", path: "intel.statcast.batted_ball.barrel_pct", decimals: 1, suffix: "%" },
+  { label: "Stuff+", path: "intel.statcast.stuff_plus", decimals: 0 },
+];
+
+var BATTER_PROCESS: StatDef[] = [
+  { label: "K%", path: "intel.discipline.k_rate", decimals: 1, suffix: "%" },
+  { label: "BB%", path: "intel.discipline.bb_rate", decimals: 1, suffix: "%" },
+  { label: "O-Sw%", path: "intel.discipline.o_swing_pct", decimals: 1, suffix: "%" },
+  { label: "BABIP", path: "advanced.babip", decimals: 3 },
+  { label: "HR/FB", path: "advanced.hr_fb_rate", decimals: 1, suffix: "%" },
+];
+
+var PITCHER_PROCESS: StatDef[] = [
+  { label: "K%", path: "intel.discipline.k_rate", decimals: 1, suffix: "%" },
+  { label: "BB%", path: "intel.discipline.bb_rate", decimals: 1, suffix: "%" },
+  { label: "SIERA", path: "advanced.siera", decimals: 2 },
+  { label: "BABIP", path: "advanced.babip", decimals: 3 },
+  { label: "LOB%", path: "advanced.lob_pct", decimals: 1, suffix: "%" },
+];
+
+var PITCHER_POS = new Set(["SP", "RP", "P"]);
+function isPitcherPlayer(p: PlayerRowData): boolean {
+  var positions = getPositions(p);
+  return positions.split(",").some(function (pos) { return PITCHER_POS.has(pos.trim()); });
+}
+
 interface FreeAgentsData {
   type: string;
   pos_type?: string;
@@ -33,6 +90,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
   var [searchQuery, setSearchQuery] = useState("");
   var [addTarget, setAddTarget] = useState<PlayerRowData | null>(null);
   var [activeTab, setActiveTab] = useState(data.pos_type || "B");
+  var [statView, setStatView] = useState("overview");
   var players = data.players || data.results || [];
 
   var title = data.type === "search"
@@ -98,6 +156,16 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
         </Button>
       </form>
 
+      {/* Stat view toggle */}
+      <Tabs value={statView} onValueChange={setStatView}>
+        <TabsList className="gap-0.5 h-7">
+          <TabsTrigger value="overview" className="text-[10px] px-2 h-6">Overview</TabsTrigger>
+          <TabsTrigger value="statcast" className="text-[10px] px-2 h-6">Statcast</TabsTrigger>
+          <TabsTrigger value="process" className="text-[10px] px-2 h-6">Process</TabsTrigger>
+          <TabsTrigger value="value" className="text-[10px] px-2 h-6">Value</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="relative">
         {loading && <div className="loading-overlay"><LoadingIndicator size={20} /></div>}
 
@@ -111,17 +179,40 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
               var tier = p.intel && p.intel.statcast && p.intel.statcast.quality_tier || null;
               var hotCold = p.intel && p.intel.trends && p.intel.trends.hot_cold || null;
               var showHotCold = hotCold && hotCold !== "neutral";
-              var zScore = p.z_score != null ? p.z_score : null;
               var pct = p.percent_owned != null ? p.percent_owned : p.pct;
+              var isPit = isPitcherPlayer(p);
+              var gameTime = (p as any).game_time;
+              var gameStatus = (p as any).game_status;
+              var opponent = (p as any).opponent;
+              var gameScore = (p as any).game_score;
+              var gameInning = (p as any).game_inning;
+              var oppAbbrev = opponent ? opponent.replace(/^(vs |@)/, "") : "";
+
+              // Build game status display
+              var gameDisplay = "";
+              if (gameStatus === "In Progress" && gameInning && gameScore) {
+                gameDisplay = gameInning + " \u00B7 " + gameScore;
+              } else if (gameStatus === "Final" && gameScore) {
+                gameDisplay = "Final " + gameScore;
+              } else if (gameTime && opponent) {
+                gameDisplay = gameTime;
+              }
+
+              // Stat view data
+              var statDefs: StatDef[] = [];
+              if (statView === "statcast") {
+                statDefs = isPit ? PITCHER_STATCAST : BATTER_STATCAST;
+              } else if (statView === "process") {
+                statDefs = isPit ? PITCHER_PROCESS : BATTER_PROCESS;
+              }
 
               return (
                 <div key={p.player_id || p.name} className="flex items-center gap-3 py-2.5 px-3">
-                  {/* Player info (tappable) */}
                   <div
                     className="flex-1 min-w-0 cursor-pointer"
                     onClick={function () { handlePlayerTap(p); }}
                   >
-                    {/* Name + indicators */}
+                    {/* Name row */}
                     <div className="flex items-center gap-1.5 min-w-0">
                       {p.team && <TeamLogo abbrev={p.team} size={18} />}
                       <span className="font-medium truncate text-sm">{p.name}</span>
@@ -130,20 +221,65 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                       {hasStatus && <Badge variant="destructive" className="text-[10px] shrink-0 ml-0.5">{p.status}</Badge>}
                     </div>
 
-                    {/* Position + ownership + z-score */}
+                    {/* Info line: position + ownership + game */}
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                       {positions && <span>{positions}</span>}
                       {pct != null && (
                         <span className="inline-flex items-center gap-1">
-                          {pct + "% owned"}
+                          {pct + "%"}
                           {p.trend && <TrendIndicator trend={p.trend} />}
                         </span>
                       )}
-                      {zScore != null && zScore !== 0 && (
-                        <span className="font-mono">{"z=" + (typeof zScore === "number" ? zScore.toFixed(2) : zScore)}</span>
+                      {opponent && (
+                        <span className={"inline-flex items-center gap-1 " + (opponent.indexOf("vs ") === 0 ? "text-sem-success" : "")}>
+                          <TeamLogo abbrev={oppAbbrev} size={10} />
+                          {gameDisplay ? gameDisplay + " " + opponent : opponent}
+                        </span>
                       )}
-                      {p.tier && <Badge variant="secondary" className="text-[9px] h-3.5">{p.tier}</Badge>}
                     </div>
+
+                    {/* Stat view: Overview */}
+                    {statView === "overview" && (
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                        {p.z_score != null && p.z_score !== 0 && (
+                          <span className="font-mono">{"z=" + (typeof p.z_score === "number" ? p.z_score.toFixed(2) : p.z_score)}</span>
+                        )}
+                        {p.tier && <Badge variant="secondary" className="text-[9px] h-3.5">{p.tier}</Badge>}
+                        {(p as any).advanced && (p as any).advanced.babip != null && (
+                          <span className="font-mono">{"BABIP " + fmt((p as any).advanced.babip, 3)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Stat view: Statcast or Process */}
+                    {statDefs.length > 0 && (
+                      <div className="flex gap-2.5 mt-0.5 text-[11px] text-muted-foreground font-mono flex-wrap">
+                        {statDefs.map(function (sd) {
+                          var val = dig(p, sd.path);
+                          var pctVal = sd.pctPath ? dig(p, sd.pctPath) : null;
+                          if (val == null) return null;
+                          return (
+                            <span key={sd.label}>
+                              <span className="opacity-60">{sd.label}</span>
+                              {" "}
+                              <span className="text-foreground">
+                                {fmt(val, sd.decimals)}{sd.suffix || ""}
+                              </span>
+                              {pctVal != null && <span className="opacity-50">{" (" + pctVal + ")"}</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Stat view: Value */}
+                    {statView === "value" && (
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground font-mono">
+                        {p.z_score != null && <span>{"raw=" + (typeof p.z_score === "number" ? p.z_score.toFixed(2) : p.z_score)}</span>}
+                        {(p as any).adjusted_z != null && <span>{"adj=" + fmt((p as any).adjusted_z, 2)}</span>}
+                        {p.tier && <Badge variant="secondary" className="text-[9px] h-3.5">{p.tier}</Badge>}
+                      </div>
+                    )}
                   </div>
 
                   {/* Add button */}

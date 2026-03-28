@@ -50,13 +50,36 @@ def _get_stat_lookup(lg):
     return stat_lookup
 
 
+_game_info_cache = {"data": None, "time": 0}
+_GAME_INFO_TTL = 60  # seconds
+
+
 def _get_today_opponents():
     """Build a team->opponent map for today's MLB games."""
+    info = _get_today_game_info()
+    return {k: v.get("opponent", "") for k, v in info.items() if v.get("opponent")}
+
+
+def _get_today_game_info():
+    """Build a team->game info map for today's MLB games.
+    Returns dict of team_abbrev -> {opponent, time, status, score, home}.
+    Cached with 60s TTL so live scores refresh but we don't spam the API."""
+    import time as _time
+    now = _time.time()
+    if _game_info_cache["data"] is not None and (now - _game_info_cache["time"]) < _GAME_INFO_TTL:
+        return _game_info_cache["data"]
+    result = _fetch_game_info()
+    _game_info_cache["data"] = result
+    _game_info_cache["time"] = now
+    return result
+
+
+def _fetch_game_info():
+    """Fetch game info from MLB Stats API."""
     try:
         from shared import mlb_fetch
-        from datetime import date
-        data = mlb_fetch("/schedule?sportId=1&date=" + date.today().isoformat() + "&hydrate=team")
-        opponents = {}
+        data = mlb_fetch("/schedule?sportId=1&date=" + datetime.date.today().isoformat() + "&hydrate=team,linescore")
+        result = {}
         dates = data.get("dates", [])
         if dates:
             for game in dates[0].get("games", []):
@@ -64,12 +87,53 @@ def _get_today_opponents():
                 home = game.get("teams", {}).get("home", {}).get("team", {})
                 away_abbrev = away.get("abbreviation", "")
                 home_abbrev = home.get("abbreviation", "")
-                if away_abbrev and home_abbrev:
-                    opponents[away_abbrev] = "@" + home_abbrev
-                    opponents[home_abbrev] = "vs " + away_abbrev
-        return opponents
+                if not away_abbrev or not home_abbrev:
+                    continue
+
+                # Game time
+                game_date = game.get("gameDate", "")
+                time_str = ""
+                if game_date:
+                    try:
+                        dt = datetime.datetime.fromisoformat(game_date.replace("Z", "+00:00"))
+                        local = dt.astimezone()
+                        time_str = local.strftime("%-I:%M%p")
+                    except Exception:
+                        pass
+
+                # Game status
+                status_obj = game.get("status", {})
+                detailed = status_obj.get("detailedState", "Scheduled")
+
+                # Live score from linescore
+                score = None
+                linescore = game.get("linescore", {})
+                if linescore and detailed not in ("Scheduled", "Pre-Game", "Warmup"):
+                    away_runs = linescore.get("teams", {}).get("away", {}).get("runs", 0)
+                    home_runs = linescore.get("teams", {}).get("home", {}).get("runs", 0)
+                    score = str(away_runs) + "-" + str(home_runs)
+
+                # Inning info for in-progress games
+                inning = ""
+                if detailed == "In Progress":
+                    inn_num = linescore.get("currentInning", "")
+                    inn_half = linescore.get("inningHalf", "")
+                    if inn_num:
+                        half_label = "Top" if "top" in str(inn_half).lower() else "Bot"
+                        inning = half_label + " " + str(inn_num)
+
+                game_entry = {
+                    "time": time_str,
+                    "status": detailed,
+                    "score": score,
+                    "inning": inning,
+                }
+
+                result[away_abbrev] = {**game_entry, "opponent": "@" + home_abbrev, "home": False}
+                result[home_abbrev] = {**game_entry, "opponent": "vs " + away_abbrev, "home": True}
+        return result
     except Exception as e:
-        print("Warning: could not fetch today's opponents: " + str(e))
+        print("Warning: could not fetch today's game info: " + str(e))
         return {}
 
 
@@ -268,8 +332,8 @@ def cmd_roster(args, as_json=False):
         except Exception as e:
             print("Warning: enriched roster fetch failed: " + str(e))
 
-        # Get today's opponents
-        opponents = _get_today_opponents()
+        # Get today's game info (opponents + times + status)
+        game_info = _get_today_game_info()
 
         players = []
         for p in roster:
@@ -300,9 +364,16 @@ def cmd_roster(args, as_json=False):
                 player_data["current_pick"] = ed.get("current_pick")
                 player_data["stats"] = ed.get("stats", {})
 
-            # Add opponent
-            if player_data.get("team") and player_data.get("team") in opponents:
-                player_data["opponent"] = opponents.get(player_data.get("team"))
+            # Add game info (opponent + time + status)
+            gi = game_info.get(player_data.get("team", ""))
+            if gi:
+                player_data["opponent"] = gi.get("opponent")
+                player_data["game_time"] = gi.get("time")
+                player_data["game_status"] = gi.get("status")
+                if gi.get("score"):
+                    player_data["game_score"] = gi.get("score")
+                if gi.get("inning"):
+                    player_data["game_inning"] = gi.get("inning")
 
             players.append(player_data)
 
@@ -390,6 +461,35 @@ def cmd_free_agents(args, as_json=False):
                     p["tier"] = z_info.get("tier", "")
         except Exception as e:
             print("Warning: free-agents z-score enrichment failed: " + str(e))
+
+        # Game info (opponent + time + live status)
+        try:
+            gi = _get_today_game_info()
+            for p in players:
+                info = gi.get(p.get("team", ""))
+                if info:
+                    p["opponent"] = info.get("opponent")
+                    p["game_time"] = info.get("time")
+                    p["game_status"] = info.get("status")
+                    if info.get("score"):
+                        p["game_score"] = info.get("score")
+                    if info.get("inning"):
+                        p["game_inning"] = info.get("inning")
+        except Exception as e:
+            print("Warning: free-agents game info failed: " + str(e))
+
+        # FanGraphs advanced stats
+        try:
+            from intel import _fetch_fangraphs_regression_batting, _fetch_fangraphs_regression_pitching
+            fg_bat = _fetch_fangraphs_regression_batting()
+            fg_pit = _fetch_fangraphs_regression_pitching()
+            for p in players:
+                name_lower = p.get("name", "").lower()
+                fg = fg_bat.get(name_lower) or fg_pit.get(name_lower)
+                if fg:
+                    p["advanced"] = fg
+        except Exception as e:
+            print("Warning: free-agents FanGraphs enrichment failed: " + str(e))
 
         return {"pos_type": pos_type, "count": count, "players": players}
 

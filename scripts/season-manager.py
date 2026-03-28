@@ -19,7 +19,7 @@ except ImportError:
 from mlb_id_cache import get_mlb_id
 from shared import (
     get_connection, get_league_context, get_league, get_team_key,
-    get_league_settings, get_regression_adjusted_z,
+    get_league_settings, get_regression_adjusted_z, compute_adjusted_z,
     get_cached_teams, get_cached_standings,
     LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
     MLB_API, mlb_fetch, TEAM_ALIASES, normalize_team_name,
@@ -1956,6 +1956,11 @@ def cmd_waiver_analyze(args, as_json=False):
     except Exception:
         pass
 
+    # Pre-enrich with intel for adjusted z scoring
+    _fa_dicts = [{"name": p.get("name", "Unknown")} for p in fa]
+    enrich_with_intel(_fa_dicts)
+    _intel_lookup = {d.get("name", ""): d.get("intel") for d in _fa_dicts}
+
     scored = []
     for p in fa:
         name = p.get("name", "Unknown")
@@ -1964,7 +1969,7 @@ def cmd_waiver_analyze(args, as_json=False):
         positions = ",".join(p.get("eligible_positions", ["?"]))
         status = p.get("status", "")
 
-        # Z-score based scoring
+        # Z-score based scoring using adjusted z (regression + quality + momentum)
         z_info = get_player_zscore(name)
         per_cat = {}
         if z_info:
@@ -1972,14 +1977,20 @@ def cmd_waiver_analyze(args, as_json=False):
             tier = z_info.get("tier", "Streamable")
             per_cat = z_info.get("per_category_zscores", {})
 
-            # Base score from z-score (scaled to be comparable range)
-            score = z_final * 10.0
+            # Use pre-enriched intel for quality tier + momentum
+            _pi = _intel_lookup.get(name) or {}
+            quality_tier = (_pi.get("statcast") or {}).get("quality_tier")
+            hot_cold = (_pi.get("trends") or {}).get("hot_cold")
+
+            # Use adjusted z-score as base (includes regression + quality + momentum)
+            adjusted_z, _ = compute_adjusted_z(name, z_final, quality_tier, hot_cold)
+            score = adjusted_z * 10.0
 
             # Category need bonus: boost if player is strong in our weak categories
             for cat_name in weak_cat_names:
                 cat_z = per_cat.get(cat_name, 0)
                 if cat_z > 0:
-                    score += cat_z * 5.0  # Significant bonus for helping weak cats
+                    score += cat_z * 5.0
 
             # Positional scarcity bonus
             for pos_str in p.get("eligible_positions", []):
@@ -1991,35 +2002,27 @@ def cmd_waiver_analyze(args, as_json=False):
             try:
                 ctx = _get_season_context(lg)
                 if ctx.get("phase") == "observation":
-                    # Early season: penalize small-sample players, prefer proven talent
-                    score *= 0.85  # Slight discount — don't churn roster early
+                    score *= 0.85
                 elif ctx.get("phase") == "stretch":
-                    # Stretch run: boost immediate contributors
                     if pct and float(pct) > 50:
-                        score *= 1.15  # Widely rostered = more proven
+                        score *= 1.15
                     if status and status not in ("", "Healthy"):
-                        score *= 0.3  # Don't add injured players in stretch
+                        score *= 0.3
             except Exception:
                 pass
         else:
-            # Fallback: use ownership as rough proxy
             score = float(pct) if pct else 0
             tier = "Unknown"
             z_final = 0
+            adjusted_z = 0
 
-        # Regression signal: boost buy-low, penalize sell-high
+        # Regression signal (kept for explicit signal tracking, score already adjusted via compute_adjusted_z)
         reg_signal = None
         if _has_regression:
             try:
                 reg_signal = get_regression_signal(name)
             except Exception:
                 pass
-        if reg_signal:
-            cat = reg_signal.get("category", "")
-            if cat.startswith("buy"):
-                score += 10.0  # Buy-low candidates are undervalued
-            elif cat.startswith("sell"):
-                score -= 5.0   # Sell-high candidates may regress
 
         # Penalty for injured players
         if status and status not in ("", "Healthy"):
@@ -2314,8 +2317,9 @@ def cmd_streaming(args, as_json=False):
         # Multi-factor streaming score
         stream_score = 0
 
-        # Factor 1: Pitcher quality (30%) — use z-score based
-        pitcher_quality = z_final * 3.0 if z_info else 0
+        # Factor 1: Pitcher quality (30%) — adjusted z includes regression + quality
+        adj_z, _ = compute_adjusted_z(name, z_final) if z_info else (0, {})
+        pitcher_quality = adj_z * 3.0
         stream_score += pitcher_quality * 0.30
 
         # Factor 2: Statcast quality bonus (20%)
@@ -2531,8 +2535,8 @@ def _evaluate_trade_for_team(lg, team_key, give_evals, get_evals, give_players, 
     Returns dict with: grade, net_value, adjusted_net_value, category_fit_bonus,
     roster_spot_adj, consolidation_premium, catcher_premium, weak_cats, strong_cats
     """
-    give_value = sum(e.get("z_final", 0) for e in give_evals)
-    get_value = sum(e.get("z_final", 0) for e in get_evals)
+    give_value = sum(e.get("adjusted_z", e.get("z_final", 0)) for e in give_evals)
+    get_value = sum(e.get("adjusted_z", e.get("z_final", 0)) for e in get_evals)
     diff = get_value - give_value
 
     roster_spot_adj = (len(give_players) - len(get_players)) * ROSTER_SPOT_VALUE
@@ -2565,8 +2569,8 @@ def _evaluate_trade_for_team(lg, team_key, give_evals, get_evals, give_players, 
         print("Warning: category fit calculation failed: " + str(e))
 
     consolidation_premium = 0
-    best_give = max((e.get("z_final", 0) for e in give_evals), default=0)
-    best_get = max((e.get("z_final", 0) for e in get_evals), default=0)
+    best_give = max((e.get("adjusted_z", e.get("z_final", 0)) for e in give_evals), default=0)
+    best_get = max((e.get("adjusted_z", e.get("z_final", 0)) for e in get_evals), default=0)
     if best_get != best_give:
         consolidation_premium = (best_get - best_give) * 0.15
 
@@ -2676,11 +2680,15 @@ def cmd_trade_eval(args, as_json=False):
     from valuations import get_player_zscore, POS_BONUS
 
     def _eval_player(p):
-        """Get z-score info for a player, with fallback"""
+        """Get z-score info for a player with adjusted z, and fallback"""
         name = p.get("name", "Unknown")
         info = get_player_zscore(name)
         if info:
             info["z_source"] = "projections"
+            # Compute adjusted z using regression + quality + momentum
+            adj_z, adj_detail = compute_adjusted_z(name, info.get("z_final", 0))
+            info["adjusted_z"] = adj_z
+            info["z_adjustments"] = adj_detail
             return info
         # Fallback: estimate from percent_owned (legacy)
         pct = float(p.get("percent_owned", 0)) if p.get("percent_owned") else 0

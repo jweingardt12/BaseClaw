@@ -112,7 +112,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
       try {
         const data = await apiGet<FreeAgentsResponse>("/api/free-agents", { pos_type, count: String(count), limit: String(limit), offset: String(offset) });
         const label = pos_type === "B" ? "Batters" : "Pitchers";
-        const text = "Top " + count + " Free Agent " + label + ":\n" + data.players.map((p) => {
+        const text = "Top " + count + " Free Agent " + label + ":\n" + data.players.map((p: any) => {
           let line = "  " + str(p.name).padEnd(25) + " " + str(p.positions || "?").padEnd(12) + " " + String(p.percent_owned || 0).padStart(3) + "% owned  (id:" + p.player_id + ")";
           if (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) {
             line += " {" + p.intel.statcast.quality_tier + "}";
@@ -120,6 +120,23 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           if (p.intel && p.intel.trends && p.intel.trends.hot_cold && p.intel.trends.hot_cold !== "neutral") {
             line += " [" + p.intel.trends.hot_cold + "]";
           }
+          // Game info
+          if (p.game_time && p.opponent) {
+            line += "  " + p.game_time + " " + p.opponent;
+          } else if (p.opponent) {
+            line += "  " + p.opponent;
+          }
+          // Advanced stats summary
+          var adv: string[] = [];
+          if (p.z_score) adv.push("z=" + Number(p.z_score).toFixed(2));
+          if (p.advanced) {
+            if (p.advanced.babip != null) adv.push("BABIP " + Number(p.advanced.babip).toFixed(3));
+            if (p.advanced.hr_fb_rate != null) adv.push("HR/FB " + Number(p.advanced.hr_fb_rate * 100).toFixed(1) + "%");
+            if (p.advanced.siera != null) adv.push("SIERA " + Number(p.advanced.siera).toFixed(2));
+          }
+          var sc = p.intel && p.intel.statcast;
+          if (sc && sc.expected && sc.expected.xwoba != null) adv.push("xwOBA " + sc.expected.xwoba);
+          if (adv.length > 0) line += "\n    " + adv.join(" | ");
           return line;
         }).join("\n");
         var top = (data.players || []).slice(0, 3);

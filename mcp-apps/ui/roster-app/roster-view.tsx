@@ -186,7 +186,7 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
                       {p.opponent && (
                         <span className={"inline-flex items-center gap-1 " + (p.opponent.indexOf("vs ") === 0 ? "text-sem-success" : "")}>
                           <TeamLogo abbrev={oppAbbrev} size={12} />
-                          {p.opponent}
+                          {(p as any).game_time ? (p as any).game_time + " " : ""}{p.opponent}
                         </span>
                       )}
                     </div>
