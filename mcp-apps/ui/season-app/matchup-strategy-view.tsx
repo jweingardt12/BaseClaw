@@ -97,6 +97,19 @@ function classificationBadge(cls: string) {
   }
 }
 
+function marginBadge(margin: string) {
+  switch (margin) {
+    case "close":
+      return <Badge className="bg-sem-warning-subtle text-sem-warning text-[10px] border border-sem-warning-border">Close</Badge>;
+    case "comfortable":
+      return <Badge className="bg-sem-success-subtle text-sem-success text-[10px] border border-sem-success-border">Comfortable</Badge>;
+    case "dominant":
+      return <Badge className="bg-sem-success-subtle text-sem-success text-[10px] border border-sem-success-border">Dominant</Badge>;
+    default:
+      return null;
+  }
+}
+
 function rowBg(classification: string): string {
   switch (classification) {
     case "target": return "bg-sem-info-subtle";
@@ -251,14 +264,18 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
                   <TableHead className="text-right">You</TableHead>
                   <TableHead className="text-right">Opp</TableHead>
                   <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Margin</TableHead>
                   <TableHead className="text-center">Plan</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(d.categories || []).map(function (c, i) {
                   return (
-                    <TableRow key={i + "-" + c.name} className={rowBg(c.classification)} title={c.reason}>
-                      <TableCell className="font-medium text-sm">{c.name}</TableCell>
+                    <TableRow key={i + "-" + c.name} className={rowBg(c.classification)}>
+                      <TableCell className="font-medium text-sm">
+                        {c.name}
+                        {c.reason && <p className="text-[10px] text-muted-foreground leading-tight">{c.reason}</p>}
+                      </TableCell>
                       <TableCell className="text-right font-mono text-sm">{c.my_value}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{c.opp_value}</TableCell>
                       <TableCell className="text-center">
@@ -266,6 +283,7 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
                         {c.result === "loss" && <TrendingDown className="h-4 w-4 text-sem-risk inline" />}
                         {c.result === "tie" && <span className="text-xs text-sem-warning font-medium">TIE</span>}
                       </TableCell>
+                      <TableCell className="text-center">{marginBadge(c.margin)}</TableCell>
                       <TableCell className="text-center">{classificationBadge(c.classification)}</TableCell>
                     </TableRow>
                   );
@@ -293,7 +311,7 @@ export function MatchupStrategyView({ data, app, navigate }: { data: MatchupStra
                     <Badge variant={tx.type === "add" ? "default" : "secondary"} className="w-12 justify-center">
                       {tx.type === "add" ? "ADD" : "DROP"}
                     </Badge>
-                    <span>{tx.player}</span>
+                    <PlayerName name={tx.player} />
                     {tx.date && <span className="text-xs text-muted-foreground ml-auto">{tx.date}</span>}
                   </div>
                 );

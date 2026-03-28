@@ -1533,6 +1533,15 @@ def api_player_intel():
     result["status_reason"] = status_reason
     result["injury_severity"] = result.get("news_context", {}).get("injury_severity")
 
+    # 7. Z-score valuation and league rank
+    try:
+        from valuations import get_player_zscore
+        zdata = get_player_zscore(player)
+        if zdata:
+            result["valuation"] = zdata
+    except Exception as e:
+        result["valuation"] = {"error": str(e)}
+
     return safe_jsonify(result)
 
 

@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "../components/card";
@@ -7,6 +10,9 @@ import { Text } from "../components/text";
 import { KpiTile } from "../shared/kpi-tile";
 import { formatFixed } from "../shared/number-format";
 import { mlbHeadshotUrl } from "../shared/mlb-images";
+import { PlayerName } from "../shared/player-name";
+import { useCallTool } from "../shared/use-call-tool";
+import { Loader2 } from "@/shared/icons";
 
 interface PlayerInfo {
   name: string;
@@ -15,6 +21,7 @@ interface PlayerInfo {
   pos: string;
   team: string;
   mlb_id?: number;
+  player_id?: string;
 }
 
 interface CategoryImpact {
@@ -55,11 +62,25 @@ function directionColor(direction: string): string {
   return "text-muted-foreground";
 }
 
-export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any; navigate?: (data: any) => void }) {
+export function FaabRecommendView({ data, app, navigate }: { data: FaabRecommendData; app?: any; navigate?: (data: any) => void }) {
+  var { callTool, loading } = useCallTool(app);
+  var [confirmBid, setConfirmBid] = useState(false);
   var player = data.player || ({} as PlayerInfo);
   var impact = data.category_impact || {};
   var improving = data.improving_categories || [];
   var reasons = data.reasoning || [];
+
+  var handleBid = async function () {
+    if (!player.player_id) return;
+    var result = await callTool("yahoo_waiver_claim", {
+      player_id: player.player_id,
+      faab: data.recommended_bid,
+    });
+    setConfirmBid(false);
+    if (result && result.structuredContent && navigate) {
+      navigate(result.structuredContent);
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -74,9 +95,8 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {player.mlb_id && <Avatar><AvatarImage src={mlbHeadshotUrl(player.mlb_id)} /><AvatarFallback>{(player.name || "?").charAt(0)}</AvatarFallback></Avatar>}
               <div>
-                <Subheading>{player.name}</Subheading>
+                <Subheading><PlayerName name={player.name} mlbId={player.mlb_id} showHeadshot /></Subheading>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="secondary">{player.pos}</Badge>
                   <span className="text-sm text-muted-foreground">{player.team}</span>
@@ -103,6 +123,14 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
           )}
         </CardContent>
       </Card>
+
+      {/* Place FAAB Bid action */}
+      {player.player_id && (
+        <Button className="w-full" onClick={function () { setConfirmBid(true); }} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Place FAAB Bid — ${data.recommended_bid}
+        </Button>
+      )}
 
       {/* Budget summary */}
       <div className="grid grid-cols-2 gap-3">
@@ -183,6 +211,26 @@ export function FaabRecommendView({ data }: { data: FaabRecommendData; app?: any
         </Table>
         </div>
       )}
+
+      {/* Confirmation dialog */}
+      <Dialog open={confirmBid} onOpenChange={function (open) { if (!open) setConfirmBid(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Place FAAB Bid?</DialogTitle>
+            <DialogDescription>
+              Submit a ${data.recommended_bid} FAAB bid for {player.name}?
+              Your remaining budget will be ${data.faab_after}.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={function () { setConfirmBid(false); }}>Cancel</Button>
+            <Button onClick={handleBid} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Place ${data.recommended_bid} Bid
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

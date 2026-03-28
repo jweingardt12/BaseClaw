@@ -24,6 +24,7 @@ interface CloserPlayer {
 interface SavesLeader {
   name: string;
   saves: string;
+  mlb_id?: number;
 }
 
 interface CloserMonitorData {
@@ -176,7 +177,9 @@ export function CloserMonitorView({ data, app, navigate }: { data: CloserMonitor
               {leaders.map((p, i) => (
                 <TableRow key={i}>
                   <TableCell className="font-mono text-sm text-muted-foreground">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <PlayerName name={p.name} mlbId={p.mlb_id} app={app} navigate={navigate} context="saves-leaders" />
+                  </TableCell>
                   <TableCell className="text-right font-mono font-semibold">{p.saves}</TableCell>
                 </TableRow>
               ))}

@@ -5,6 +5,7 @@ import { Subheading } from "../components/heading";
 import { EmptyState } from "../shared/empty-state";
 import { KpiTile } from "../shared/kpi-tile";
 import { formatFixed } from "../shared/number-format";
+import { PlayerName } from "../shared/player-name";
 
 interface TrendEntry {
   date: string;
@@ -41,7 +42,7 @@ export function OwnershipTrendsView({ data }: { data: OwnershipTrendsData; app?:
 
   return (
     <div className="space-y-2">
-      <Subheading>{data.player_name} - Ownership Trend</Subheading>
+      <Subheading><PlayerName name={data.player_name} /> - Ownership Trend</Subheading>
 
       <div className="flex items-center gap-2">
         <Badge variant={directionVariant(data.direction)}>

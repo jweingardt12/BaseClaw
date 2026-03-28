@@ -810,6 +810,49 @@ def _fetch_mlb_game_log(mlb_id, stat_group="hitting", days=30):
         return []
 
 
+_CAREER_HITTING = {"gamesPlayed", "atBats", "hits", "homeRuns", "rbi", "runs",
+                   "stolenBases", "avg", "obp", "slg", "ops", "strikeOuts", "baseOnBalls"}
+_CAREER_PITCHING = {"gamesPlayed", "gamesStarted", "wins", "losses", "era", "whip",
+                    "inningsPitched", "strikeOuts", "saves", "holds", "earnedRuns", "baseOnBalls"}
+
+
+def _fetch_mlb_career_stats(mlb_id, stat_group="hitting"):
+    """Fetch year-by-year MLB career stats for a player"""
+    if not mlb_id:
+        return []
+    cache_key = ("mlb_career", mlb_id, stat_group)
+    cached = _cache_get(cache_key, TTL_MLB)
+    if cached is not None:
+        return cached
+    try:
+        endpoint = (
+            "/people/" + str(mlb_id)
+            + "/stats?stats=yearByYear&group=" + stat_group
+        )
+        data = _mlb_fetch(endpoint)
+        ui_fields = _CAREER_PITCHING if stat_group == "pitching" else _CAREER_HITTING
+        seasons = []
+        for split_group in data.get("stats", []):
+            for split in split_group.get("splits", []):
+                # Only include MLB-level seasons (sport.id == 1)
+                if split.get("sport", {}).get("id") != 1:
+                    continue
+                stat = split.get("stat", {})
+                entry = {
+                    "season": split.get("season", ""),
+                    "team": split.get("team", {}).get("name", ""),
+                }
+                for k in ui_fields:
+                    if k in stat:
+                        entry[k] = stat[k]
+                seasons.append(entry)
+        _cache_set(cache_key, seasons)
+        return seasons
+    except Exception as e:
+        print("Warning: MLB career stats fetch failed for " + str(mlb_id) + ": " + str(e))
+        return []
+
+
 # ============================================================
 # 5b. Regression & Buy-Low/Sell-High Detection
 # ============================================================
@@ -2883,22 +2926,34 @@ def _build_trends(name, mlb_id):
         player_type = _detect_player_type(name, mlb_id)
         stat_group = "pitching" if player_type == "pitcher" else "hitting"
 
+        # Career year-by-year (MLB level only) — fetch regardless of recent games
+        career = _fetch_mlb_career_stats(mlb_id, stat_group=stat_group)
+
         games = _fetch_mlb_game_log(mlb_id, stat_group=stat_group, days=30)
         if not games:
             return {
                 "status": "neutral",
                 "note": "No recent game log data available",
                 "player_type": player_type,
+                "career_stats": career,
             }
 
         splits = _compute_game_log_splits(games, stat_group)
         status = _hot_cold(splits)
+
+        # Include last 10 raw game log entries (most recent first), trimmed to UI fields
+        _UI_HITTING = {"date", "opponent", "atBats", "hits", "runs", "homeRuns", "rbi", "baseOnBalls", "strikeOuts", "stolenBases"}
+        _UI_PITCHING = {"date", "opponent", "inningsPitched", "hits", "earnedRuns", "strikeOuts", "baseOnBalls", "wins", "losses", "saves", "holds"}
+        _ui_fields = _UI_PITCHING if stat_group == "pitching" else _UI_HITTING
+        recent_games = [{k: g[k] for k in _ui_fields if k in g} for g in reversed(games[-10:])]
 
         result = {
             "status": status,
             "player_type": player_type,
             "splits": splits,
             "games_total": len(games),
+            "game_log": recent_games,
+            "career_stats": career,
         }
 
         # ERA regression flagging for pitchers

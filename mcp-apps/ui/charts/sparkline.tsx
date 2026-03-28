@@ -25,11 +25,21 @@ export function Sparkline(props: SparklineProps) {
   var max = Math.max.apply(null, data);
   var range = max - min || 1;
 
-  var points = data.map(function (v, i) {
+  var coords = data.map(function (v, i) {
     var x = pad + (i / (data.length - 1)) * (w - pad * 2);
     var y = pad + (1 - (v - min) / range) * (h - pad * 2);
-    return x + "," + y;
-  }).join(" ");
+    return { x: x, y: y };
+  });
+
+  var linePoints = coords.map(function (p) { return p.x + "," + p.y; }).join(" ");
+
+  var areaD = "M " + coords[0].x + " " + coords[0].y +
+    coords.map(function (p) { return " L " + p.x + " " + p.y; }).join("") +
+    " L " + coords[coords.length - 1].x + " " + (h - pad) +
+    " L " + coords[0].x + " " + (h - pad) +
+    " Z";
+
+  var gradId = "spark-" + w + "-" + h;
 
   return (
     <svg
@@ -37,8 +47,15 @@ export function Sparkline(props: SparklineProps) {
       className={props.className}
       style={{ width: w + "px", height: h + "px" }}
     >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={"url(#" + gradId + ")"} />
       <polyline
-        points={points}
+        points={linePoints}
         fill="none"
         stroke={color}
         strokeWidth="1.5"

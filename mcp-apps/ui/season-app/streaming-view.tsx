@@ -3,6 +3,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Subheading } from "../components/heading";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerCell, OwnershipCell } from "../shared/player-row";
+import { ContextChips } from "../shared/context-chips";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, Loader2, Zap } from "@/shared/icons";
@@ -19,6 +20,11 @@ interface StreamingPitcher {
   mlb_id?: number;
   intel?: any;
   trend?: any;
+  park_factor?: number;
+  warning?: string;
+  context_flags?: Array<{ type: string; message: string; detail?: string }>;
+  news?: Array<{ title: string; link?: string; source?: string }>;
+  role_change?: { role_changed?: boolean; description?: string };
 }
 
 interface StreamingData {
@@ -75,6 +81,8 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
                 <TableRow key={p.player_id} className={i === 0 ? "bg-primary/5" : ""}>
                   <TableCell className="font-medium">
                     <PlayerCell player={p} app={app} navigate={navigate} context="free-agents" />
+                    <ContextChips warning={p.warning} context_flags={p.context_flags} news={p.news} trend={p.trend} role_change={p.role_change} compact />
+                    {p.park_factor != null && <span className="text-[10px] text-muted-foreground font-mono">PF: {formatFixed(p.park_factor, 2)}</span>}
                   </TableCell>
                   <TableCell className="text-center font-mono">{p.games}</TableCell>
                   <TableCell className="hidden sm:table-cell text-right font-mono text-xs">

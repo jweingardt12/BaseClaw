@@ -8,6 +8,7 @@ import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { TrendingUp, TrendingDown, Loader2 } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
+import { PlayerName } from "../shared/player-name";
 
 interface Candidate {
   name: string;
@@ -99,7 +100,7 @@ export function BreakoutsView({ data, app, navigate }: { data: BreakoutsData; ap
               var diffColor = isBreakouts ? "text-green-600 dark:text-green-400" : "text-red-500";
               return (
                 <TableRow key={c.name + "-" + i} className={i < 3 ? (isBreakouts ? "bg-green-500/5" : "bg-red-500/5") : ""}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell className="font-medium"><PlayerName name={c.name} /></TableCell>
                   <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{formatFixed(c.woba, 3, "0.000")}</TableCell>
                   <TableCell className="text-right font-mono text-xs hidden sm:table-cell">{formatFixed(c.xwoba, 3, "0.000")}</TableCell>
                   <TableCell className={"text-right font-mono text-xs font-semibold " + diffColor}>

@@ -3,6 +3,7 @@ import { Subheading } from "../components/heading";
 import { Text } from "../components/text";
 import { TeamLogo } from "../shared/team-logo";
 import { KpiTile } from "../shared/kpi-tile";
+import { PlayerName } from "../shared/player-name";
 
 interface Transaction {
   player: string;
@@ -59,7 +60,7 @@ export function ProspectsView({ data, app, navigate }: { data: ProspectsData; ap
                     <Badge variant="secondary" className={typeColor(t.type)}>{t.type}</Badge>
                     <span className="text-xs text-muted-foreground">{t.team || ""}</span>
                   </div>
-                  <p className="text-sm font-semibold truncate">{t.player}</p>
+                  <p className="text-sm font-semibold truncate"><PlayerName name={t.player} /></p>
                   {t.description && (
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}</p>
                   )}

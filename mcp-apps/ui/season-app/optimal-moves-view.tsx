@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "../components/card";
 import { Subheading } from "../components/heading";
+import { useCallTool } from "../shared/use-call-tool";
+import { ConfirmDialog } from "../shared/confirm-dialog";
 import { AiInsight } from "../shared/ai-insight";
 import { EmptyState } from "../shared/empty-state";
 import { KpiTile } from "../shared/kpi-tile";
 import { PlayerName } from "../shared/player-name";
-import { ArrowRight, TrendingUp } from "@/shared/icons";
+import { ArrowRight, ArrowRightLeft, Loader2, TrendingUp } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
 
 interface MovePlayer {
@@ -41,7 +45,16 @@ function signedZ(value: number): string {
 }
 
 export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesResponse; app?: any; navigate?: (data: any) => void }) {
+  var { callTool, loading } = useCallTool(app);
+  var [confirmMove, setConfirmMove] = useState<OptimalMove | null>(null);
   var moves = data.moves || [];
+
+  async function handleExecute(move: OptimalMove) {
+    var addId = move.add.player_id;
+    setConfirmMove(null);
+    var result = await callTool("yahoo_add", { player_id: addId });
+    if (result && navigate) navigate(result.structuredContent);
+  }
 
   return (
     <div className="space-y-2">
@@ -70,10 +83,22 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
           <Card key={i} className={improvement > 0 ? "border-green-500/20" : ""}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <Badge variant="secondary">Move #{move.rank || i + 1}</Badge>
-                <Badge className={improvement > 0 ? "bg-sem-success" : "bg-sem-risk"}>
-                  {signedZ(improvement)} Z
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">Move #{move.rank || i + 1}</Badge>
+                  <Badge className={improvement > 0 ? "bg-sem-success" : "bg-sem-risk"}>
+                    {signedZ(improvement)} Z
+                  </Badge>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={function () { setConfirmMove(move); }}
+                  disabled={loading}
+                  title={"Drop " + move.drop.name + ", Add " + move.add.name}
+                >
+                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightLeft size={14} />}
+                  <span className="ml-1">Execute</span>
+                </Button>
               </div>
 
               {/* Drop -> Add row */}
@@ -122,6 +147,19 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
           </Card>
         );
       })}
+
+      <ConfirmDialog
+        open={confirmMove !== null}
+        onClose={function () { setConfirmMove(null); }}
+        onConfirm={function () { if (confirmMove) handleExecute(confirmMove); }}
+        title={"Execute Move #" + (confirmMove ? (confirmMove.rank || "") : "")}
+        description={confirmMove
+          ? "Drop " + confirmMove.drop.name + " and add " + confirmMove.add.name + " (" + signedZ(confirmMove.z_improvement || 0) + " Z improvement)?"
+          : ""}
+        confirmLabel="Execute Move"
+        variant="default"
+        loading={loading}
+      />
     </div>
   );
 }

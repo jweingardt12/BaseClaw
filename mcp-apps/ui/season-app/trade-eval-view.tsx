@@ -33,6 +33,11 @@ interface TradeEvalData {
   grade: string;
   position_impact?: { losing: string[]; gaining: string[] };
   ai_recommendation?: string | null;
+  acceptance_likelihood?: string;
+  fairness?: string;
+  rival_warning?: { is_rival?: boolean; warning?: string };
+  warnings?: string[];
+  their_side?: { grade?: string; net_value?: number };
 }
 
 function asNumber(value: unknown, fallback: number = 0): number {
@@ -134,6 +139,19 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
               </Button>
             </div>
           </div>
+          {((data as any).acceptance_likelihood || (data as any).fairness) && (
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+              {(data as any).acceptance_likelihood && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Likelihood</span>
+                  <span className="text-sm font-semibold">{(data as any).acceptance_likelihood}</span>
+                </div>
+              )}
+              {(data as any).fairness && (
+                <Badge variant="secondary">{(data as any).fairness}</Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -150,6 +168,23 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
           />
         </CardContent>
       </Card>
+
+      {/* Rival Warning */}
+      {(data as any).rival_warning && (data as any).rival_warning.is_rival && (
+        <div className="rounded-md border border-sem-warning-border bg-sem-warning-subtle p-2 text-xs">
+          <span className="font-semibold text-sem-warning">Rival Trade Warning</span>
+          <p className="text-muted-foreground mt-0.5">{(data as any).rival_warning.warning}</p>
+        </div>
+      )}
+
+      {/* Warnings */}
+      {(data as any).warnings && (data as any).warnings.length > 0 && (
+        <div className="space-y-1">
+          {(data as any).warnings.map(function (w: string, i: number) {
+            return <p key={i} className="text-xs text-sem-warning">{w}</p>;
+          })}
+        </div>
+      )}
 
       {/* Player Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -199,6 +234,21 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
                     <Badge key={pos} variant="secondary" className="mr-1 border-green-500 text-green-600">{pos}</Badge>
                   ))}
                 </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Their Side Perspective */}
+      {(data as any).their_side && (
+        <Card>
+          <CardContent className="p-3">
+            <Subheading className="mb-1">Their Perspective</Subheading>
+            <div className="flex items-center gap-2">
+              {(data as any).their_side.grade && <Badge>{(data as any).their_side.grade}</Badge>}
+              {(data as any).their_side.net_value != null && (
+                <span className="text-sm font-mono">{(data as any).their_side.net_value > 0 ? "+" : ""}{Number((data as any).their_side.net_value).toFixed(1)} z-score</span>
               )}
             </div>
           </CardContent>

@@ -4,6 +4,7 @@ import { Subheading } from "../components/heading";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { TeamLogo } from "../shared/team-logo";
+import { PlayerName } from "../shared/player-name";
 
 interface WeekPlannerPlayer {
   name: string;
@@ -135,8 +136,10 @@ export function WeekPlannerView({ data }: { data: WeekPlannerData }) {
             <div style={{ fontWeight: 600, marginBottom: "4px" }}>
               {dayOfWeek(selectedDay) + " " + dayLabel(selectedDay) + " — " + selectedPlayers.length + " active"}
             </div>
-            <div style={{ color: "var(--color-muted-foreground)", lineHeight: 1.5 }}>
-              {selectedPlayers.join(", ")}
+            <div style={{ color: "var(--color-muted-foreground)", lineHeight: 1.5, display: "flex", flexWrap: "wrap" as "wrap", gap: "0 8px" }}>
+              {selectedPlayers.map(function (name, idx) {
+                return <PlayerName key={idx} name={name} />;
+              })}
             </div>
           </div>
         )}
@@ -177,7 +180,7 @@ export function WeekPlannerView({ data }: { data: WeekPlannerData }) {
                 return (
                   <tr key={i} className={"border-b " + (isBench ? "opacity-50" : "")}>
                     <td className="py-1.5 pr-2 font-medium sticky left-0 bg-background z-10 truncate max-w-[140px]">
-                      {p.name}
+                      <PlayerName name={p.name} />
                     </td>
                     <td className="py-1.5 pr-2">
                       <Badge variant="secondary">{p.position}</Badge>

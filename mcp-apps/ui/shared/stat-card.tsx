@@ -47,7 +47,7 @@ export function StatCard({
       {trend && (
         <div className={
           "text-xs font-medium mt-1 " +
-          (trend.value > 0 ? "text-green-500" : trend.value < 0 ? "text-red-500" : "text-muted-foreground")
+          (trend.value > 0 ? "text-sem-success" : trend.value < 0 ? "text-sem-risk" : "text-muted-foreground")
         }>
           {trend.value > 0 ? "\u2191" : trend.value < 0 ? "\u2193" : ""} {trend.label}
         </div>

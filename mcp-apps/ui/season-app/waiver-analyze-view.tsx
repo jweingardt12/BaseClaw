@@ -9,6 +9,7 @@ import { Subheading } from "../components/heading";
 import { useCallTool } from "../shared/use-call-tool";
 
 import { IntelPanel } from "../shared/intel-panel";
+import { ContextChips } from "../shared/context-chips";
 import { PlayerCell, OwnershipCell } from "../shared/player-row";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
@@ -29,6 +30,11 @@ interface WaiverPlayer {
   mlb_id?: number;
   intel?: any;
   trend?: any;
+  warning?: string;
+  context_flags?: Array<{ type: string; message: string; detail?: string }>;
+  context_line?: string;
+  news?: Array<{ title: string; link?: string; source?: string }>;
+  role_change?: { role_changed?: boolean; description?: string };
 }
 
 interface WeakCategory {
@@ -188,6 +194,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
                         {i === 0 && <span className="text-green-600 mr-0.5">&#9733;</span>}
                         <PlayerCell player={p} app={app} navigate={navigate} context="waivers" />
                       </span>
+                      <ContextChips warning={p.warning} context_flags={p.context_flags} news={p.news} trend={p.trend} role_change={p.role_change} compact />
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <div className="flex gap-1 flex-wrap">

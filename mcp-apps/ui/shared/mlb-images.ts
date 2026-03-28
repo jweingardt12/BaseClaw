@@ -39,3 +39,20 @@ export function teamLogoFromName(name: string): string | null {
   if (!id) return null;
   return teamLogoUrl(id);
 }
+
+const TEAM_NAME_TO_ABBREV: Record<string, string> = {
+  "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL",
+  "Boston Red Sox": "BOS", "Chicago Cubs": "CHC", "Chicago White Sox": "CWS",
+  "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE", "Colorado Rockies": "COL",
+  "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KC",
+  "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA",
+  "Milwaukee Brewers": "MIL", "Minnesota Twins": "MIN", "New York Mets": "NYM",
+  "New York Yankees": "NYY", "Oakland Athletics": "OAK", "Philadelphia Phillies": "PHI",
+  "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD", "Seattle Mariners": "SEA",
+  "San Francisco Giants": "SF", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB",
+  "Texas Rangers": "TEX", "Toronto Blue Jays": "TOR", "Washington Nationals": "WSH",
+};
+
+export function teamAbbrevFromName(name: string): string | null {
+  return TEAM_NAME_TO_ABBREV[name] || null;
+}

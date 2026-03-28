@@ -10,11 +10,20 @@ interface IntelPanelProps {
 
 function rankBarClass(rank: number | null | undefined): string {
   if (rank == null) return "bg-muted-foreground/30";
-  if (rank >= 90) return "bg-green-500";
-  if (rank >= 70) return "bg-blue-500";
-  if (rank >= 40) return "bg-slate-400";
-  if (rank >= 20) return "bg-orange-500";
-  return "bg-red-500";
+  if (rank >= 90) return "bg-[var(--sem-success)]";
+  if (rank >= 70) return "bg-[var(--sem-info)]";
+  if (rank >= 40) return "bg-[var(--color-muted-foreground)]";
+  if (rank >= 20) return "bg-[var(--sem-warning)]";
+  return "bg-[var(--sem-risk)]";
+}
+
+function rankTextClass(rank: number | null | undefined): string {
+  if (rank == null) return "text-muted-foreground";
+  if (rank >= 90) return "text-sem-success";
+  if (rank >= 70) return "text-sem-info";
+  if (rank >= 40) return "text-muted-foreground";
+  if (rank >= 20) return "text-sem-warning";
+  return "text-sem-risk";
 }
 
 function ordinal(n: number): string {
@@ -33,7 +42,7 @@ function PercentileRow({ label, value, rank, invert }: { label: string; value: s
         <StatBar value={displayRank} max={100} barClassName={rankBarClass(displayRank)} />
       </div>
       <span className="text-xs font-mono w-12 sm:w-16 text-right shrink-0">{value}</span>
-      <span className={"hidden sm:inline text-xs font-mono w-12 text-right shrink-0 " + (rankBarClass(displayRank).replace("bg-", "text-").replace("-500", "-600").replace("-400", "-500"))}>
+      <span className={"hidden sm:inline text-xs font-mono w-12 text-right shrink-0 " + rankTextClass(displayRank)}>
         {"(" + ordinal(Math.round(rank)) + ")"}
       </span>
     </div>
@@ -182,7 +191,7 @@ function DisciplineSection({ discipline }: { discipline: NonNullable<PlayerIntel
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-24 shrink-0">BB%</span>
             <div className="flex-1">
-              <StatBar value={discipline.bb_rate} max={25} barClassName={discipline.bb_rate >= 12 ? "bg-green-500" : discipline.bb_rate >= 8 ? "bg-blue-500" : "bg-slate-400"} />
+              <StatBar value={discipline.bb_rate} max={25} barClassName={discipline.bb_rate >= 12 ? "bg-[var(--sem-success)]" : discipline.bb_rate >= 8 ? "bg-[var(--sem-info)]" : "bg-[var(--color-muted-foreground)]"} />
             </div>
             <span className="text-xs font-mono w-14 text-right shrink-0">{discipline.bb_rate + "%"}</span>
           </div>
@@ -191,7 +200,7 @@ function DisciplineSection({ discipline }: { discipline: NonNullable<PlayerIntel
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-24 shrink-0">K%</span>
             <div className="flex-1">
-              <StatBar value={discipline.k_rate} max={40} barClassName={discipline.k_rate <= 15 ? "bg-green-500" : discipline.k_rate <= 22 ? "bg-blue-500" : discipline.k_rate <= 28 ? "bg-orange-500" : "bg-red-500"} />
+              <StatBar value={discipline.k_rate} max={40} barClassName={discipline.k_rate <= 15 ? "bg-[var(--sem-success)]" : discipline.k_rate <= 22 ? "bg-[var(--sem-info)]" : discipline.k_rate <= 28 ? "bg-[var(--sem-warning)]" : "bg-[var(--sem-risk)]"} />
             </div>
             <span className="text-xs font-mono w-14 text-right shrink-0">{discipline.k_rate + "%"}</span>
           </div>
@@ -200,7 +209,7 @@ function DisciplineSection({ discipline }: { discipline: NonNullable<PlayerIntel
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-24 shrink-0">O-Swing%</span>
             <div className="flex-1">
-              <StatBar value={discipline.o_swing_pct} max={50} barClassName={discipline.o_swing_pct <= 25 ? "bg-green-500" : discipline.o_swing_pct <= 32 ? "bg-blue-500" : "bg-orange-500"} />
+              <StatBar value={discipline.o_swing_pct} max={50} barClassName={discipline.o_swing_pct <= 25 ? "bg-[var(--sem-success)]" : discipline.o_swing_pct <= 32 ? "bg-[var(--sem-info)]" : "bg-[var(--sem-warning)]"} />
             </div>
             <span className="text-xs font-mono w-14 text-right shrink-0">{discipline.o_swing_pct + "%"}</span>
           </div>
@@ -209,7 +218,7 @@ function DisciplineSection({ discipline }: { discipline: NonNullable<PlayerIntel
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-24 shrink-0">Z-Contact</span>
             <div className="flex-1">
-              <StatBar value={discipline.z_contact_pct} max={100} barClassName={discipline.z_contact_pct >= 85 ? "bg-green-500" : discipline.z_contact_pct >= 78 ? "bg-blue-500" : "bg-orange-500"} />
+              <StatBar value={discipline.z_contact_pct} max={100} barClassName={discipline.z_contact_pct >= 85 ? "bg-[var(--sem-success)]" : discipline.z_contact_pct >= 78 ? "bg-[var(--sem-info)]" : "bg-[var(--sem-warning)]"} />
             </div>
             <span className="text-xs font-mono w-14 text-right shrink-0">{discipline.z_contact_pct + "%"}</span>
           </div>
@@ -218,7 +227,7 @@ function DisciplineSection({ discipline }: { discipline: NonNullable<PlayerIntel
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-24 shrink-0">SwStr%</span>
             <div className="flex-1">
-              <StatBar value={discipline.swstr_pct} max={20} barClassName={discipline.swstr_pct <= 8 ? "bg-green-500" : discipline.swstr_pct <= 12 ? "bg-blue-500" : "bg-red-500"} />
+              <StatBar value={discipline.swstr_pct} max={20} barClassName={discipline.swstr_pct <= 8 ? "bg-[var(--sem-success)]" : discipline.swstr_pct <= 12 ? "bg-[var(--sem-info)]" : "bg-[var(--sem-risk)]"} />
             </div>
             <span className="text-xs font-mono w-14 text-right shrink-0">{discipline.swstr_pct + "%"}</span>
           </div>
@@ -233,8 +242,8 @@ function ContextSection({ context }: { context: NonNullable<PlayerIntel["context
   if (!hasData) return null;
 
   let sentimentColor = "text-muted-foreground";
-  if (context.reddit_sentiment === "positive") sentimentColor = "text-green-600 dark:text-green-400";
-  else if (context.reddit_sentiment === "negative") sentimentColor = "text-red-500";
+  if (context.reddit_sentiment === "positive") sentimentColor = "text-sem-success";
+  else if (context.reddit_sentiment === "negative") sentimentColor = "text-sem-risk";
 
   return (
     <div className="space-y-1.5">

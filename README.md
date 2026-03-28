@@ -360,7 +360,7 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
 │  │                   │  │                     │  │
 │  │  yahoo_fantasy_api│  │  MCP SDK + ext-apps │  │
 │  │  pybaseball       │  │  130 tool defs      │  │
-│  │  MLB-StatsAPI     │  │  4 apps / 75 views  │  │
+│  │  MLB-StatsAPI     │  │  4 apps / 80+ views  │  │
 │  │  Playwright       │  │  11 workflow tools  │  │
 │  │  CacheManager     │  │  11 tool files      │  │
 │  └──────────────────┘  └─────────────────────┘  │
@@ -378,7 +378,7 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
 - **Write operations**: Playwright browser automation against Yahoo Fantasy website (Yahoo's API no longer grants write scope to new developer apps)
 - **Valuations**: FVARz z-scores with per-category projection blending (Steamer + ZiPS + Depth Charts), park-factor adjusted, Bayesian conjugate updating for in-season blending (per-stat stabilization points replace date-based decay), conditional catcher premium. ILP lineup optimizer (scipy) with greedy fallback. Surplus value trade analysis, Kelly criterion FAAB bidding, multi-factor streaming with Stuff+ and travel fatigue, research-backed punt viability
 - **Intelligence**: Statcast data, SIERA, Stuff+/Location+/Pitching+, platoon splits, arsenal changes, bat tracking (bat speed, fast-swing rate, squared-up rate, blasts), batted ball profiles, historical comparisons, research-calibrated regression scoring (-100 to +100) with 14 signals across hitters and pitchers. Bat tracking breakout detector flags hitters gaining bat speed before stats reflect it. League-wide pitch mix screener surfaces pitchers making significant arsenal changes cross-referenced with effectiveness metrics. Travel fatigue scoring (PNAS-backed) factors timezone changes, schedule density, and eastward travel penalties into streaming and lineup decisions. Qualitative intelligence layer enriches every recommendation with injury severity, dealbreaker filtering, and context lines. Prospect news sentiment layer blends qualitative signals from 16 news sources with stat-based call-up probabilities using Bayesian updating. Cached with configurable TTL
-- **MCP Apps**: Inline HTML UIs (React 19 + shadcn/ui + custom SVG charts) rendered directly in Claude via `@modelcontextprotocol/ext-apps`
+- **MCP Apps**: Interactive inline UIs (React 19 + shadcn/ui + custom SVG charts) rendered in Claude via `@modelcontextprotocol/ext-apps`. Player reports with game logs, career year-by-year, news links, Statcast metrics, z-score rankings. Decision views surface context (warnings, news, trends) with action buttons. Navigation history with back button support
 - **Workflow tools**: 11 aggregated endpoints that bundle 5-7+ API calls server-side to keep tool call counts low
 
 **Under the hood:**
@@ -393,7 +393,7 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
 
 5. **Prospect news intelligence** — A qualitative news layer that ingests prospect-specific articles from 16 sources (via the news aggregator) plus MLB Stats API transactions, classifies call-up signals using 50+ keyword patterns (bullish: "called up", "expected to join", "likely for Opening Day"; bearish: "optioned", "assigned to minors", "placed on IL"), scores them with Bayesian updating (source tier weighting + exponential time decay), and blends the result with stat-based call-up probabilities (65% stat / 35% news, capped at +/-30pp). Event deduplication prevents multiple articles about the same roster move from over-compounding. Every prospect tool — rankings, stash advisor, trade targets, comparisons — reflects the news-adjusted probabilities.
 
-6. **Inline UI apps** — 20 tools render React UIs directly inside Claude's response. Four single-file HTML apps built with Plex UI and Recharts cover 75+ views — tables, charts, radar plots, heatmaps, dashboards. The rest return clean text to keep the chat uncluttered.
+6. **Inline UI apps** — Four single-file HTML apps (React 19 + shadcn/ui + custom SVG charts) render interactive UIs directly inside Claude's chat via MCP Apps. 80+ views cover rosters, matchups, trades, waivers, game logs, career stats, player reports with Statcast percentiles, and league history. Player names are tappable throughout — tap any name to drill into a full player report with game log, career stats, news with source links, advanced metrics, and z-score rankings. Decision views (waivers, streaming, trades) surface context chips (warnings, news, ownership trends) alongside action buttons to execute moves directly.
 
 7. **Workflow tools** — Eleven aggregated tools (`yahoo_morning_briefing`, `yahoo_game_day_manager`, `yahoo_trade_pipeline`, etc.) each bundle 5-7+ API calls server-side so the agent gets everything it needs in one shot. A full daily routine takes 2-3 tool calls instead of 15+.
 
@@ -411,7 +411,7 @@ Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-
 | `MCP_TOOLSET` | No | `default` | Tool profile to load: `default` (~26 tools), `full` (~50), `draft-day`, `analysis`, `automation`, or `all` (123). Comma-separate individual toolsets: `core,trades,intel` |
 | `AGENT_AUTONOMY` | No | `semi-auto` | Agent autonomy level: `full-auto`, `semi-auto`, or `manual` |
 | `ENABLE_HISTORY` | No | `false` | Enable league history tools (8 tools, requires `config/league-history.json`) |
-| `ENABLE_PREVIEW` | No | `false` | Serve the preview dashboard at `/preview` |
+| `ENABLE_PREVIEW` | No | `false` | Enable the app preview dashboard at `/preview` |
 | `WEBHOOK_TOKEN` | For OpenClaw | — | Bearer token for `/hooks/wake` and `/hooks/agent` webhook endpoints |
 | `MCP_SERVER_URL` | For Claude.ai | — | Public HTTPS URL for remote access |
 | `MCP_AUTH_PASSWORD` | For Claude.ai | — | Password for the OAuth login page |

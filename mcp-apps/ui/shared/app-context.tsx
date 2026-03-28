@@ -5,6 +5,8 @@ interface AppContextValue {
   app: any;
   /** Navigate to a new view by passing structuredContent data */
   navigate: (data: any) => void;
+  /** Go back to the previous view (null if no history) */
+  goBack: (() => void) | null;
   /** Call an MCP tool by name — returns the raw result. Use useCallTool() for loading/error state. */
   callTool: (name: string, args?: Record<string, any>) => Promise<any>;
 }
@@ -42,18 +44,19 @@ export function useAppContextSafe(): AppContextValue | null {
 interface AppContextProviderProps {
   app: any;
   navigate: (data: any) => void;
+  goBack: (() => void) | null;
   children: React.ReactNode;
 }
 
-export function AppContextProvider({ app, navigate, children }: AppContextProviderProps) {
+export function AppContextProvider({ app, navigate, goBack, children }: AppContextProviderProps) {
   var callTool = useCallback(async function (name: string, args?: Record<string, any>) {
     if (!app) return null;
     return app.callServerTool({ name, arguments: args || {} });
   }, [app]);
 
   var value = useMemo(function () {
-    return { app, navigate, callTool };
-  }, [app, navigate, callTool]);
+    return { app, navigate, goBack, callTool };
+  }, [app, navigate, goBack, callTool]);
 
   return (
     <AppContext.Provider value={value}>

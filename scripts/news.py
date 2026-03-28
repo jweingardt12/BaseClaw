@@ -575,13 +575,14 @@ def get_player_context(player_name, days=14):
     # 1. News headlines
     headlines = []
     try:
-        entries = get_player_news(player_name, limit=3)
+        entries = get_player_news(player_name, limit=5)
         for e in entries:
             headlines.append({
                 "source": e.get("source", ""),
                 "title": e.get("raw_title", e.get("headline", "")),
                 "date": e.get("timestamp", ""),
                 "injury_flag": e.get("injury_flag", False),
+                "link": e.get("link", ""),
             })
     except Exception:
         pass

@@ -322,7 +322,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
         // Fetch intel + Yahoo season stats in parallel
         const [data, yahooStats] = await Promise.all([
           apiGet<Record<string, unknown>>("/api/player-intel", { player }),
-          apiGet<Record<string, unknown>>("/api/player-stats", { name: player }).catch(() => ({} as Record<string, unknown>)),
+          apiGet<Record<string, unknown>>("/api/player-stats", { name: player }).catch(function (err) { console.warn("Stats fetch failed for " + player + ":", err); return {} as Record<string, unknown>; }),
         ]);
         const lines: string[] = [];
         lines.push("Player Intel: " + str(data.player_name || player));

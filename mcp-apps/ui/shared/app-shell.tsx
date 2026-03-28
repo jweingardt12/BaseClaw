@@ -75,6 +75,7 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
   var [errorMsg, setErrorMsg] = useState<string | null>(null);
   var [displayMode, setDisplayMode] = useState("inline");
   var [hostContext, setHostContext] = useState<any>(null);
+  var [history, setHistory] = useState<Array<{ data: any; toolName: string }>>([]);
   var dataRef = useRef(data);
 
   useEffect(function () {
@@ -176,14 +177,28 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
 
   var navigate = useCallback(function (newData: any) {
     if (newData) {
+      // Push current state to history before navigating
+      setHistory(function (prev) {
+        if (!dataRef.current) return prev;
+        return prev.concat([{ data: dataRef.current, toolName: toolName }]);
+      });
       setData(newData);
       setToolName(newData.type || "");
-      // Update model context on navigation too
       if (app && app.updateModelContext) {
         app.updateModelContext({ structuredContent: newData, navigated_to: newData.type || "" });
       }
     }
-  }, [app]);
+  }, [app, toolName]);
+
+  var goBack = useCallback(function () {
+    setHistory(function (prev) {
+      if (prev.length === 0) return prev;
+      var last = prev[prev.length - 1];
+      setData(last.data);
+      setToolName(last.toolName);
+      return prev.slice(0, -1);
+    });
+  }, []);
 
   // Timeout for waiting state
   useEffect(function () {
@@ -298,7 +313,7 @@ export function AppShell({ name, version = "1.0.0", children }: AppShellProps) {
           </Button>
         </div>
       )}
-      <AppContextProvider app={app} navigate={navigate}>
+      <AppContextProvider app={app} navigate={navigate} goBack={history.length > 0 ? goBack : null}>
         <div key={toolName} className="animate-slide-up">
           {children({ data, toolName, app, navigate })}
         </div>

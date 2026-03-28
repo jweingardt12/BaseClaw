@@ -150,6 +150,11 @@ button, a, [role="button"] {
   gap: var(--app-space-3);
 }
 
+/* Prevent grid children from overflowing when they contain wide tables */
+.mcp-app-content > * {
+  min-width: 0;
+}
+
 .mcp-app-shell-controls {
   position: absolute;
   top: 8px;

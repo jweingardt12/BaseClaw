@@ -7,6 +7,7 @@ import { TeamLogo } from "../shared/team-logo";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, UserMinus, ArrowRightLeft, HelpCircle } from "@/shared/icons";
+import { PlayerName } from "../shared/player-name";
 
 interface TransactionEntry {
   type: string;
@@ -150,7 +151,7 @@ export function TransactionsView({ data }: { data: TransactionsData }) {
                                   />
                                 )}
                                 <div>
-                                  <div className="font-medium text-sm">{t.player}</div>
+                                  <div className="font-medium text-sm"><PlayerName name={t.player} mlbId={t.mlb_id} /></div>
                                   {t.fantasy_team && (
                                     <div className="text-xs text-muted-foreground">{t.fantasy_team}</div>
                                   )}

@@ -7,9 +7,6 @@ interface ActionData {
   type: string;
   success: boolean;
   message: string;
-  player_id?: string;
-  add_id?: string;
-  drop_id?: string;
   ai_recommendation?: string | null;
 }
 
@@ -31,10 +28,6 @@ export function ActionView({ data, app, navigate }: { data: ActionData; app: any
         <AlertTitle>{title}</AlertTitle>
         <AlertDescription>{data.message}</AlertDescription>
       </Alert>
-
-      {data.player_id && <p className="text-xs text-muted-foreground">{"Player ID: " + data.player_id}</p>}
-      {data.add_id && <p className="text-xs text-muted-foreground">{"Added ID: " + data.add_id}</p>}
-      {data.drop_id && <p className="text-xs text-muted-foreground">{"Dropped ID: " + data.drop_id}</p>}
 
       <div className="flex items-center gap-2">
         <Button variant="outline" onClick={handleBackToRoster} disabled={loading}>

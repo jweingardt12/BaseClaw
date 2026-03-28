@@ -1,10 +1,13 @@
 import { Card, CardContent } from "../components/card";
 import { IntelPanel } from "../shared/intel-panel";
-import { IntelBadge, type PlayerIntel } from "../shared/intel-badge";
-import { PlayerName } from "../shared/player-name";
+import { type PlayerIntel } from "../shared/intel-badge";
 import { KpiTile } from "../shared/kpi-tile";
 import { Badge } from "@/components/ui/badge";
 import { Subheading } from "../components/heading";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { mlbHeadshotUrl, teamLogoFromName, teamAbbrevFromName } from "../shared/mlb-images";
+import { ChevronLeft, ExternalLink } from "@/shared/icons";
+import { useAppContextSafe } from "../shared/app-context";
 
 interface PlayerReportData extends PlayerIntel {
   type: string;
@@ -13,16 +16,35 @@ interface PlayerReportData extends PlayerIntel {
   ai_recommendation?: string | null;
   yahoo_stats?: Record<string, unknown>;
   yahoo_player_id?: string;
+  valuation?: {
+    rank?: number;
+    z_final?: number;
+    tier?: string;
+    type?: string;
+    pos?: string;
+    per_category_zscores?: Record<string, number>;
+  };
 }
 
-function tierVariant(tier: string): "success" | "info" | "warning" | "risk" | "neutral" {
-  var t = (tier || "").toLowerCase();
-  if (t === "elite" || t === "great") return "success";
-  if (t === "good") return "info";
-  if (t === "average" || t === "fair") return "warning";
-  if (t === "poor" || t === "bad") return "risk";
-  return "neutral";
+interface GameEntry {
+  date: string;
+  opponent: string;
+  [key: string]: unknown;
 }
+
+var TIER_BG: Record<string, string> = {
+  success: "bg-sem-success-subtle border-sem-success-border",
+  info: "bg-sem-info-subtle border-sem-info-border",
+  warning: "bg-sem-warning-subtle border-sem-warning-border",
+  risk: "bg-sem-risk-subtle border-sem-risk-border",
+};
+
+var TIER_TEXT: Record<string, string> = {
+  success: "text-sem-success",
+  info: "text-sem-info",
+  warning: "text-sem-warning",
+  risk: "text-sem-risk",
+};
 
 function tierColor(tier: string): "success" | "risk" | "warning" | "info" | "neutral" {
   var t = (tier || "").toLowerCase();
@@ -42,136 +64,500 @@ function pctColor(pct: number | null | undefined): "success" | "risk" | "warning
 }
 
 function num(v: unknown, decimals: number = 0): string {
-  if (v == null || v === "" || v === "-") return "—";
+  if (v == null || v === "" || v === "-") return "\u2014";
   var n = Number(v);
   if (isNaN(n)) return String(v);
   return decimals > 0 ? n.toFixed(decimals) : String(Math.round(n));
 }
 
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  var parts = dateStr.split("-");
+  if (parts.length === 3) return Number(parts[1]) + "/" + Number(parts[2]);
+  return dateStr;
+}
+
+function shortTeam(name: string): string {
+  if (!name) return "";
+  return teamAbbrevFromName(name) || name.split(" ").pop() || name.substring(0, 3);
+}
+
+function batterGameScore(g: GameEntry): number {
+  var score = 0;
+  score += Number(g.hits || 0) * 1;
+  score += Number(g.homeRuns || 0) * 3;
+  score += Number(g.rbi || 0) * 1;
+  score += Number(g.runs || 0) * 0.5;
+  score += Number(g.stolenBases || 0) * 1.5;
+  score -= Number(g.strikeOuts || 0) * 0.3;
+  return score;
+}
+
+function parseInnings(ip: unknown): number {
+  var raw = Number(ip || 0);
+  var full = Math.floor(raw);
+  var outs = Math.round((raw - full) * 10);
+  return full + outs / 3;
+}
+
+function pitcherGameScore(g: GameEntry): number {
+  var ip = parseInnings(g.inningsPitched);
+  var er = Number(g.earnedRuns || 0);
+  var k = Number(g.strikeOuts || 0);
+  if (ip === 0) return 0;
+  var era = (er / ip) * 9;
+  var score = ip * 2 + k - era * 1.5;
+  if (Number(g.wins || 0) > 0) score += 3;
+  if (Number(g.saves || 0) > 0) score += 3;
+  return score;
+}
+
+function gameRowBg(score: number): string {
+  if (score >= 5) return "bg-sem-success-subtle";
+  if (score >= 3) return "";
+  if (score <= 0) return "bg-sem-risk-subtle";
+  return "";
+}
+
+interface Headline {
+  source: string;
+  title: string;
+  date: string;
+  link?: string;
+  injury_flag?: boolean;
+}
+
+function relativeTime(dateStr: string): string {
+  if (!dateStr) return "";
+  try {
+    var d = new Date(dateStr);
+    var now = new Date();
+    var diffMs = now.getTime() - d.getTime();
+    var mins = Math.floor(diffMs / 60000);
+    if (mins < 60) return mins + "m";
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h";
+    var days = Math.floor(hrs / 24);
+    if (days < 7) return days + "d";
+    return Math.floor(days / 7) + "w";
+  } catch (_) { return ""; }
+}
+
+function sourceColor(source: string): string {
+  if (source.indexOf("ESPN") >= 0) return "bg-sem-risk-subtle text-sem-risk";
+  if (source.indexOf("RotoWire") >= 0 || source.indexOf("Yahoo") >= 0) return "bg-sem-info-subtle text-sem-info";
+  if (source.indexOf("FanGraphs") >= 0 || source.indexOf("MLB") >= 0) return "bg-sem-success-subtle text-sem-success";
+  return "bg-muted text-muted-foreground";
+}
+
+function sourceLabel(source: string): string {
+  return source.replace(" MLB", "").replace(".com", "");
+}
+
+function NewsSection({ headlines, app }: { headlines: Headline[]; app: any }) {
+  if (!headlines || headlines.length === 0) return null;
+
+  function openLink(url: string) {
+    if (app && app.openLink) {
+      app.openLink(url);
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <Subheading className="mb-2">News</Subheading>
+        <div className="space-y-2.5">
+          {headlines.map(function (h, i) {
+            var hasLink = h.link && h.link.length > 0;
+            return (
+              <div key={i} className="flex gap-2 items-start">
+                <div className="flex-1 min-w-0">
+                  {hasLink ? (
+                    <button
+                      type="button"
+                      onClick={function () { openLink(h.link!); }}
+                      className="text-left text-sm leading-snug font-medium hover:text-primary transition-colors group"
+                    >
+                      <span className="group-hover:underline">{h.title}</span>
+                      <ExternalLink className="inline h-3 w-3 ml-1 opacity-40 group-hover:opacity-70 -mt-0.5" />
+                    </button>
+                  ) : (
+                    <p className="text-sm leading-snug font-medium">{h.title}</p>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className={"inline-flex px-1.5 py-0 rounded text-[10px] font-semibold " + sourceColor(h.source)}>
+                      {sourceLabel(h.source)}
+                    </span>
+                    {h.date && (
+                      <span className="text-[10px] text-muted-foreground">{relativeTime(h.date)}</span>
+                    )}
+                    {h.injury_flag && (
+                      <span className="text-[10px] text-sem-risk font-semibold">INJURY</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function StatRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex items-center justify-between py-1 border-b border-border/50 last:border-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="flex items-center justify-between py-1.5 border-b border-border/40 last:border-0">
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
       <div className="text-right">
-        <span className="text-sm font-mono font-semibold">{value}</span>
+        <span className="text-sm font-mono font-bold tabular-nums">{value}</span>
         {sub && <span className="text-xs text-muted-foreground ml-1">{sub}</span>}
       </div>
     </div>
   );
 }
 
+function HeroStat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div className="flex flex-col items-center min-w-0">
+      <span className={"font-mono font-bold leading-tight tabular-nums " + (accent ? "text-xl text-sem-success" : "text-base")}>{value}</span>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground leading-tight mt-0.5">{label}</span>
+    </div>
+  );
+}
+
+function BatterGameLog({ games }: { games: GameEntry[] }) {
+  if (!games || games.length === 0) return null;
+  return (
+    <div className="mcp-app-scroll-x">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-1 pr-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Date</th>
+            <th className="text-left py-1 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Opp</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">AB</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">H</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">R</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">HR</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">RBI</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">BB</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">K</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">SB</th>
+          </tr>
+        </thead>
+        <tbody>
+          {games.map(function (g, i) {
+            var score = batterGameScore(g);
+            var logo = teamLogoFromName(g.opponent);
+            return (
+              <tr key={i} className={"border-b border-border/30 transition-colors " + gameRowBg(score)}>
+                <td className="py-1 pr-2 font-mono text-muted-foreground whitespace-nowrap">{formatDate(g.date)}</td>
+                <td className="py-1 px-1 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    {logo && <img src={logo} alt="" className="w-3.5 h-3.5" />}
+                    <span className="text-muted-foreground">{shortTeam(g.opponent)}</span>
+                  </span>
+                </td>
+                <td className="text-center py-1 px-1 font-mono">{num(g.atBats)}</td>
+                <td className={"text-center py-1 px-1 font-mono font-semibold " + (Number(g.hits || 0) >= 2 ? "text-sem-success" : "")}>{num(g.hits)}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(g.runs)}</td>
+                <td className={"text-center py-1 px-1 font-mono font-semibold " + (Number(g.homeRuns || 0) > 0 ? "text-sem-success" : "")}>{num(g.homeRuns)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(g.rbi || 0) >= 2 ? "font-semibold" : "")}>{num(g.rbi)}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(g.baseOnBalls)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(g.strikeOuts || 0) >= 3 ? "text-sem-risk" : "")}>{num(g.strikeOuts)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(g.stolenBases || 0) > 0 ? "font-semibold text-sem-info" : "")}>{num(g.stolenBases)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PitcherGameLog({ games }: { games: GameEntry[] }) {
+  if (!games || games.length === 0) return null;
+  return (
+    <div className="mcp-app-scroll-x">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-1 pr-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Date</th>
+            <th className="text-left py-1 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Opp</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">IP</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">H</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">ER</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">K</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">BB</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Dec</th>
+          </tr>
+        </thead>
+        <tbody>
+          {games.map(function (g, i) {
+            var score = pitcherGameScore(g);
+            var dec = Number(g.wins || 0) > 0 ? "W" : Number(g.losses || 0) > 0 ? "L" : Number(g.saves || 0) > 0 ? "SV" : Number(g.holds || 0) > 0 ? "HLD" : "\u2014";
+            var decColor = dec === "W" || dec === "SV" ? "text-sem-success font-semibold" : dec === "L" ? "text-sem-risk font-semibold" : "";
+            var logo = teamLogoFromName(g.opponent);
+            return (
+              <tr key={i} className={"border-b border-border/30 transition-colors " + gameRowBg(score)}>
+                <td className="py-1 pr-2 font-mono text-muted-foreground whitespace-nowrap">{formatDate(g.date)}</td>
+                <td className="py-1 px-1 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    {logo && <img src={logo} alt="" className="w-3.5 h-3.5" />}
+                    <span className="text-muted-foreground">{shortTeam(g.opponent)}</span>
+                  </span>
+                </td>
+                <td className={"text-center py-1 px-1 font-mono " + (parseInnings(g.inningsPitched) >= 6 ? "font-semibold text-sem-success" : "")}>{g.inningsPitched || "\u2014"}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(g.hits)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(g.earnedRuns || 0) >= 4 ? "text-sem-risk font-semibold" : Number(g.earnedRuns || 0) === 0 ? "text-sem-success" : "")}>{num(g.earnedRuns)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(g.strikeOuts || 0) >= 8 ? "font-semibold text-sem-success" : "")}>{num(g.strikeOuts)}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(g.baseOnBalls)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + decColor}>{dec}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function BatterCareerTable({ seasons }: { seasons: Record<string, unknown>[] }) {
+  if (!seasons || seasons.length === 0) return null;
+  return (
+    <div className="mcp-app-scroll-x">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-1.5 pr-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Yr</th>
+            <th className="text-left py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Tm</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">G</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">AVG</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">OPS</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">HR</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">RBI</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">SB</th>
+          </tr>
+        </thead>
+        <tbody>
+          {seasons.map(function (s, i) {
+            var isCurrentYear = String(s.season) === String(new Date().getFullYear());
+            var logo = teamLogoFromName(String(s.team || ""));
+            return (
+              <tr key={i} className={"border-b border-border/30 " + (isCurrentYear ? "bg-sem-info-subtle font-semibold" : i % 2 === 0 ? "" : "bg-muted/30")}>
+                <td className="py-1 pr-1.5 font-mono text-muted-foreground whitespace-nowrap">{"\u2019" + String(s.season).slice(-2)}</td>
+                <td className="py-1 px-1 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    {logo && <img src={logo} alt="" className="w-3.5 h-3.5" />}
+                    <span className="text-muted-foreground">{teamAbbrevFromName(String(s.team || "")) || shortTeam(String(s.team || ""))}</span>
+                  </span>
+                </td>
+                <td className="text-center py-1 px-1 font-mono">{num(s.gamesPlayed)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(s.avg || 0) >= 0.300 ? "text-sem-success font-semibold" : "")}>{s.avg || "\u2014"}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(s.ops || 0) >= 0.850 ? "text-sem-success font-semibold" : "")}>{s.ops || "\u2014"}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(s.homeRuns || 0) >= 30 ? "text-sem-success font-semibold" : "")}>{num(s.homeRuns)}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(s.rbi)}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(s.stolenBases)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PitcherCareerTable({ seasons }: { seasons: Record<string, unknown>[] }) {
+  if (!seasons || seasons.length === 0) return null;
+  return (
+    <div className="mcp-app-scroll-x">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-1.5 pr-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Yr</th>
+            <th className="text-left py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide whitespace-nowrap">Tm</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">ERA</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">W-L</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">IP</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">K</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">WHIP</th>
+            <th className="text-center py-1.5 px-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">SV</th>
+          </tr>
+        </thead>
+        <tbody>
+          {seasons.map(function (s, i) {
+            var isCurrentYear = String(s.season) === String(new Date().getFullYear());
+            var logo = teamLogoFromName(String(s.team || ""));
+            return (
+              <tr key={i} className={"border-b border-border/30 " + (isCurrentYear ? "bg-sem-info-subtle font-semibold" : i % 2 === 0 ? "" : "bg-muted/30")}>
+                <td className="py-1 pr-1.5 font-mono text-muted-foreground whitespace-nowrap">{"\u2019" + String(s.season).slice(-2)}</td>
+                <td className="py-1 px-1 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    {logo && <img src={logo} alt="" className="w-3.5 h-3.5" />}
+                    <span className="text-muted-foreground">{teamAbbrevFromName(String(s.team || "")) || shortTeam(String(s.team || ""))}</span>
+                  </span>
+                </td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(s.era || 99) <= 3.00 ? "text-sem-success font-semibold" : Number(s.era || 99) >= 5.00 ? "text-sem-risk" : "")}>{s.era || "\u2014"}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(s.wins) + "-" + num(s.losses)}</td>
+                <td className="text-center py-1 px-1 font-mono">{s.inningsPitched || "\u2014"}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(s.strikeOuts || 0) >= 200 ? "text-sem-success font-semibold" : "")}>{num(s.strikeOuts)}</td>
+                <td className={"text-center py-1 px-1 font-mono " + (Number(s.whip || 99) <= 1.00 ? "text-sem-success font-semibold" : "")}>{s.whip || "\u2014"}</td>
+                <td className="text-center py-1 px-1 font-mono">{num(s.saves)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function PlayerReportView({ data, app, navigate }: { data: PlayerReportData; app: any; navigate: (data: any) => void }) {
+  var ctx = useAppContextSafe();
+  var goBack = ctx?.goBack;
+
   var sc = data.statcast || {} as any;
   var trends = data.trends || {} as any;
   var splits = trends.splits || {};
   var ys = data.yahoo_stats || {};
   var isPitcher = sc.player_type === "pitcher" || trends.player_type === "pitcher";
-  var yahooTrend = data.yahoo_trend || {} as any;
+  var gameLog: GameEntry[] = trends.game_log || [];
+  var careerStats: Record<string, unknown>[] = trends.career_stats || [];
+  var val = data.valuation || {} as any;
+  var newsCtx = (data as any).news_context || {};
+  var headlines: Headline[] = newsCtx.headlines || [];
 
-  var qualityTier = sc.quality_tier || (sc.expected || {}).quality_tier;
-  var trendStatus = trends.status || trends.hot_cold;
+  var eraAnalysis = sc.era_analysis || {};
+  var stuffMetrics = sc.stuff_metrics || {};
+  var expected = sc.expected || {};
+  var battedBall = sc.batted_ball || {};
+
+  var hasYahooStats = Object.keys(ys).length > 0 && Object.values(ys).some(function (v) { return v != null && v !== "" && v !== "-" && v !== 0; });
+  var qualityTier = sc.quality_tier || expected.quality_tier;
+  var tc = qualityTier ? tierColor(qualityTier) : "neutral";
+
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 animate-stagger min-w-0">
+      {/* Back button */}
+      {goBack && (
+        <button
+          type="button"
+          onClick={goBack}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors py-2 px-1 -ml-1 rounded-md hover:bg-muted/50"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span>Back</span>
+        </button>
+      )}
+
       {/* Hero */}
       <Card>
         <CardContent className="p-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
+            {data.mlb_id && (
+              <Avatar className={"size-14 shrink-0 ring-2 " + (tc === "success" ? "ring-sem-success/60" : tc === "risk" ? "ring-sem-risk/60" : tc === "warning" ? "ring-sem-warning/60" : "ring-border")}>
+                <AvatarImage src={mlbHeadshotUrl(data.mlb_id)} />
+                <AvatarFallback className="text-lg font-bold">{data.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-lg font-bold truncate">
-                <PlayerName name={data.name} mlbId={data.mlb_id} app={app} navigate={navigate} showHeadshot />
-              </p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <IntelBadge intel={data} size="sm" />
-                {trendStatus && (
-                  <Badge className={trendStatus === "hot" ? "bg-sem-success" : trendStatus === "cold" ? "bg-sem-risk" : "bg-sem-neutral"}>
-                    {trendStatus}
+              <p className="text-xl font-bold truncate leading-tight">{data.name}</p>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {val.rank > 0 && (
+                  <Badge className="bg-sem-info-subtle border border-sem-info-border text-sem-info">
+                    {"#" + val.rank + " " + (val.type === "P" ? "SP" : "Batter")}
                   </Badge>
                 )}
-                {yahooTrend.direction && (
-                  <Badge variant="secondary">{yahooTrend.direction === "added" ? "↑ Rising" : "↓ Falling"}</Badge>
+                {qualityTier && (
+                  <Badge className={"border " + (TIER_BG[tc] || "bg-muted") + " " + (TIER_TEXT[tc] || "text-foreground")}>
+                    {qualityTier}
+                  </Badge>
+                )}
+                {val.pos && (
+                  <span className="text-xs text-muted-foreground">{val.pos}</span>
                 )}
               </div>
             </div>
-            {qualityTier && (
-              <div className={"flex flex-col items-center justify-center rounded-lg px-3 py-2 text-center " +
-                (tierVariant(qualityTier) === "success" ? "bg-sem-success-subtle" :
-                 tierVariant(qualityTier) === "info" ? "bg-sem-info-subtle" :
-                 tierVariant(qualityTier) === "warning" ? "bg-sem-warning-subtle" :
-                 tierVariant(qualityTier) === "risk" ? "bg-sem-risk-subtle" : "bg-muted")}>
-                <span className="text-xs text-muted-foreground">Tier</span>
-                <span className="text-sm font-bold">{qualityTier}</span>
+            {val.z_final != null && val.z_final !== 0 && (
+              <div className={"flex flex-col items-center justify-center shrink-0 rounded-lg px-2.5 py-1.5 border " + (val.z_final >= 12 ? "bg-sem-success-subtle border-sem-success-border" : val.z_final >= 0 ? "bg-sem-info-subtle border-sem-info-border" : "bg-sem-risk-subtle border-sem-risk-border")}>
+                <span className={"text-2xl font-bold font-mono leading-none tabular-nums " + (val.z_final >= 12 ? "text-sem-success" : val.z_final >= 0 ? "text-sem-info" : "text-sem-risk")}>{num(val.z_final, 1)}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">z-score</span>
               </div>
             )}
           </div>
+
+          {/* Hero Stats */}
+          {hasYahooStats && (
+            <div className="flex items-center justify-around mt-3 pt-3 border-t border-border/50">
+              {isPitcher ? (<>
+                <HeroStat value={num(ys.ERA, 2)} label="ERA" accent={Number(ys.ERA || 99) < 3.50} />
+                <HeroStat value={num(ys.WHIP, 2)} label="WHIP" accent={Number(ys.WHIP || 99) < 1.15} />
+                <HeroStat value={num(ys.W)} label="W" />
+                <HeroStat value={num(ys.K)} label="K" accent={Number(ys.K || 0) >= 50} />
+                <HeroStat value={num(ys.QS)} label="QS" />
+              </>) : (<>
+                <HeroStat value={num(ys.AVG, 3)} label="AVG" accent={Number(ys.AVG || 0) >= 0.280} />
+                <HeroStat value={num(ys.HR)} label="HR" accent={Number(ys.HR || 0) >= 10} />
+                <HeroStat value={num(ys.RBI)} label="RBI" accent={Number(ys.RBI || 0) >= 25} />
+                <HeroStat value={num(ys.R)} label="R" />
+                <HeroStat value={num(ys.NSB)} label="NSB" accent={Number(ys.NSB || 0) >= 5} />
+              </>)}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Season Stats */}
-      {Object.keys(ys).length > 0 && (
+      {/* Game Log */}
+      {gameLog.length > 0 && (
         <Card>
           <CardContent className="p-3">
-            <Subheading className="mb-1">Season Stats</Subheading>
+            <div className="flex items-center justify-between mb-1.5">
+              <Subheading>Game Log</Subheading>
+              <span className="text-xs text-muted-foreground">{trends.games_total ? "Last " + gameLog.length + " of " + trends.games_total + "g" : gameLog.length + " games"}</span>
+            </div>
             {isPitcher ? (
-              <div className="grid grid-cols-2 gap-x-4">
-                <StatRow label="ERA" value={num(ys.ERA, 2)} />
-                <StatRow label="WHIP" value={num(ys.WHIP, 2)} />
-                <StatRow label="W" value={num(ys.W)} />
-                <StatRow label="K" value={num(ys.K)} />
-                <StatRow label="IP" value={num(ys.IP, 1)} />
-                <StatRow label="QS" value={num(ys.QS)} />
-                <StatRow label="HLD" value={num(ys.HLD)} />
-                <StatRow label="NSV" value={num(ys.NSV)} />
-                <StatRow label="L" value={num(ys.L)} />
-                <StatRow label="ER" value={num(ys.ER)} />
-              </div>
+              <PitcherGameLog games={gameLog} />
             ) : (
-              <div className="grid grid-cols-2 gap-x-4">
-                <StatRow label="AVG" value={num(ys.AVG, 3)} />
-                <StatRow label="OBP" value={num(ys.OBP, 3)} />
-                <StatRow label="HR" value={num(ys.HR)} />
-                <StatRow label="RBI" value={num(ys.RBI)} />
-                <StatRow label="R" value={num(ys.R)} />
-                <StatRow label="H" value={num(ys.H)} sub={ys["H/AB"] ? String(ys["H/AB"]) : undefined} />
-                <StatRow label="TB" value={num(ys.TB)} />
-                <StatRow label="XBH" value={num(ys.XBH)} />
-                <StatRow label="NSB" value={num(ys.NSB)} />
-                <StatRow label="K" value={num(ys.K)} />
-              </div>
+              <BatterGameLog games={gameLog} />
             )}
           </CardContent>
         </Card>
       )}
 
+      {/* News */}
+      <NewsSection headlines={headlines} app={app} />
+
       {/* Advanced Metrics */}
       {sc && (isPitcher ? (
         <div className="kpi-grid">
-          {(sc.era_analysis || {}).era != null && (
-            <KpiTile value={num((sc.era_analysis || {}).era, 2)} label="ERA" color={Number((sc.era_analysis || {}).era) < 3.5 ? "success" : Number((sc.era_analysis || {}).era) < 4.5 ? "warning" : "risk"} />
+          {eraAnalysis.era != null && (
+            <KpiTile value={num(eraAnalysis.era, 2)} label="ERA" color={Number(eraAnalysis.era) < 3.5 ? "success" : Number(eraAnalysis.era) < 4.5 ? "warning" : "risk"} />
           )}
-          {(sc.era_analysis || {}).fip != null && (
-            <KpiTile value={num((sc.era_analysis || {}).fip, 2)} label="FIP" color={Number((sc.era_analysis || {}).fip) < 3.5 ? "success" : Number((sc.era_analysis || {}).fip) < 4.5 ? "warning" : "risk"} />
+          {eraAnalysis.fip != null && (
+            <KpiTile value={num(eraAnalysis.fip, 2)} label="FIP" color={Number(eraAnalysis.fip) < 3.5 ? "success" : Number(eraAnalysis.fip) < 4.5 ? "warning" : "risk"} />
           )}
-          {(sc.era_analysis || {}).xera != null && (
-            <KpiTile value={num((sc.era_analysis || {}).xera, 2)} label="xERA" color={Number((sc.era_analysis || {}).xera) < 3.5 ? "success" : Number((sc.era_analysis || {}).xera) < 4.5 ? "warning" : "risk"} />
+          {eraAnalysis.xera != null && (
+            <KpiTile value={num(eraAnalysis.xera, 2)} label="xERA" color={Number(eraAnalysis.xera) < 3.5 ? "success" : Number(eraAnalysis.xera) < 4.5 ? "warning" : "risk"} />
           )}
-          {(sc.stuff_metrics || {}).stuff_plus != null && (
-            <KpiTile value={num((sc.stuff_metrics || {}).stuff_plus)} label="Stuff+" color={Number((sc.stuff_metrics || {}).stuff_plus) > 110 ? "success" : Number((sc.stuff_metrics || {}).stuff_plus) > 95 ? "info" : "warning"} />
+          {stuffMetrics.stuff_plus != null && (
+            <KpiTile value={num(stuffMetrics.stuff_plus)} label="Stuff+" color={Number(stuffMetrics.stuff_plus) > 110 ? "success" : Number(stuffMetrics.stuff_plus) > 95 ? "info" : "warning"} />
           )}
         </div>
       ) : (
         <div className="kpi-grid">
-          {(sc.expected || {}).xba != null && (
-            <KpiTile value={num((sc.expected || {}).xba, 3)} label={"xBA" + ((sc.expected || {}).xba_pct != null ? " (" + num((sc.expected || {}).xba_pct) + "th)" : "")} color={pctColor((sc.expected || {}).xba_pct)} />
+          {expected.xba != null && (
+            <KpiTile value={num(expected.xba, 3)} label={"xBA" + (expected.xba_pct != null ? " (" + num(expected.xba_pct) + "th)" : "")} color={pctColor(expected.xba_pct)} />
           )}
-          {(sc.expected || {}).xslg != null && (
-            <KpiTile value={num((sc.expected || {}).xslg, 3)} label="xSLG" color={pctColor((sc.expected || {}).xslg_pct)} />
+          {expected.xslg != null && (
+            <KpiTile value={num(expected.xslg, 3)} label="xSLG" color={pctColor(expected.xslg_pct)} />
           )}
-          {(sc.batted_ball || {}).barrel_pct != null && (
-            <KpiTile value={num((sc.batted_ball || {}).barrel_pct, 1) + "%"} label={"Barrel%" + ((sc.batted_ball || {}).barrel_pct_rank != null ? " (" + num((sc.batted_ball || {}).barrel_pct_rank) + "th)" : "")} color={pctColor((sc.batted_ball || {}).barrel_pct_rank)} />
+          {battedBall.barrel_pct != null && (
+            <KpiTile value={num(battedBall.barrel_pct, 1) + "%"} label={"Barrel%" + (battedBall.barrel_pct_rank != null ? " (" + num(battedBall.barrel_pct_rank) + "th)" : "")} color={pctColor(battedBall.barrel_pct_rank)} />
           )}
-          {(sc.batted_ball || {}).avg_exit_velo != null && (
-            <KpiTile value={num((sc.batted_ball || {}).avg_exit_velo, 1)} label={"Exit Velo" + ((sc.batted_ball || {}).ev_pct != null ? " (" + num((sc.batted_ball || {}).ev_pct) + "th)" : "")} color={pctColor((sc.batted_ball || {}).ev_pct)} />
+          {battedBall.avg_exit_velo != null && (
+            <KpiTile value={num(battedBall.avg_exit_velo, 1)} label={"Exit Velo" + (battedBall.ev_pct != null ? " (" + num(battedBall.ev_pct) + "th)" : "")} color={pctColor(battedBall.ev_pct)} />
           )}
         </div>
       ))}
@@ -204,7 +590,34 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
         </Card>
       )}
 
-      {/* Full Intel Panel (Statcast breakdown, percentiles, etc) */}
+      {/* Career Stats */}
+      {careerStats.length > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <Subheading>Career</Subheading>
+              <span className="text-xs text-muted-foreground">{careerStats.length + " seasons"}</span>
+            </div>
+            {isPitcher ? (
+              <PitcherCareerTable seasons={careerStats} />
+            ) : (
+              <BatterCareerTable seasons={careerStats} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Recommendation */}
+      {data.ai_recommendation && (
+        <Card>
+          <CardContent className="p-3">
+            <Subheading className="mb-1">AI Analysis</Subheading>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.ai_recommendation}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Full Intel Panel */}
       <IntelPanel intel={data} defaultExpanded />
     </div>
   );

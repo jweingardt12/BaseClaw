@@ -250,17 +250,38 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
       {/* AI Insight */}
       <AiInsight recommendation={data.ai_recommendation || strategy.summary} />
 
-      {/* KPI Row */}
-      <div className="kpi-grid">
-        <KpiTile
-          value={score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "")}
-          label={"vs " + (matchup.opponent || "?")}
-          color={score.wins > score.losses ? "success" : score.losses > score.wins ? "risk" : "warning"}
-        />
-        <KpiTile value={issueCount} label="Issues" color={urgentCount > 0 ? "risk" : issueCount > 0 ? "warning" : "success"} />
-        <KpiTile value={injuredActiveCount} label="Injured Active" color={injuredActiveCount > 0 ? "risk" : "success"} />
-        <KpiTile value={swapCount} label="Lineup Swaps" color={swapCount > 0 ? "warning" : "neutral"} />
-      </div>
+      {/* Matchup Hero */}
+      {matchup.opponent && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{"Week " + (matchup.week || "")}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">vs. <span className="font-semibold text-foreground">{matchup.opponent}</span></p>
+              </div>
+              <div className={"flex flex-col items-center rounded-lg px-3 py-1.5 border " + (score.wins > score.losses ? "bg-sem-success-subtle border-sem-success-border" : score.losses > score.wins ? "bg-sem-risk-subtle border-sem-risk-border" : "bg-sem-warning-subtle border-sem-warning-border")}>
+                <span className={"text-2xl font-bold font-mono leading-none tabular-nums " + (score.wins > score.losses ? "text-sem-success" : score.losses > score.wins ? "text-sem-risk" : "text-sem-warning")}>{score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "")}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">{score.wins > score.losses ? "Leading" : score.losses > score.wins ? "Trailing" : "Tied"}</span>
+              </div>
+            </div>
+            {/* Compact alerts row */}
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/50">
+              {injuredActiveCount > 0 && (
+                <span className="text-xs text-sem-risk font-medium">{injuredActiveCount + " injured active"}</span>
+              )}
+              {swapCount > 0 && (
+                <span className="text-xs text-sem-warning font-medium">{swapCount + " lineup swap" + (swapCount > 1 ? "s" : "")}</span>
+              )}
+              {urgentCount > 0 && (
+                <span className="text-xs text-sem-risk font-medium">{urgentCount + " urgent"}</span>
+              )}
+              {injuredActiveCount === 0 && swapCount === 0 && urgentCount === 0 && (
+                <span className="text-xs text-sem-success font-medium">All clear</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -413,84 +434,29 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
         </Card>
       )}
 
-      {/* Matchup Preview */}
-      {matchup.opponent && (
+      {/* Category Breakdown */}
+      {categories.length > 0 && (
         <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Swords className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Matchup Preview</CardTitle>
-              </div>
-              <Badge className={"text-sm px-3 py-1 " + scoreBadgeColor(score.wins, score.losses)}>
-                {scoreLabel(score.wins, score.losses)} {score.wins}-{score.losses}{score.ties > 0 ? "-" + score.ties : ""}
-              </Badge>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Swords className="h-4 w-4 text-primary" />
+              <Subheading>Categories</Subheading>
             </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
-              vs. <span className="font-semibold text-foreground">{matchup.opponent}</span>
-            </p>
-
-            {/* Strategy badges */}
-            {(strat.target.length > 0 || strat.protect.length > 0) && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                {strat.target.length > 0 && (
-                  <div className="text-center p-2 rounded-md border border-emerald-500/30 bg-emerald-500/5">
-                    <Target className="h-3.5 w-3.5 mx-auto mb-1 text-emerald-500" />
-                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Target</p>
-                    <p className="text-xs text-muted-foreground break-words">{strat.target.join(", ")}</p>
-                  </div>
-                )}
-                {strat.protect.length > 0 && (
-                  <div className="text-center p-2 rounded-md border border-yellow-500/30 bg-yellow-500/5">
-                    <Shield className="h-3.5 w-3.5 mx-auto mb-1 text-yellow-500" />
-                    <p className="text-xs font-semibold text-sem-warning">Protect</p>
-                    <p className="text-xs text-muted-foreground break-words">{strat.protect.join(", ")}</p>
-                  </div>
-                )}
-                {strat.lock.length > 0 && (
-                  <div className="text-center p-2 rounded-md border border-green-500/30 bg-sem-success-subtle">
-                    <Lock className="h-3.5 w-3.5 mx-auto mb-1 text-sem-success" />
-                    <p className="text-xs font-semibold text-sem-success">Lock</p>
-                    <p className="text-xs text-muted-foreground break-words">{strat.lock.join(", ")}</p>
-                  </div>
-                )}
-                {strat.concede.length > 0 && (
-                  <div className="text-center p-2 rounded-md border border-muted">
-                    <XCircle className="h-3.5 w-3.5 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-xs font-semibold text-muted-foreground">Concede</p>
-                    <p className="text-xs text-muted-foreground break-words">{strat.concede.join(", ")}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Key category bars */}
-            {contestedCats.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Key Categories</p>
-                {contestedCats.map(function (c) {
-                  return (
-                    <div key={c.name} className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <ComparisonBar
-                          label={c.name}
-                          leftValue={c.my_value}
-                          rightValue={c.opp_value}
-                          result={c.result}
-                          leftLabel="You"
-                          rightLabel="Opp"
-                        />
-                      </div>
-                      {c.classification && (
-                        <div className="shrink-0">{classificationIcon(c.classification)}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <div className="space-y-1.5">
+              {categories.map(function (c) {
+                return (
+                  <ComparisonBar
+                    key={c.name}
+                    label={c.name}
+                    leftValue={c.my_value}
+                    rightValue={c.opp_value}
+                    result={c.result}
+                    leftLabel="You"
+                    rightLabel="Opp"
+                  />
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
