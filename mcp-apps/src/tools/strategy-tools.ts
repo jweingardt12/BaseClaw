@@ -21,7 +21,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
     "fantasy_probable_pitchers",
     {
       description: "Use this to see upcoming probable starting pitchers for the next N days with matchup details. Returns pitcher names, teams, dates, and home/away opponents to help plan streaming decisions.",
-      inputSchema: { days: z.number().describe("Number of days to look ahead").default(7) },
+      inputSchema: { days: z.coerce.number().describe("Number of days to look ahead").default(7) },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -59,7 +59,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
       description: "Use this to analyze schedule density for an MLB team over the next N days, including games per week, off days, and a density rating. Pass a team name or abbreviation and optional day count.",
       inputSchema: {
         team: z.string().describe("MLB team name or abbreviation"),
-        days: z.number().describe("Number of days to analyze").default(14),
+        days: z.coerce.number().describe("Number of days to analyze").default(14),
       },
       annotations: READ_ANNO,
       _meta: {},

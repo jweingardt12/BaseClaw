@@ -88,7 +88,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_past_standings",
     {
       description: "Use this to see the full standings for a specific past season with W-L-T records and manager names. Pass the year parameter (e.g. 2024) to get ranked standings for that season.",
-      inputSchema: { year: z.number().describe("Season year (e.g. 2024)") },
+      inputSchema: { year: z.coerce.number().describe("Season year (e.g. 2024)") },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -114,7 +114,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_past_draft",
     {
       description: "Use this to see who was drafted and in what order for a past season with player names resolved. Pass the year and optional count to control how many picks are returned.",
-      inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), count: z.number().describe("Number of picks to return").default(25) },
+      inputSchema: { year: z.coerce.number().describe("Season year (e.g. 2024)"), count: z.coerce.number().describe("Number of picks to return").default(25) },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -140,7 +140,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_past_teams",
     {
       description: "Use this to see all team names, managers, move counts, and trade counts for a past season. Pass the year to see which managers were most active in transactions.",
-      inputSchema: { year: z.number().describe("Season year (e.g. 2024)") },
+      inputSchema: { year: z.coerce.number().describe("Season year (e.g. 2024)") },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -166,7 +166,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_past_trades",
     {
       description: "Use this to see the trade history for a past season showing which players were exchanged between which teams. Pass the year and optional count to limit results.",
-      inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), count: z.number().describe("Number of trades to return").default(10) },
+      inputSchema: { year: z.coerce.number().describe("Season year (e.g. 2024)"), count: z.coerce.number().describe("Number of trades to return").default(10) },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -200,7 +200,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_past_matchup",
     {
       description: "Use this to see head-to-head matchup results for a specific week in a past season with category win counts. Pass both year and week number to see who played whom and the scores.",
-      inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), week: z.number().describe("Week number") },
+      inputSchema: { year: z.coerce.number().describe("Season year (e.g. 2024)"), week: z.coerce.number().describe("Week number") },
       annotations: READ_ANNO,
       _meta: {},
     },

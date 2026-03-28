@@ -102,7 +102,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
         position: z.string().optional().describe("Filter by position (e.g. SS, OF, RHP)"),
         level: z.string().optional().describe("Filter by level (e.g. AAA, AA)"),
         team: z.string().optional().describe("Filter by MLB organization"),
-        count: z.number().optional().describe("Number of prospects to return (default 25)"),
+        count: z.coerce.number().optional().describe("Number of prospects to return (default 25)"),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -150,7 +150,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
     {
       description: "Use this to see recent MLB call-ups with fantasy impact analysis including prospect ranks, fantasy relevance scores, and opportunities created by the move. Pass the days parameter to control the lookback window. Use fantasy_prospect_watch instead when you want a quick summary of prospect roster moves without the detailed fantasy impact analysis.",
       inputSchema: {
-        days: z.number().optional().describe("Number of days to look back (default 7)"),
+        days: z.coerce.number().optional().describe("Number of days to look back (default 7)"),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -188,7 +188,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
     {
       description: "Use this to get NA stash recommendations ranked by call-up probability and league context to decide who to stash on your NA roster slots. Returns prospect names, stash actions, confidence levels, call-up probabilities, and reasoning. Use fantasy_prospect_report instead when you want a full scouting report on a specific prospect you are already considering.",
       inputSchema: {
-        count: z.number().optional().describe("Number of recommendations to return (default 10)"),
+        count: z.coerce.number().optional().describe("Number of recommendations to return (default 10)"),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -417,7 +417,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
       description: "Use this to get qualitative news intelligence for a prospect by aggregating front office quotes, beat reporter intel, roster decisions, injury news, and rumors from MLB Trade Rumors, ESPN, FanGraphs, and Google News. Returns article summaries with sentiment signals and how they modify call-up probability via Bayesian blending. Use fantasy_prospect_report instead when you want the full statistical scouting profile rather than a news-focused intelligence briefing.",
       inputSchema: {
         player_name: z.string().describe("Prospect name to search for"),
-        days: z.number().optional().describe("Number of days of news to search (default 7)"),
+        days: z.coerce.number().optional().describe("Number of days of news to search (default 7)"),
       },
       annotations: READ_ANNO,
       _meta: {},

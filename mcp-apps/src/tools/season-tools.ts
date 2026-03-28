@@ -967,7 +967,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
     "yahoo_optimal_moves",
     {
       description: "Use this to find the optimal chain of add/drop moves that maximizes your roster's total z-score value. Returns ranked moves with drop candidate, add candidate, z-improvement, and category impact for each swap.",
-      inputSchema: { count: z.number().describe("Number of moves to return (1-10)").default(5) },
+      inputSchema: { count: z.coerce.number().describe("Number of moves to return (1-10)").default(5) },
       annotations: READ_ANNO,
       _meta: {},
     },

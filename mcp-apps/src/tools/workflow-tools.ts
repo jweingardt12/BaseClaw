@@ -228,7 +228,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_waiver_recommendations",
     {
       description: "Use this when you want personalized add/drop pairs tailored to your team's weak categories. Returns ranked waiver pickup recommendations paired with suggested drops and projected category impact.",
-      inputSchema: { count: z.number().describe("Number of recommendations per position type").default(5) },
+      inputSchema: { count: z.coerce.number().describe("Number of recommendations per position type").default(5) },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -633,7 +633,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_waiver_deadline_prep",
     {
       description: "Use this before the waiver deadline to get a complete waiver analysis: your weak categories, ranked candidates with simulated category impact, roster issues, and FAAB bid recommendations for FAAB leagues.",
-      inputSchema: { count: z.number().describe("Number of candidates per position type").default(5) },
+      inputSchema: { count: z.coerce.number().describe("Number of candidates per position type").default(5) },
       annotations: READ_ANNO,
       _meta: {},
     },

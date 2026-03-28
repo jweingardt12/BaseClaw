@@ -23,9 +23,9 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
       description: "Use this to see the top-ranked players by z-score value for batters or pitchers. Returns rank, name, position, z-score, and Statcast quality tier. Use yahoo_compare instead when you want a side-by-side comparison of two specific players, or yahoo_value for a single player's full category-level z-score breakdown.",
       inputSchema: {
         pos_type: z.string().describe("B for batters, P for pitchers").default("B"),
-        count: z.number().describe("Number of players to return").default(25),
-        limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
-        offset: z.number().default(0).describe("Offset for pagination"),
+        count: z.coerce.number().describe("Number of players to return").default(25),
+        limit: z.coerce.number().default(25).describe("Max results to return (default 25, max 50)"),
+        offset: z.coerce.number().default(0).describe("Offset for pagination"),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -204,7 +204,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
     {
       description: "Use this to find players whose z-score value has shifted the most since draft day. Compares current rest-of-season projections to the draft-day baseline to identify risers and fallers. Use yahoo_rankings instead for current absolute rankings, or yahoo_optimal_moves to act on rising free agents with roster swaps.",
       inputSchema: {
-        count: z.number().describe("Number of biggest movers to return").default(25),
+        count: z.coerce.number().describe("Number of biggest movers to return").default(25),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -250,7 +250,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
       description: "Use this to find players where Steamer, ZiPS, and FanGraphs Depth Charts projection systems disagree most on value. High disagreement flags draft sleepers and potential busts. Use yahoo_projections_update first to ensure projections are current, or yahoo_rankings for consensus z-score rankings.",
       inputSchema: {
         pos_type: z.string().describe("B for batters, P for pitchers").default("B"),
-        count: z.number().describe("Number of players to show").default(20),
+        count: z.coerce.number().describe("Number of players to show").default(20),
       },
       annotations: READ_ANNO,
       _meta: {},

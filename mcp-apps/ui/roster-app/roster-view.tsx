@@ -15,7 +15,7 @@ import { qualityColor, hotColdIcon } from "../shared/intel-badge";
 var BATTER_STAT_KEYS = ["AVG", "HR", "RBI", "OBP", "R", "SB", "H", "TB", "XBH"];
 var PITCHER_STAT_KEYS = ["ERA", "WHIP", "K", "W", "IP", "QS", "SV", "HLD"];
 var PITCHER_POS = new Set(["SP", "RP", "P"]);
-var HIDDEN_POSITIONS = new Set(["Util", "BN", "IL", "IL+", "DL"]);
+var HIDDEN_POSITIONS = new Set(["Util", "BN", "IL", "IL+", "DL", "NA"]);
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -42,7 +42,7 @@ function isPitcher(p: PlayerRowData): boolean {
 }
 
 function isIL(p: PlayerRowData): boolean {
-  return p.position === "IL" || p.position === "IL+";
+  return p.position === "IL" || p.position === "IL+" || p.position === "NA";
 }
 
 /* ── Main component ──────────────────────────────────────── */
@@ -59,6 +59,7 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
 
   var players = data.players || [];
   var ilPlayers = players.filter(isIL);
+  var hasNA = ilPlayers.some(function (p) { return p.position === "NA"; });
   var active = players.filter(function (p) { return !isIL(p); });
   var batters = active.filter(function (p) { return !isPitcher(p); });
   var pitchers = active.filter(isPitcher);
@@ -107,7 +108,7 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
           <TabsTrigger value="batters">{"Batters (" + batters.length + ")"}</TabsTrigger>
           <TabsTrigger value="pitchers">{"Pitchers (" + pitchers.length + ")"}</TabsTrigger>
           {ilPlayers.length > 0 && (
-            <TabsTrigger value="il">{"IL (" + ilPlayers.length + ")"}</TabsTrigger>
+            <TabsTrigger value="il">{(hasNA ? "IL/NA" : "IL") + " (" + ilPlayers.length + ")"}</TabsTrigger>
           )}
         </TabsList>
       </Tabs>

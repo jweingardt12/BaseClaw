@@ -50,8 +50,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
       try {
         const data = await apiGet<RosterResponse>("/api/roster");
         const text = "Current Roster:\n" + data.players.map((p) => {
-          let line = "  " + str(p.position || "?").padEnd(4) + " " + str(p.name).padEnd(25) + " " + (p.eligible_positions || []).join(",")
-            + pid(p.player_id) + (p.status ? " [" + p.status + "]" : "");
+          var posLabel = p.position === "NA" ? "NA*" : str(p.position || "?");
+          let line = "  " + posLabel.padEnd(4) + " " + str(p.name).padEnd(25) + " " + (p.eligible_positions || []).join(",")
+            + pid(p.player_id) + (p.status ? " [" + p.status + "]" : "")
+            + (p.position === "NA" ? " (minor league stash)" : "");
           if (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) {
             line += " {" + p.intel.statcast.quality_tier + "}";
           }
@@ -99,9 +101,9 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
       description: "Use this to browse the best available free agents in the league. Set pos_type='B' for batters or 'P' for pitchers. Returns players sorted by ownership % with stats.",
       inputSchema: {
         pos_type: z.string().describe("B for batters, P for pitchers").default("B"),
-        count: z.number().describe("Number of free agents to return").default(20),
-        limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
-        offset: z.number().default(0).describe("Offset for pagination"),
+        count: z.coerce.number().describe("Number of free agents to return").default(20),
+        limit: z.coerce.number().default(25).describe("Max results to return (default 25, max 50)"),
+        offset: z.coerce.number().default(0).describe("Offset for pagination"),
       },
       annotations: READ_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
@@ -150,10 +152,10 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
       description: "Use this to explore the full player universe with granular position filters (C, 1B, 2B, SS, 3B, OF, SP, RP) and ownership stats. Returns enriched player data including stats and Statcast tiers.",
       inputSchema: {
         pos_type: z.string().describe("Position filter: B (all batters), P (all pitchers), C, 1B, 2B, SS, 3B, OF, SP, RP, Util").default("B"),
-        count: z.number().describe("Number of players to return").default(50),
+        count: z.coerce.number().describe("Number of players to return").default(50),
         status: z.string().describe("FA for free agents only, ALL for all players").default("FA"),
-        limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
-        offset: z.number().default(0).describe("Offset for pagination"),
+        limit: z.coerce.number().default(25).describe("Max results to return (default 25, max 50)"),
+        offset: z.coerce.number().default(0).describe("Offset for pagination"),
       },
       annotations: READ_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
@@ -294,7 +296,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     "yahoo_waiver_claim",
     {
       description: "Use this to submit a waiver claim for a player in the claim period (not yet a free agent). Supports optional FAAB bid amount and optional drop player for claim+drop combos.",
-      inputSchema: { player_id: z.string().describe("Yahoo player ID to claim"), drop_id: z.string().describe("Yahoo player ID to drop (optional, for claim+drop)").optional(), faab: z.number().describe("FAAB bid amount in dollars").optional() },
+      inputSchema: { player_id: z.string().describe("Yahoo player ID to claim"), drop_id: z.string().describe("Yahoo player ID to drop (optional, for claim+drop)").optional(), faab: z.coerce.number().describe("FAAB bid amount in dollars").optional() },
       annotations: WRITE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
@@ -506,8 +508,8 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to see which recently dropped players are currently in the waiver claim period and not yet free agents. Returns player names, positions, ownership %, and IDs needed for yahoo_waiver_claim.",
       inputSchema: {
-        limit: z.number().default(20).describe("Max results to return (default 20, max 50)"),
-        offset: z.number().default(0).describe("Offset for pagination"),
+        limit: z.coerce.number().default(20).describe("Max results to return (default 20, max 50)"),
+        offset: z.coerce.number().default(0).describe("Offset for pagination"),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -544,8 +546,8 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
       description: "Use this to see every rostered player across all league teams, optionally filtered by position. Returns player names, owners, and ownership percentages.",
       inputSchema: {
         position: z.string().describe("Filter by position (e.g. OF, SP, C). Empty for all.").default(""),
-        limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
-        offset: z.number().default(0).describe("Offset for pagination"),
+        limit: z.coerce.number().default(25).describe("Max results to return (default 25, max 50)"),
+        offset: z.coerce.number().default(0).describe("Offset for pagination"),
       },
       annotations: READ_ANNO,
       _meta: {},

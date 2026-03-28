@@ -194,7 +194,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     "fantasy_transactions",
     {
       description: "Use this to see recent fantasy-relevant MLB transactions including IL stints, call-ups, DFAs, and trades. Pass the days parameter to control how far back to look (default 7 days).",
-      inputSchema: { days: z.number().describe("Number of days to look back").default(7) },
+      inputSchema: { days: z.coerce.number().describe("Number of days to look back").default(7) },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -223,7 +223,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
       description: "Use this to compare a player's Statcast profile now versus 30 or 60 days ago to track changes in exit velo, barrel rate, xwOBA, sprint speed, and more over time. Returns a side-by-side comparison with delta values and directional arrows.",
       inputSchema: {
         player_name: z.string().describe("Player name to look up"),
-        days_ago: z.number().describe("How many days back to compare (30 or 60)").default(30),
+        days_ago: z.coerce.number().describe("How many days back to compare (30 or 60)").default(30),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -275,7 +275,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
       inputSchema: {
         sources: z.string().optional().describe("Comma-separated source IDs to filter (e.g. 'espn,fangraphs,rotowire,reddit,bsky_pitcherlist'). Omit for all sources."),
         player: z.string().optional().describe("Player name to filter news for"),
-        limit: z.number().optional().describe("Max entries to return (default 30)"),
+        limit: z.coerce.number().optional().describe("Max entries to return (default 30)"),
       },
       annotations: READ_ANNO,
       _meta: {},
@@ -458,7 +458,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     "fantasy_bat_tracking_breakouts",
     {
       description: "Use this to find hitters with improving bat speed, swing quality, and power metrics from Baseball Savant bat tracking data. Detects bat speed gains, fast-swing rate improvements, and squared-up rate increases that predict power breakouts weeks before traditional stats reflect it. Cross-references with z-scores to find low-owned breakout candidates.",
-      inputSchema: { count: z.number().describe("Number of results to return").default(20) },
+      inputSchema: { count: z.coerce.number().describe("Number of results to return").default(20) },
       annotations: READ_ANNO,
       _meta: {},
     },
@@ -490,7 +490,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     "fantasy_pitch_mix_breakouts",
     {
       description: "Use this to find pitchers making significant pitch arsenal changes that signal breakouts. Detects usage shifts >= 10%, velocity changes >= 1.5 mph, and new pitches added. Cross-references with effectiveness metrics (whiff rate, run value) and z-scores to rank by breakout signal strength. Surfaces candidates like Nick Lodolo's 2025 breakout weeks before stats catch up.",
-      inputSchema: { count: z.number().describe("Number of results to return").default(20) },
+      inputSchema: { count: z.coerce.number().describe("Number of results to return").default(20) },
       annotations: READ_ANNO,
       _meta: {},
     },

@@ -1908,8 +1908,13 @@ def cmd_compare(args, as_json=False):
             "team": str(b.get("Team", "")),
             "pos": str(b.get("Pos", "")),
         }
+        needs_pos = [p for p in [p1_info, p2_info] if not p.get("pos")]
+        if needs_pos:
+            try:
+                _fill_positions_from_yahoo(needs_pos)
+            except Exception:
+                pass
         enrich_with_intel([p1_info, p2_info])
-        # Inject raw z for _apply_adjusted_z (it reads z_score or z_scores.Final)
         p1_info["z_score"] = _safe_float(a.get("Z_Final", 0))
         p2_info["z_score"] = _safe_float(b.get("Z_Final", 0))
         _apply_adjusted_z([p1_info, p2_info])
@@ -1992,6 +1997,12 @@ def cmd_value(args, as_json=False):
             if pf is not None and not pd.isna(pf):
                 entry["park_factor"] = round(float(pf), 2)
             players.append(entry)
+        needs_pos = [p for p in players if not p.get("pos")]
+        if needs_pos:
+            try:
+                _fill_positions_from_yahoo(needs_pos, results[0].get("_type", "B"))
+            except Exception:
+                pass
         enrich_with_intel(players)
         _apply_adjusted_z(players)
         return {"players": players}

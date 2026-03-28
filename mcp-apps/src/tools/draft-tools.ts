@@ -118,7 +118,7 @@ export function registerDraftTools(server: McpServer) {
     "yahoo_best_available",
     {
       description: "Show best available players ranked by z-score. pos_type: B for batters, P for pitchers",
-      inputSchema: { pos_type: z.string().describe("B for batters, P for pitchers").default("B"), count: z.number().describe("Number of players to return").default(25) },
+      inputSchema: { pos_type: z.string().describe("B for batters, P for pitchers").default("B"), count: z.coerce.number().describe("Number of players to return").default(25) },
       annotations: READ_ANNO,
       _meta: {},
     },
