@@ -11,6 +11,7 @@ import { KpiTile } from "../shared/kpi-tile";
 import { PlayerName } from "../shared/player-name";
 import { ArrowRight, ArrowRightLeft, Loader2, TrendingUp } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
+import { PhaseBar } from "../shared/phase-bar";
 
 interface MovePlayer {
   name: string;
@@ -47,6 +48,7 @@ function signedZ(value: number): string {
 export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesResponse; app?: any; navigate?: (data: any) => void }) {
   var { callTool, loading } = useCallTool(app);
   var [confirmMove, setConfirmMove] = useState<OptimalMove | null>(null);
+  var seasonCtx = (data as any).season_context || {} as any;
   var moves = data.moves || [];
 
   async function handleExecute(move: OptimalMove) {
@@ -70,6 +72,8 @@ export function OptimalMovesView({ data, app, navigate }: { data: OptimalMovesRe
         <TrendingUp size={18} />
         Optimal Roster Moves
       </Subheading>
+
+      <PhaseBar phase={seasonCtx.phase} week={seasonCtx.week} weeks_remaining={seasonCtx.weeks_remaining} phase_note={seasonCtx.phase_note} urgency={seasonCtx.urgency} />
 
       {moves.length === 0 && (
         <EmptyState title="No beneficial moves found" description="Your roster is already optimized!" />

@@ -2462,11 +2462,17 @@ def cmd_streaming(args, as_json=False):
             }
             _attach_context_fields(rec, p)
             recs.append(rec)
+        season_ctx = {}
+        try:
+            season_ctx = _get_season_context(lg)
+        except Exception:
+            pass
         return {
             "week": target_week,
             "team_games": tg_list,
             "recommendations": recs,
             "filtered": filtered_streaming,
+            "season_context": season_ctx,
         }
 
     print("Top Streaming Pitcher Recommendations (Z-Score Based):")
@@ -2834,6 +2840,7 @@ def cmd_trade_eval(args, as_json=False):
             "their_side": their_side,
             "fairness": _assess_fairness(grade, their_side.get("grade") if their_side else None),
             "acceptance_likelihood": _assess_acceptance(their_side),
+            "season_context": _get_season_context(lg),
         }
 
     print("GIVING:")
@@ -8542,6 +8549,11 @@ def cmd_optimal_moves(args, as_json=False):
     if filtered_info:
         summary = summary + " Filtered " + str(len(filtered_info)) + " unavailable player(s)."
 
+    season_ctx = {}
+    try:
+        season_ctx = _get_season_context(lg)
+    except Exception:
+        pass
     result = {
         "roster_z_total": roster_z_total,
         "projected_z_after": projected_z_after,
@@ -8549,6 +8561,7 @@ def cmd_optimal_moves(args, as_json=False):
         "moves": chain,
         "filtered_dealbreakers": filtered_info,
         "summary": summary,
+        "season_context": season_ctx,
     }
 
     if as_json:

@@ -11,6 +11,7 @@ import { KpiTile } from "../shared/kpi-tile";
 import { VerdictBadge } from "../shared/verdict-badge";
 import { Copy, Check } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
+import { PhaseBar } from "../shared/phase-bar";
 
 interface Player {
   name: string;
@@ -92,6 +93,7 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
   const getValue = asNumber((data as any).get_value);
   const netValue = asNumber((data as any).net_value);
   const grade = typeof (data as any).grade === "string" && (data as any).grade.trim() ? (data as any).grade : "N/A";
+  var seasonCtx = (data as any).season_context || {} as any;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -154,6 +156,8 @@ export function TradeEvalView({ data, app, navigate }: { data: TradeEvalData; ap
           )}
         </CardContent>
       </Card>
+
+      <PhaseBar phase={seasonCtx.phase} week={seasonCtx.week} weeks_remaining={seasonCtx.weeks_remaining} phase_note={seasonCtx.phase_note} urgency={seasonCtx.urgency} />
 
       {/* Value Comparison Bar */}
       <Card>

@@ -12,6 +12,7 @@ import { IntelBadge } from "../shared/intel-badge";
 import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { CategoryTable } from "../shared/comparison-bar";
+import { PhaseBar } from "../shared/phase-bar";
 import {
   Swords, AlertTriangle, CheckSquare, Target, Shield, Lock, XCircle,
   TrendingUp, TrendingDown, ArrowRightLeft, UserPlus, Loader2, RefreshCw,
@@ -312,10 +313,8 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
         </Card>
       )}
 
-      {/* Season Phase Note */}
-      {seasonCtx.phase_note && (
-        <p className="text-xs text-muted-foreground leading-relaxed italic">{seasonCtx.phase_note}</p>
-      )}
+      {/* Season Phase */}
+      <PhaseBar phase={seasonCtx.phase} week={seasonCtx.week} weeks_remaining={seasonCtx.weeks_remaining} phase_note={seasonCtx.phase_note} urgency={seasonCtx.urgency} />
 
       {/* Category Trajectory Alerts */}
       {Object.keys(catTrajectory).length > 0 && (function () {

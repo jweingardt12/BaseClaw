@@ -15,6 +15,7 @@ import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, ArrowRightLeft, Loader2, TrendingUp } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
+import { PhaseBar } from "../shared/phase-bar";
 
 interface WaiverPlayer {
   name: string;
@@ -117,6 +118,7 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
     }
   };
 
+  var seasonCtx = (data as any).season_context || {} as any;
   var weakCatsCount = (data.weak_categories || []).length;
   var topScore = players.length > 0 ? players[0].score : 0;
   var avgOwn = players.length > 0
@@ -155,6 +157,8 @@ export function WaiverAnalyzeView({ data, app, navigate }: { data: WaiverData; a
           })}
         </div>
       )}
+
+      <PhaseBar phase={seasonCtx.phase} week={seasonCtx.week} weeks_remaining={seasonCtx.weeks_remaining} phase_note={seasonCtx.phase_note} urgency={seasonCtx.urgency} />
 
       {chartData.length > 0 && (
         <BarChartComponent

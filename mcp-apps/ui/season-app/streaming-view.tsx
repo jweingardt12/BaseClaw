@@ -8,6 +8,7 @@ import { AiInsight } from "../shared/ai-insight";
 import { KpiTile } from "../shared/kpi-tile";
 import { UserPlus, Loader2, Zap } from "@/shared/icons";
 import { formatFixed } from "../shared/number-format";
+import { PhaseBar } from "../shared/phase-bar";
 
 interface StreamingPitcher {
   name: string;
@@ -44,6 +45,7 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
     }
   };
 
+  var seasonCtx = (data as any).season_context || {} as any;
   var twoStartCount = (data.pitchers || []).filter(function (p) { return p.two_start; }).length;
   var bestGrade = (data.pitchers || []).length > 0 ? formatFixed((data.pitchers || [])[0].score, 1, "0.0") : "-";
 
@@ -57,6 +59,8 @@ export function StreamingView({ data, app, navigate }: { data: StreamingData; ap
       </div>
 
       <Subheading>Streaming Pitchers - Week {data.week}</Subheading>
+
+      <PhaseBar phase={seasonCtx.phase} week={seasonCtx.week} weeks_remaining={seasonCtx.weeks_remaining} phase_note={seasonCtx.phase_note} urgency={seasonCtx.urgency} />
 
       <div className="relative">
         {loading && (
