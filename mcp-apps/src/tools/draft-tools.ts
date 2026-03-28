@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, toolError } from "../api/python-client.js";
+import { READ_ANNO } from "../api/annotations.js";
 import {
   str,
   type DraftStatusResponse,
@@ -19,7 +20,7 @@ export function registerDraftTools(server: McpServer) {
     "yahoo_draft_status",
     {
       description: "Show current draft status: picks made, your round, roster composition",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: INTEL_URI } },
     },
     async () => {
@@ -43,7 +44,7 @@ export function registerDraftTools(server: McpServer) {
     "yahoo_draft_recommend",
     {
       description: "Get draft pick recommendation with top available hitters and pitchers by z-score",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -77,7 +78,7 @@ export function registerDraftTools(server: McpServer) {
     "yahoo_draft_cheatsheet",
     {
       description: "Show draft strategy cheat sheet with round-by-round targets",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -118,7 +119,7 @@ export function registerDraftTools(server: McpServer) {
     {
       description: "Show best available players ranked by z-score. pos_type: B for batters, P for pitchers",
       inputSchema: { pos_type: z.string().describe("B for batters, P for pitchers").default("B"), count: z.number().describe("Number of players to return").default(25) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ pos_type, count }) => {
@@ -142,7 +143,7 @@ export function registerDraftTools(server: McpServer) {
     "yahoo_draft_board",
     {
       description: "Show visual draft board with all picks, position tracking, and next pick countdown",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: INTEL_URI } },
     },
     async () => {

@@ -1814,6 +1814,7 @@ def cmd_rankings(args, as_json=False):
                 print("Warning: could not fill positions from Yahoo: " + str(e))
 
         enrich_with_intel(players)
+        _apply_adjusted_z(players)
         return {"source": source, "pos_type": pos_type, "players": players}
 
     print("Data source: " + source)
@@ -1840,6 +1841,22 @@ def cmd_rankings(args, as_json=False):
             pos = str(row.get("Pos", ""))
             z = row.get("Z_Final", 0)
             print("  " + str(i).rjust(2) + ". " + name.ljust(25) + team.ljust(6) + pos.ljust(8) + "{:.2f}".format(z))
+
+
+def _apply_adjusted_z(players):
+    """Add adjusted_z and z_adjustments to a list of player dicts with intel data."""
+    from shared import compute_adjusted_z
+    for p in players:
+        intel_data = p.get("intel") or {}
+        sc = intel_data.get("statcast") or {}
+        trends = intel_data.get("trends") or {}
+        raw_z = p.get("z_score", 0) or p.get("z_scores", {}).get("Final", 0)
+        adj_z, adj_detail = compute_adjusted_z(
+            p.get("name", ""), raw_z,
+            sc.get("quality_tier"), trends.get("hot_cold"),
+        )
+        p["adjusted_z"] = adj_z
+        p["z_adjustments"] = adj_detail
 
 
 def cmd_compare(args, as_json=False):
@@ -1892,6 +1909,11 @@ def cmd_compare(args, as_json=False):
             "pos": str(b.get("Pos", "")),
         }
         enrich_with_intel([p1_info, p2_info])
+        # Inject raw z for _apply_adjusted_z (it reads z_score or z_scores.Final)
+        p1_info["z_score"] = _safe_float(a.get("Z_Final", 0))
+        p2_info["z_score"] = _safe_float(b.get("Z_Final", 0))
+        _apply_adjusted_z([p1_info, p2_info])
+
         return {
             "player1": p1_info,
             "player2": p2_info,
@@ -1971,6 +1993,7 @@ def cmd_value(args, as_json=False):
                 entry["park_factor"] = round(float(pf), 2)
             players.append(entry)
         enrich_with_intel(players)
+        _apply_adjusted_z(players)
         return {"players": players}
 
     for p in results:

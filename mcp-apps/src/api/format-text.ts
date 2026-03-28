@@ -58,6 +58,13 @@ export function waiverPairList(pairs: WaiverPair[]): string {
   return lines.join("\n");
 }
 
+/** Agent-facing strategic footer with assessment + next steps */
+export function buildFooter(assessment: string, steps: string[]): string {
+  var lines = ["\n---", "ASSESSMENT: " + assessment, "NEXT STEPS:"];
+  for (var s of steps) lines.push("- " + s);
+  return lines.join("\n");
+}
+
 /** Compact pipe-delimited section */
 export function compactSection(name: string, items: string[]): string {
   if (!items || items.length === 0) return "";

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
+import { READ_ANNO } from "../api/annotations.js";
 import {
   str,
   type ProbablePitchersResponse,
@@ -21,7 +22,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
     {
       description: "Use this to see upcoming probable starting pitchers for the next N days with matchup details. Returns pitcher names, teams, dates, and home/away opponents to help plan streaming decisions.",
       inputSchema: { days: z.number().describe("Number of days to look ahead").default(7) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ days }) => {
@@ -42,6 +43,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -59,7 +61,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         team: z.string().describe("MLB team name or abbreviation"),
         days: z.number().describe("Number of days to analyze").default(14),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ team, days }) => {
@@ -73,6 +75,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         lines.push("  Density rating:  " + str(data.density_rating));
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -86,7 +89,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
     "fantasy_regression_candidates",
     {
       description: "Use this to find buy-low and sell-high regression candidates with composite scores from -100 to +100 based on multi-signal analysis of xwOBA vs wOBA, BABIP, HR/FB vs barrel rate, sprint speed, ERA vs SIERA, and LOB%. Returns candidates with regression_score, direction, confidence level, and detailed signal breakdown for both hitters and pitchers.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -138,6 +141,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -152,7 +156,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
     {
       description: "Use this to see travel fatigue scores for MLB teams playing today (or a specific date). Based on peer-reviewed PNAS research: eastward travel eliminates home-field advantage, jet-lagged pitchers allow more home runs. Shows timezone changes, schedule density, and fatigue severity. Use for streaming decisions (target fatigued opponents) and lineup optimization (bench players on high-fatigue teams).",
       inputSchema: { date: z.string().describe("Game date (YYYY-MM-DD). Defaults to today.").default("") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ date }) => {
@@ -175,6 +179,7 @@ export function registerStrategyTools(server: McpServer, enabledTools?: Set<stri
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },

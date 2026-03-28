@@ -5,7 +5,8 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
 import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
-import { tkey } from "../api/format-text.js";
+import { tkey, buildFooter } from "../api/format-text.js";
+import { READ_ANNO } from "../api/annotations.js";
 import {
   generateStandingsInsight,
   generateSeasonPaceInsight,
@@ -57,7 +58,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_standings",
     {
       description: "Use this to see current league standings with win-loss records, points, and team rankings. Returns all teams sorted by rank.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: STANDINGS_URI } },
     },
     async () => {
@@ -85,7 +86,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     {
       description: "Use this to see all head-to-head matchup pairings for a given week across the league. Leave week empty for current week. Returns team pairings and matchup status.",
       inputSchema: { week: z.string().describe("Week number, empty for current week").default("") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: STANDINGS_URI } },
     },
     async ({ week }) => {
@@ -115,7 +116,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_my_matchup",
     {
       description: "Use this to see how you're doing in this week's head-to-head matchup. Shows your score vs your opponent across every stat category with running totals.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: STANDINGS_URI } },
     },
     async () => {
@@ -128,9 +129,24 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
             "  " + (c.result === "win" ? "W" : c.result === "loss" ? "L" : "T") + " " + str(c.name).padEnd(10) + " " + str(c.my_value).padStart(8) + " vs " + str(c.opp_value).padStart(8)
           ).join("\n");
         var result = score.wins > score.losses ? "Winning" : score.wins < score.losses ? "Losing" : "Tied";
-        var ai_recommendation = result + " " + score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "") + " vs " + data.opponent + ".";
+        var closeCats = (data.categories || []).filter(function (c) {
+          var diff = Math.abs(parseFloat(c.my_value) - parseFloat(c.opp_value));
+          var avg = (Math.abs(parseFloat(c.my_value)) + Math.abs(parseFloat(c.opp_value))) / 2;
+          return avg > 0 && diff / avg < 0.15;
+        });
+        var flippable = closeCats.filter(function (c) { return c.result === "loss"; });
+        var ai_recommendation = result + " " + score.wins + "-" + score.losses + (score.ties > 0 ? "-" + score.ties : "") + " vs " + data.opponent + "."
+          + (flippable.length > 0 ? " " + flippable.length + " close categor" + (flippable.length === 1 ? "y" : "ies") + " you can flip: " + flippable.map(function (c) { return c.name; }).join(", ") + "." : "");
+        var footer = buildFooter(
+          result + " " + score.wins + "-" + score.losses + "." + (flippable.length > 0 ? " " + flippable.length + " flippable." : " No close categories to target."),
+          [
+            "Full strategy with target/protect/concede -> yahoo_matchup_strategy",
+            "Find streaming pitchers to flip categories -> yahoo_streaming",
+            "Scout opponent's roster weaknesses -> yahoo_scout_opponent",
+          ]
+        );
         return {
-          content: [{ type: "text" as const, text }],
+          content: [{ type: "text" as const, text: text + footer }],
           structuredContent: { type: "matchup-detail", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
@@ -145,7 +161,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_league_context",
     {
       description: "Use this to load the league profile at the start of a session: waiver type (FAAB/priority), scoring format (H2H/roto), stat categories, roster slots, and FAAB balance. Returns format-specific behavioral notes for the agent.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -202,7 +218,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         limit: z.number().default(20).describe("Max results to return (default 20, max 50)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ trans_type, count, limit, offset }) => {
@@ -220,6 +236,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         var ai_recommendation: string | null = data.transactions.length + " recent transaction" + (data.transactions.length === 1 ? "" : "s") + ". Monitor league activity for waiver targets.";
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { type: "transactions", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -237,7 +254,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         limit: z.number().default(20).describe("Max results per list to return (default 20)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ limit, offset }) => {
@@ -256,11 +273,9 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         var ai_recommendation: string | null = topAdded
           ? "Hottest pickup: " + topAdded.name + " (" + topAdded.percent_owned + "% owned, " + topAdded.delta + "). Check if available in your league."
           : null;
-        var addedCount = (data.most_added || []).length;
-        var droppedCount = (data.most_dropped || []).length;
-        var trendCount = addedCount > droppedCount ? addedCount : droppedCount;
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { type: "transaction-trends", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -274,7 +289,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_league_pulse",
     {
       description: "Use this to see how active each manager in the league has been — total moves, trades, and add/drops per team sorted by most active. Helps identify dormant teams to exploit and active competitors to watch.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -295,6 +310,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
           : null;
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "league-pulse", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -308,7 +324,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_power_rankings",
     {
       description: "Use this to rank all league teams by roster strength using multi-layer analysis: adjusted z-scores (projections + statcast + regression + trends), standings, and quality.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -335,6 +351,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
           : "Power rankings loaded.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "power-rankings", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -348,7 +365,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_league_intel",
     {
       description: "Use this to get a comprehensive league intelligence report with multi-layer value analysis: adjusted z-scores (projections + statcast quality + regression signals + hot/cold trends), power rankings, top performers across all teams, team profiles with category strengths/weaknesses, and trade fit analysis. Best tool for 'who has who', 'which teams are strong/weak', 'who should I trade with', and 'who is overperforming/underperforming'.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -504,6 +521,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -517,7 +535,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_season_pace",
     {
       description: "Use this to see projected final records, playoff probability, and magic numbers for every team in the league. Shows current pace, playoff status (clinched/in contention/eliminated), and your position.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -539,6 +557,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         const ai_recommendation = generateSeasonPaceInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "season-pace", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -552,7 +571,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     "yahoo_positional_ranks",
     {
       description: "Use this to see how every team ranks at each position (C, 1B, 2B, SS, 3B, OF, SP, RP) with strong/neutral/weak grades and recommended trade partners. Returns starters, bench players, and complementary trade opportunities for each team.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -573,6 +592,7 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         const ai_recommendation = "Review positional ranks to identify where your team is weak and find trade partners who are strong in those positions.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },

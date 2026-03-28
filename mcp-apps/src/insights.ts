@@ -52,6 +52,7 @@ export function generateLineupInsight(data: LineupOptimizeResponse): string | nu
     var first = swaps[0];
     parts.push("Start " + first.bench_player + " at " + first.position + " (replacing " + first.start_player + ").");
     if (swaps.length > 1) parts.push((swaps.length - 1) + " more swap" + (swaps.length - 1 === 1 ? "" : "s") + " available.");
+    parts.push("Apply all swaps with yahoo_lineup_optimize apply=true.");
   }
   return parts.join(" ") || null;
 }
@@ -67,7 +68,7 @@ export function generateMatchupInsight(data: MatchupStrategyResponse): string | 
   if (close.length > 0) {
     var flippable = close.filter(function (c) { return c.result === "loss"; }).map(function (c) { return c.name; });
     if (flippable.length > 0) {
-      parts.push(flippable.join(" and ") + " " + (flippable.length === 1 ? "is" : "are") + " your best flip target" + (flippable.length === 1 ? "" : "s") + ".");
+      parts.push(flippable.join(" and ") + " " + (flippable.length === 1 ? "is" : "are") + " flippable. Stream to flip via yahoo_streaming.");
     }
   }
   if (targets.length > 0) parts.push("Target: " + targets.slice(0, 3).join(", ") + ".");
@@ -114,9 +115,9 @@ export function generateCategoryInsight(data: CategoryCheckResponse): string | n
     var weakCats = (data.categories || []).filter(function (c) { return weakest.includes(c.name); });
     var details = weakCats.slice(0, 2).map(function (c) { return c.name + " (" + c.rank + "/" + c.total + ")"; });
     parts.push("Weakest: " + details.join(", ") + ".");
-    parts.push("Target these on waivers or trades.");
+    parts.push("Target these via yahoo_waiver_recommendations or yahoo_trade_pipeline.");
   }
-  if (strongest.length > 0) parts.push("Dominant in " + strongest.slice(0, 2).join(", ") + " \u2014 potential trade chips.");
+  if (strongest.length > 0) parts.push("Dominant in " + strongest.slice(0, 2).join(", ") + " \u2014 trade surplus via yahoo_trade_pipeline.");
   return parts.join(" ");
 }
 
@@ -124,9 +125,10 @@ export function generateStandingsInsight(data: StandingsResponse): string | null
   var standings = data.standings || [];
   if (standings.length === 0) return null;
   var first = standings[0];
-  var myTeam = standings.find(function (t) { return t.rank === 1; });
   if (standings.length < 2) return "Leading the league at " + first.wins + "-" + first.losses + ".";
-  return standings.length + " teams competing. Leader: " + first.name + " (" + first.wins + "-" + first.losses + ").";
+  var parts = [standings.length + " teams. Leader: " + first.name + " (" + first.wins + "-" + first.losses + ")."];
+  parts.push("See power rankings via yahoo_power_rankings or league intel via yahoo_league_intel.");
+  return parts.join(" ");
 }
 
 export function generateStreamingInsight(data: StreamingResponse): string | null {
@@ -135,8 +137,8 @@ export function generateStreamingInsight(data: StreamingResponse): string | null
   var top = recs[0];
   var twoStart = recs.filter(function (r) { return r.games >= 7; });
   var parts: string[] = [];
-  parts.push("Lead with " + top.name + " (" + top.team + ", " + top.pct + "% owned).");
-  if (twoStart.length > 0) parts.push(twoStart.length + " two-start pitcher" + (twoStart.length === 1 ? "" : "s") + " available.");
+  parts.push("Lead with " + top.name + " (" + top.team + ", " + top.pct + "% owned). Add via yahoo_add " + (top as any).pid + ".");
+  if (twoStart.length > 0) parts.push(twoStart.length + " two-start pitcher" + (twoStart.length === 1 ? "" : "s") + ": " + twoStart.slice(0, 2).map(function (r) { return r.name; }).join(", ") + ".");
   return parts.join(" ");
 }
 

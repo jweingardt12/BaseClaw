@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, toolError } from "../api/python-client.js";
+import { READ_ANNO } from "../api/annotations.js";
 import {
   str,
   type MlbTeamsResponse,
@@ -26,7 +27,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     "mlb_teams",
     {
       description: "Use this to list all 30 MLB teams with their abbreviations and full names. Returns the team abbreviation codes needed by other tools like mlb_roster and mlb_standings. Use mlb_roster instead when you want to see a specific team's player roster.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -51,7 +52,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     {
       description: "Use this to see all players on an MLB team's 40-man roster with jersey numbers and positions. Pass the team abbreviation (e.g. 'NYY', 'LAD') or MLB team ID. Use mlb_player instead when you want detailed info on a specific player rather than the full roster.",
       inputSchema: { team: z.string().describe("Team abbreviation (NYY, LAD) or MLB team ID") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ team }) => {
@@ -76,7 +77,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     {
       description: "Use this to get biographical info for an MLB player including position, team, bats/throws, and age. Pass the MLB Stats API player ID. Use mlb_stats instead when you want a player's season statistics rather than their bio.",
       inputSchema: { player_id: z.string().describe("MLB Stats API player ID") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_id }) => {
@@ -104,7 +105,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     {
       description: "Use this to get a player's official season statistics from the MLB Stats API. Pass the player ID and optional season year. Use fantasy_player_report instead when you want a richer analysis with Statcast data, trends, and fantasy context beyond raw stats.",
       inputSchema: { player_id: z.string().describe("MLB Stats API player ID"), season: z.string().describe("Season year (e.g. 2025)").default("2025") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_id, season }) => {
@@ -129,7 +130,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     "mlb_injuries",
     {
       description: "Use this to see all current MLB injuries across every team with player names and injury descriptions. Returns the league-wide injury list which is useful for waiver wire planning. Use yahoo_player_intel instead when you want injury details for one specific player along with other qualitative context.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -155,7 +156,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     "mlb_standings",
     {
       description: "Use this to see current MLB division standings with win-loss records and games back. Returns all six divisions with team rankings. Use mlb_schedule instead when you want to see upcoming games rather than standings.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -184,7 +185,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     {
       description: "Use this to see the MLB game schedule for a given day showing matchups and game status. Pass a date in YYYY-MM-DD format or leave empty for today's games. Use yahoo_weather instead when you need to know which games are at outdoor vs domed stadiums for weather risk.",
       inputSchema: { date: z.string().describe("Date in YYYY-MM-DD format, empty for today").default("") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ date }) => {
@@ -211,7 +212,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     {
       description: "Use this to see MLB amateur draft picks by year with player names, teams, rounds, positions, and schools. Pass the year or omit for the current year's draft results. Use fantasy_prospect_rankings instead when you want fantasy-relevant prospect rankings with call-up probabilities rather than raw draft order.",
       inputSchema: { year: z.string().describe("Draft year (e.g. '2025'). Omit for current year.").default("") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ year }) => {
@@ -251,7 +252,7 @@ export function registerMlbTools(server: McpServer, enabledTools?: Set<string>) 
     {
       description: "Use this to check weather and venue risk for MLB games by seeing which games are at outdoor vs domed stadiums. Returns a breakdown of dome and outdoor game counts to help with lineup and streaming pitcher decisions. Use mlb_schedule instead when you just need the game matchups without weather context.",
       inputSchema: { date: z.string().describe("Date in YYYY-MM-DD format, empty for today").default("") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ date }) => {

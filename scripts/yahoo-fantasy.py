@@ -55,7 +55,7 @@ def _get_today_opponents():
     try:
         from shared import mlb_fetch
         from datetime import date
-        data = mlb_fetch("/schedule?sportId=1&date=" + date.today().isoformat())
+        data = mlb_fetch("/schedule?sportId=1&date=" + date.today().isoformat() + "&hydrate=team")
         opponents = {}
         dates = data.get("dates", [])
         if dates:
@@ -84,6 +84,7 @@ def _parse_enriched_data(raw, stat_lookup):
 
     # Navigate to players list - Yahoo's JSON structure varies
     players_raw = None
+    roster_data = {}
     try:
         fc = raw.get("fantasy_content", raw)
         team_data = fc.get("team", {})
@@ -379,6 +380,17 @@ def cmd_free_agents(args, as_json=False):
 
         enrich_with_intel(players)
         enrich_with_trends(players)
+
+        try:
+            from valuations import get_player_zscore
+            for p in players:
+                z_info = get_player_zscore(p.get("name", ""))
+                if z_info:
+                    p["z_score"] = round(z_info.get("z_final", 0), 2)
+                    p["tier"] = z_info.get("tier", "")
+        except Exception as e:
+            print("Warning: free-agents z-score enrichment failed: " + str(e))
+
         return {"pos_type": pos_type, "count": count, "players": players}
 
     label = "Batters" if pos_type == "B" else "Pitchers"

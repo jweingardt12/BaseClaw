@@ -1,36 +1,48 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { LoadingIndicator } from "@/shared/loading-indicator";
 import { EmptyMessage } from "@/shared/empty-message";
+import { KpiTile } from "@/shared/kpi-tile";
+import { RefreshButton } from "@/shared/refresh-button";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerRowData } from "../shared/player-row";
 import { TeamLogo } from "../shared/team-logo";
+import { qualityColor, hotColdIcon } from "../shared/intel-badge";
 
-/* ── Position color map ──────────────────────────────────── */
+/* ── Constants ────────────────────────────────────────────── */
 
-var TREND_DISPLAY: Record<string, { label: string; variant: "destructive" | "outline" | "secondary" }> = {
-  hot:  { label: "\u{1F525} Hot",   variant: "destructive" },
-  warm: { label: "\u2191 Warm",     variant: "outline" },
-  cold: { label: "\u2744\uFE0F Cold", variant: "secondary" },
-  ice:  { label: "\u2744\uFE0F Ice",  variant: "secondary" },
-};
+var BATTER_STAT_KEYS = ["AVG", "HR", "RBI", "OBP", "R", "SB", "H", "TB", "XBH"];
+var PITCHER_STAT_KEYS = ["ERA", "WHIP", "K", "W", "IP", "QS", "SV", "HLD"];
+var PITCHER_POS = new Set(["SP", "RP", "P"]);
+var HIDDEN_POSITIONS = new Set(["Util", "BN", "IL", "IL+", "DL"]);
 
-/* ── Pitcher detection ───────────────────────────────────── */
+/* ── Helpers ──────────────────────────────────────────────── */
 
-var PITCHER_POS = ["SP", "RP", "P"];
+function pickStats(stats: Record<string, any> | undefined, keys: string[]): Array<{ key: string; val: string }> {
+  if (!stats) return [];
+  var result: Array<{ key: string; val: string }> = [];
+  for (var k of keys) {
+    var v = stats[k];
+    if (v != null && v !== "" && v !== 0) {
+      result.push({ key: k, val: String(v) });
+    }
+    if (result.length >= 3) break;
+  }
+  return result;
+}
 
 function isPitcher(p: PlayerRowData): boolean {
+  if (PITCHER_POS.has(p.position || "")) return true;
   var elig = p.eligible_positions || [];
-  if (Array.isArray(elig)) {
-    for (var i = 0; i < elig.length; i++) {
-      if (PITCHER_POS.indexOf(elig[i]) >= 0) return true;
-    }
+  for (var i = 0; i < elig.length; i++) {
+    if (PITCHER_POS.has(elig[i])) return true;
   }
-  return PITCHER_POS.indexOf(p.position || "") >= 0;
+  return false;
+}
+
+function isIL(p: PlayerRowData): boolean {
+  return p.position === "IL" || p.position === "IL+";
 }
 
 /* ── Main component ──────────────────────────────────────── */
@@ -41,25 +53,18 @@ interface RosterData {
 }
 
 export function RosterView({ data, app, navigate }: { data: RosterData; app: any; navigate: (data: any) => void }) {
-  var { callTool, loading } = useCallTool(app);
-  var [dropTarget, setDropTarget] = useState<PlayerRowData | null>(null);
+  var { loading } = useCallTool(app);
   var [loadingPlayer, setLoadingPlayer] = useState<string | null>(null);
   var [activeTab, setActiveTab] = useState("batters");
 
   var players = data.players || [];
-  var ilPlayers = players.filter(function (p) { return p.position === "IL" || p.position === "IL+"; });
-  var active = players.filter(function (p) { return p.position !== "IL" && p.position !== "IL+"; });
+  var ilPlayers = players.filter(isIL);
+  var active = players.filter(function (p) { return !isIL(p); });
   var batters = active.filter(function (p) { return !isPitcher(p); });
-  var pitchers = active.filter(function (p) { return isPitcher(p); });
+  var pitchers = active.filter(isPitcher);
   var injuredCount = players.filter(function (p) { return p.status && p.status !== "Healthy"; }).length;
+  var withGames = players.filter(function (p) { return !!p.opponent; }).length;
   var displayed = activeTab === "batters" ? batters : activeTab === "pitchers" ? pitchers : ilPlayers;
-
-  var handleDrop = async function () {
-    if (!dropTarget) return;
-    var result = await callTool("yahoo_drop", { player_id: dropTarget.player_id });
-    setDropTarget(null);
-    if (result) { navigate(result.structuredContent); }
-  };
 
   var handlePlayerTap = async function (p: PlayerRowData) {
     if (loadingPlayer) return;
@@ -70,7 +75,6 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
         navigate(result.structuredContent);
       }
     } catch (_e) {
-      // Fallback: open FanGraphs
       if (app && app.openLink) {
         var slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         app.openLink("https://www.fangraphs.com/players/" + slug);
@@ -81,10 +85,25 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
   };
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      {/* Section tabs */}
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Roster</h2>
+        {app && navigate && (
+          <RefreshButton app={app} toolName="yahoo_roster" navigate={navigate} />
+        )}
+      </div>
+
+      {/* KPI tiles */}
+      <div className="kpi-grid">
+        <KpiTile value={players.length} label="Roster" color="primary" />
+        <KpiTile value={injuredCount} label="Injured" color={injuredCount > 0 ? "risk" : "success"} />
+        <KpiTile value={withGames} label="Playing" color={withGames > 0 ? "info" : "neutral"} />
+      </div>
+
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} aria-label="Roster sections">
-        <TabsList>
+        <TabsList className="gap-1">
           <TabsTrigger value="batters">{"Batters (" + batters.length + ")"}</TabsTrigger>
           <TabsTrigger value="pitchers">{"Pitchers (" + pitchers.length + ")"}</TabsTrigger>
           {ilPlayers.length > 0 && (
@@ -93,153 +112,94 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
         </TabsList>
       </Tabs>
 
-      {/* Table */}
-      <div style={{ position: "relative" }}>
+      {/* Player list */}
+      <div className="relative">
         {loading && <div className="loading-overlay"><LoadingIndicator size={24} /></div>}
 
         {displayed.length === 0 ? (
           <EmptyMessage title="No players" description="This section is empty." />
         ) : (
-          <div className="w-full overflow-x-auto mcp-app-scroll-x">
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12 sm:w-14">Pos</TableHead>
-                  <TableHead>Player</TableHead>
-                  <TableHead className="hidden sm:table-cell w-20">Today</TableHead>
-                  <TableHead className="w-20 sm:w-24">Signal</TableHead>
-                  <TableHead className="w-16 sm:w-20">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayed.map(function (p) {
-                  var pos = p.position || "?";
-                  var hasStatus = p.status && p.status !== "Healthy";
-                  var elig = (p.eligible_positions || []).filter(function (e) {
-                    return e !== pos && e !== "Util" && e !== "BN" && e !== "IL" && e !== "IL+" && e !== "DL";
-                  });
-                  var tier = p.intel && p.intel.statcast && p.intel.statcast.quality_tier || null;
-                  var hotCold = p.intel && p.intel.trends && p.intel.trends.hot_cold || null;
-                  var trendInfo = hotCold && TREND_DISPLAY[hotCold] ? TREND_DISPLAY[hotCold] : null;
+          <div className="rounded-lg border border-border/60 overflow-hidden divide-y divide-border/40">
+            {displayed.map(function (p) {
+              var pos = p.position || "?";
+              var hasStatus = p.status && p.status !== "Healthy";
+              var elig = (p.eligible_positions || []).filter(function (e) {
+                return e !== pos && !HIDDEN_POSITIONS.has(e);
+              });
+              var tier = p.intel && p.intel.statcast && p.intel.statcast.quality_tier || null;
+              var hotCold = p.intel && p.intel.trends && p.intel.trends.hot_cold || null;
+              var showHotCold = hotCold && hotCold !== "neutral";
+              var statKeys = isPitcher(p) ? PITCHER_STAT_KEYS : BATTER_STAT_KEYS;
+              var keyStats = pickStats(p.stats, statKeys);
+              var oppAbbrev = p.opponent ? p.opponent.replace(/^(vs |@)/, "") : "";
 
-                  return (
-                    <TableRow
-                      key={p.player_id || p.name}
-                      style={{ minHeight: 52, cursor: "pointer" }}
-                      onClick={function () { handlePlayerTap(p); }}
-                      className={"hover:bg-[var(--color-surface-2)] transition-colors " + (loadingPlayer === p.name ? "opacity-60" : "")}
-                    >
-                      <TableCell style={{ paddingLeft: 12, paddingRight: 8, verticalAlign: "middle" }}>
-                        <Badge
-                          variant="secondary"
-                          className="font-mono font-bold inline-flex justify-center min-w-[40px]"
-                        >
-                          {pos}
-                        </Badge>
-                      </TableCell>
+              return (
+                <div
+                  key={p.player_id || p.name}
+                  className={"flex items-center gap-3 py-2.5 px-3 cursor-pointer transition-colors hover:bg-muted/50 " + (loadingPlayer === p.name ? "opacity-50" : "")}
+                  onClick={function () { handlePlayerTap(p); }}
+                >
+                  {/* Position badge */}
+                  <Badge
+                    variant="secondary"
+                    className="font-mono font-bold min-w-[36px] justify-center shrink-0 text-xs"
+                  >
+                    {pos}
+                  </Badge>
 
-                      <TableCell style={{ paddingLeft: 8, paddingRight: 8, verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
-                          {p.team && <TeamLogo abbrev={p.team} size={20} />}
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                            <span style={{ fontWeight: 500 }}>
-                              {loadingPlayer === p.name && <LoadingIndicator size={12} className="inline mr-1" />}
-                              {p.name}
+                  {/* Player info */}
+                  <div className="flex-1 min-w-0">
+                    {/* Name row */}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {p.team && <TeamLogo abbrev={p.team} size={18} />}
+                      <span className="font-medium truncate text-sm">
+                        {loadingPlayer === p.name && <LoadingIndicator size={12} className="inline mr-1" />}
+                        {p.name}
+                      </span>
+                      {tier && <span className={"w-2 h-2 rounded-full shrink-0 " + qualityColor(tier)} title={tier} />}
+                      {showHotCold && <span className="text-xs shrink-0" title={hotCold || ""}>{hotColdIcon(hotCold)}</span>}
+                      {hasStatus && <Badge variant="destructive" className="text-[10px] shrink-0 ml-0.5">{p.status}</Badge>}
+                    </div>
+
+                    {/* Stats line */}
+                    {keyStats.length > 0 && (
+                      <div className="flex gap-3 mt-0.5 text-[11px] text-muted-foreground font-mono">
+                        {keyStats.map(function (s) {
+                          return (
+                            <span key={s.key}>
+                              <span className="opacity-60">{s.key}</span>
+                              {" "}
+                              <span className="text-foreground">{s.val}</span>
                             </span>
-                            {elig.length > 0 && (
-                              <span style={{ fontSize: 11, color: "var(--color-text-tertiary)", lineHeight: 1 }}>
-                                {elig.join(", ")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                      <TableCell className="hidden sm:table-cell" style={{ paddingLeft: 8, paddingRight: 8, verticalAlign: "middle" }}>
-                        <OpponentDisplay opponent={p.opponent} />
-                      </TableCell>
+                    {/* Eligibility + opponent */}
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                      {elig.length > 0 && (
+                        <span>{elig.join(", ")}</span>
+                      )}
+                      {elig.length > 0 && p.opponent && <span className="opacity-40">|</span>}
+                      {p.opponent && (
+                        <span className={"inline-flex items-center gap-1 " + (p.opponent.indexOf("vs ") === 0 ? "text-sem-success" : "")}>
+                          <TeamLogo abbrev={oppAbbrev} size={12} />
+                          {p.opponent}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                      <TableCell style={{ paddingLeft: 8, paddingRight: 8, verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                          {tier && (
-                            <Badge variant="secondary" className="font-mono uppercase">
-                              {tier}
-                            </Badge>
-                          )}
-                          {trendInfo && (
-                            <Badge variant={trendInfo.variant}>
-                              {trendInfo.label}
-                            </Badge>
-                          )}
-                          {!tier && !trendInfo && (
-                            <span className="sm:hidden">
-                              <OpponentDisplay opponent={p.opponent} />
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      <TableCell style={{ paddingLeft: 8, paddingRight: 12, verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
-                          {hasStatus && <Badge variant="destructive" className="text-[10px]">{p.status}</Badge>}
-                          <span style={{ color: "var(--color-text-quaternary)", fontSize: 14 }}>{"\u203A"}</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  {/* Chevron */}
+                  <span className="text-muted-foreground/30 text-lg shrink-0">{"\u203A"}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", textAlign: "center", paddingTop: 4 }}>
-        {players.length + " players"}
-        {injuredCount > 0 ? " \u00B7 " + injuredCount + " injured" : ""}
-      </div>
-
-      {/* Drop confirmation */}
-      <Dialog open={dropTarget !== null} onOpenChange={function (open) { if (!open) setDropTarget(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Drop Player</DialogTitle>
-          </DialogHeader>
-          <p style={{ padding: "0 24px 16px" }}>
-            {"Are you sure you want to drop " + (dropTarget ? dropTarget.name : "") + "? This cannot be undone."}
-          </p>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost">Cancel</Button>
-            </DialogClose>
-            <Button variant="destructive" onClick={handleDrop} disabled={loading}>
-              {loading ? <LoadingIndicator size={16} /> : null}
-              Drop Player
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-
-/* ── Opponent display ────────────────────────────────────── */
-
-function OpponentDisplay({ opponent }: { opponent?: string }) {
-  if (!opponent) {
-    return <span style={{ fontSize: 12, color: "var(--color-text-quaternary)" }}>OFF</span>;
-  }
-  var isHome = opponent.indexOf("vs ") === 0;
-  var abbrev = opponent.replace(/^(vs |@)/, "");
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-      <TeamLogo abbrev={abbrev} size={16} />
-      <span>
-        <span style={{ color: "var(--color-text-tertiary)" }}>{isHome ? "vs" : "@"}</span>
-        {" " + abbrev}
-      </span>
-    </span>
   );
 }

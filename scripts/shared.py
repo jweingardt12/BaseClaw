@@ -499,6 +499,48 @@ def get_regression_adjusted_z(player_name, z_final):
         return z_final
 
 
+QUALITY_TIER_ADJ = {"elite": 1.5, "strong": 0.75, "below": -0.4, "poor": -0.8}
+HOT_COLD_ADJ = {"hot": 0.8, "warm": 0.4, "cold": -0.4, "ice": -0.8}
+
+
+def compute_adjusted_z(player_name, z_final, quality_tier=None, hot_cold=None):
+    """Compute fully adjusted z-score: regression + Statcast quality + hot/cold.
+
+    Consolidates the adjustment logic from cmd_league_intel into a reusable function.
+    Returns (adjusted_z, adjustments_dict) where adjustments_dict shows each modifier.
+    """
+    adjustments = {}
+    adjusted = float(z_final)
+
+    # Regression adjustment (+/-2.0 max)
+    try:
+        from intel import get_regression_signal
+        sig = get_regression_signal(player_name)
+        if sig and sig.get("regression_score") is not None:
+            reg_adj = min(max(float(sig.get("regression_score", 0)) / 50.0, -2.0), 2.0)
+            if abs(reg_adj) >= 0.1:
+                adjusted += reg_adj
+                adjustments["regression"] = round(reg_adj, 2)
+    except Exception:
+        pass
+
+    # Statcast quality tier adjustment
+    if quality_tier:
+        q_adj = QUALITY_TIER_ADJ.get(quality_tier, 0)
+        if q_adj != 0:
+            adjusted += q_adj
+            adjustments["quality"] = q_adj
+
+    # Hot/cold momentum adjustment
+    if hot_cold:
+        hc_adj = HOT_COLD_ADJ.get(hot_cold, 0)
+        if hc_adj != 0:
+            adjusted += hc_adj
+            adjustments["momentum"] = hc_adj
+
+    return round(adjusted, 2), adjustments
+
+
 # ---------------------------------------------------------------------------
 # Player enrichment helpers
 # ---------------------------------------------------------------------------

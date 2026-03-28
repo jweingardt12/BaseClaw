@@ -22,6 +22,8 @@ interface RankingEntry {
   team?: string;
   position?: string;
   z_score: number;
+  adjusted_z?: number;
+  z_adjustments?: Record<string, number>;
   mlb_id?: number;
   intel?: any;
 }
@@ -45,7 +47,7 @@ export function RankingsView({ data, app, navigate }: { data: RankingsData; app:
   var chartData = players.slice(0, 15).map(function (p) {
     return {
       name: p.name.length > 12 ? p.name.slice(0, 12) + "..." : p.name,
-      z_score: p.z_score,
+      z_score: p.adjusted_z != null ? p.adjusted_z : p.z_score,
     };
   });
 

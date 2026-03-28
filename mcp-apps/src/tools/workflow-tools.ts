@@ -2,7 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
-import { header, actionList, issueList, waiverPairList, compactSection, pid, tkey } from "../api/format-text.js";
+import { READ_ANNO, WRITE_IDEMPOTENT_ANNO } from "../api/annotations.js";
+import { header, actionList, issueList, waiverPairList, compactSection, pid, tkey, buildFooter } from "../api/format-text.js";
 import {
   str,
   type MorningBriefingResponse,
@@ -37,7 +38,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_morning_briefing",
     {
       description: "Use this as your first tool call of the day. Returns a complete situational report: injuries on your roster, today's lineup status, live matchup scores, category strategy, league activity, opponent moves, and top waiver targets — all in one call. Replaces calling 7+ individual tools. Best run daily before first pitch.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
     async () => {
@@ -92,8 +93,22 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           }
         }
 
+        // Build prioritized next-steps footer
+        var priorities: string[] = [];
+        var actions = data.action_items || [];
+        for (var ai = 0; ai < Math.min(actions.length, 3); ai++) {
+          var a = actions[ai];
+          var tool = a.type === "injury" ? "yahoo_injury_report" : a.type === "lineup" ? "yahoo_lineup_optimize" : a.type === "waiver" ? "yahoo_waiver_recommendations" : a.type === "trade" ? "yahoo_pending_trades" : "";
+          if (tool) priorities.push(a.message + " -> " + tool);
+        }
+        if (priorities.length === 0) priorities.push("No urgent actions. Review matchup strategy -> yahoo_matchup_strategy");
+        var footer = buildFooter(
+          issueCount + " issue" + (issueCount === 1 ? "" : "s") + ", " + opCount + " opportunit" + (opCount === 1 ? "y" : "ies") + ". " + (score.wins > score.losses ? "Leading" : score.losses > score.wins ? "Trailing" : "Tied") + " " + score.wins + "-" + score.losses + " vs " + str(matchup.opponent || "?") + ".",
+          priorities
+        );
+
         return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: lines.join("\n") + footer }],
           structuredContent: { type: "morning-briefing", ...data },
         };
       } catch (e) { return toolError(e); }
@@ -108,7 +123,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_league_landscape",
     {
       description: "Use this for weekly strategic planning with a complete league intelligence report: standings, playoff projections, roster strength, active/dormant managers, this week's scoreboard, and trade opportunities. Returns data from multiple sources in one call.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -182,7 +197,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_roster_health_check",
     {
       description: "Use this to audit your roster for problems: injured players in active slots, healthy players stuck on IL, bust candidates, and off-day starters. Returns issues ranked by severity (critical/warning/info) with concrete fix recommendations.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -214,7 +229,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     {
       description: "Use this when you want personalized add/drop pairs tailored to your team's weak categories. Returns ranked waiver pickup recommendations paired with suggested drops and projected category impact.",
       inputSchema: { count: z.number().describe("Number of recommendations per position type").default(5) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ count }) => {
@@ -252,7 +267,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_auto_lineup",
     {
       description: "Use this to automatically optimize today's lineup and check for injuries in one step. Benches off-day players, starts active bench players, and flags injured starters needing manual IL moves. Safe for autonomous execution — idempotent, only moves players between active/bench slots.",
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: WRITE_IDEMPOTENT_ANNO,
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
     async () => {
@@ -302,7 +317,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         give_names: z.array(z.string()).describe("Player names you would give up"),
         get_names: z.array(z.string()).describe("Player names you would receive"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ give_names, get_names }) => {
@@ -566,7 +581,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_game_day_manager",
     {
       description: "Use this before first pitch for a complete game-day pipeline: today's schedule, weather risks, injury check, lineup optimization, and streaming recommendation in one call. Catches late scratches and weather delays.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: SEASON_URI } },
     },
     async () => {
@@ -619,7 +634,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     {
       description: "Use this before the waiver deadline to get a complete waiver analysis: your weak categories, ranked candidates with simulated category impact, roster issues, and FAAB bid recommendations for FAAB leagues.",
       inputSchema: { count: z.number().describe("Number of candidates per position type").default(5) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ count }) => {
@@ -669,7 +684,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_trade_pipeline",
     {
       description: "Use this for end-to-end trade discovery: finds complementary trade partners, evaluates package values, simulates category impact, and grades each proposal with both sides' perspective. Returns ready-to-propose trade packages.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -709,7 +724,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_weekly_digest",
     {
       description: "Use this at the end of the week for a structured summary: matchup result, standings position, transaction count, achievements earned, and a prose narrative. Best for weekly reporting and season tracking.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -745,7 +760,7 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
     "yahoo_season_checkpoint",
     {
       description: "Use this monthly for a strategic season assessment: current rank, playoff probability, category trajectory (improving/declining categories), punt strategy, and trade recommendations. Tracks season-long progress at a high level.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {

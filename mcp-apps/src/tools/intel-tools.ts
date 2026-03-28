@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, toolError } from "../api/python-client.js";
+import { READ_ANNO } from "../api/annotations.js";
 import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
 import {
   str,
@@ -51,7 +52,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     {
       description: "Use this to get a deep-dive scouting report on a single player combining Statcast metrics, recent trends, plate discipline, and Reddit buzz. Returns exit velo, barrel rate, xwOBA percentiles, 14-day performance trends, and community sentiment.",
       inputSchema: { player_name: z.string().describe("Player name to look up") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name }) => {
@@ -115,7 +116,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     "fantasy_reddit_buzz",
     {
       description: "Use this to see what r/fantasybaseball is talking about right now including hot posts, trending topics, and top discussions. Returns post titles, scores, comment counts, and flair tags.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -141,7 +142,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     "fantasy_trending_players",
     {
       description: "Use this to see which players have rising buzz on Reddit via high-engagement posts mentioning specific player names. Returns trending player discussion posts with scores and comment counts.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -167,7 +168,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     "fantasy_prospect_watch",
     {
       description: "Use this to see recent MLB prospect call-ups and roster moves that could impact fantasy leagues. Returns transaction types, player names, and team info for recent promotions and demotions.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -194,7 +195,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     {
       description: "Use this to see recent fantasy-relevant MLB transactions including IL stints, call-ups, DFAs, and trades. Pass the days parameter to control how far back to look (default 7 days).",
       inputSchema: { days: z.number().describe("Number of days to look back").default(7) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ days }) => {
@@ -224,7 +225,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
         player_name: z.string().describe("Player name to look up"),
         days_ago: z.number().describe("How many days back to compare (30 or 60)").default(30),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name, days_ago }) => {
@@ -276,7 +277,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
         player: z.string().optional().describe("Player name to filter news for"),
         limit: z.number().optional().describe("Max entries to return (default 30)"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ sources, player, limit }) => {
@@ -314,7 +315,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     {
       description: "Use this when you want the full qualitative picture on a player beyond just stats, combining recent news, injury severity, hot/cold streak, role changes, Reddit buzz, Statcast tier, and Yahoo ownership trends into one actionable briefing. Returns synthesized intelligence from 6+ sources with flags for dealbreakers and role changes.",
       inputSchema: { player: z.string().describe("Player name to research") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: INTEL_URI } },
     },
     async ({ player }) => {
@@ -458,7 +459,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     {
       description: "Use this to find hitters with improving bat speed, swing quality, and power metrics from Baseball Savant bat tracking data. Detects bat speed gains, fast-swing rate improvements, and squared-up rate increases that predict power breakouts weeks before traditional stats reflect it. Cross-references with z-scores to find low-owned breakout candidates.",
       inputSchema: { count: z.number().describe("Number of results to return").default(20) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ count }) => {
@@ -490,7 +491,7 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     {
       description: "Use this to find pitchers making significant pitch arsenal changes that signal breakouts. Detects usage shifts >= 10%, velocity changes >= 1.5 mph, and new pitches added. Cross-references with effectiveness metrics (whiff rate, run value) and z-scores to rank by breakout signal strength. Surfaces candidates like Nick Lodolo's 2025 breakout weeks before stats catch up.",
       inputSchema: { count: z.number().describe("Number of results to return").default(20) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ count }) => {

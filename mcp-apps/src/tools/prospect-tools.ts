@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, toolError } from "../api/python-client.js";
+import { READ_ANNO, WRITE_ANNO } from "../api/annotations.js";
 import {
   str,
   type ProspectReportResponse,
@@ -27,7 +28,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
     {
       description: "Use this to get a deep-dive report on a specific MLB prospect including MiLB stats, scouting evaluation, FV grade, call-up probability, and stash recommendation. Pass the prospect's name for a full breakdown. Use fantasy_prospect_rankings instead when you want to browse the top prospects list rather than researching one specific player.",
       inputSchema: { player_name: z.string().describe("Prospect name to look up") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name }) => {
@@ -103,7 +104,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
         team: z.string().optional().describe("Filter by MLB organization"),
         count: z.number().optional().describe("Number of prospects to return (default 25)"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ position, level, team, count }) => {
@@ -151,7 +152,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
       inputSchema: {
         days: z.number().optional().describe("Number of days to look back (default 7)"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ days }) => {
@@ -189,7 +190,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
       inputSchema: {
         count: z.number().optional().describe("Number of recommendations to return (default 10)"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ count }) => {
@@ -229,7 +230,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
         player1: z.string().describe("First prospect name"),
         player2: z.string().describe("Second prospect name"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player1, player2 }) => {
@@ -279,7 +280,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
     "fantasy_prospect_buzz",
     {
       description: "Use this to see trending Reddit discussions specifically about MLB prospects, including posts from r/fantasybaseball and prospect-related subreddits. Returns post titles, scores, comment counts, and matched prospect names. Use fantasy_reddit_buzz instead when you want general fantasy baseball Reddit activity rather than prospect-specific discussions.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -307,7 +308,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
     "fantasy_eta_tracker",
     {
       description: "Use this to track call-up probability changes over time for prospects on your watchlist, with flags for significant movements. Returns current vs previous probability, delta, classification, and flagged alerts for big movers. Use fantasy_prospect_watch_add instead when you need to add or remove a prospect from the watchlist being tracked.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -343,7 +344,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
     "fantasy_prospect_trade_targets",
     {
       description: "Use this to identify stashed prospects on other teams in your league that are worth acquiring via trade. Returns prospect names, current owners, prospect ranks, FV grades, call-up probabilities, urgency levels, and trade suggestions. Use fantasy_stash_advisor instead when you want recommendations for which free-agent prospects to stash on your own NA slots.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -381,7 +382,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
         player_name: z.string().describe("Prospect name to add or remove"),
         action: z.string().optional().describe("'add' (default) or 'remove'"),
       },
-      annotations: { readOnlyHint: false },
+      annotations: WRITE_ANNO,
       _meta: {},
     },
     async ({ player_name, action }) => {
@@ -418,7 +419,7 @@ export function registerProspectTools(server: McpServer, enabledTools?: Set<stri
         player_name: z.string().describe("Prospect name to search for"),
         days: z.number().optional().describe("Number of days of news to search (default 7)"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name, days }) => {

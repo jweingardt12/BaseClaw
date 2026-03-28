@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, toolError } from "../api/python-client.js";
+import { READ_ANNO } from "../api/annotations.js";
 import { pid } from "../api/format-text.js";
 import {
   str,
@@ -25,7 +26,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_league_history",
     {
       description: "Use this to see the all-time history of your fantasy league including champions, your finishes, and W-L-T records for every season. Returns a year-by-year summary of league results.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -53,7 +54,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     "yahoo_record_book",
     {
       description: "Use this to see all-time league records including career W-L leaders, best seasons, most active managers, playoff appearances, champion history, and #1 draft picks. Returns a comprehensive record book across all league seasons.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -88,7 +89,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     {
       description: "Use this to see the full standings for a specific past season with W-L-T records and manager names. Pass the year parameter (e.g. 2024) to get ranked standings for that season.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ year }) => {
@@ -114,7 +115,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     {
       description: "Use this to see who was drafted and in what order for a past season with player names resolved. Pass the year and optional count to control how many picks are returned.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), count: z.number().describe("Number of picks to return").default(25) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ year, count }) => {
@@ -140,7 +141,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     {
       description: "Use this to see all team names, managers, move counts, and trade counts for a past season. Pass the year to see which managers were most active in transactions.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ year }) => {
@@ -166,7 +167,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     {
       description: "Use this to see the trade history for a past season showing which players were exchanged between which teams. Pass the year and optional count to limit results.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), count: z.number().describe("Number of trades to return").default(10) },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ year, count }) => {
@@ -200,7 +201,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
     {
       description: "Use this to see head-to-head matchup results for a specific week in a past season with category win counts. Pass both year and week number to see who played whom and the scores.",
       inputSchema: { year: z.number().describe("Season year (e.g. 2024)"), week: z.number().describe("Week number") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ year, week }) => {
@@ -230,7 +231,7 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
         date: z.string().describe("Date to look up (YYYY-MM-DD)").default(""),
         team_key: z.string().describe("Team key (optional, defaults to your team)").default(""),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ week, date, team_key }) => {
@@ -253,7 +254,6 @@ export function registerHistoryTools(server: McpServer, enabledTools?: Set<strin
           if (p.status) line += " [" + p.status + "]";
           lines.push(line);
         }
-        const ai_recommendation = players.length + " player" + (players.length === 1 ? "" : "s") + " on roster for " + data.label + ".";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
         };

@@ -1852,12 +1852,19 @@ def _synthesize_morning_actions(injury, lineup, whats_new, waiver_b, waiver_p):
         recs = (waiver or {}).get("recommendations", [])
         if recs:
             top = recs[0]
+            tier = top.get("tier", "")
+            helps = top.get("helps_categories", [])
+            desc = str(top.get("name", "?"))
+            if top.get("positions"):
+                desc += " (" + str(top.get("positions")) + ")"
+            if tier:
+                desc += " [" + tier + "]"
+            if helps:
+                desc += " — improves " + ", ".join(helps)
             actions.append({
                 "priority": 3,
                 "type": "waiver",
-                "message": "Top " + label + " pickup: " + str(top.get("name", "?"))
-                    + " (id:" + str(top.get("pid", "?")) + ") score="
-                    + str(top.get("score", "?")),
+                "message": "Top " + label + " pickup: " + desc,
                 "player_id": str(top.get("pid", "")),
             })
 

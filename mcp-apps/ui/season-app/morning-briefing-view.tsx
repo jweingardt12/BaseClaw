@@ -1,7 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../components/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Subheading } from "../components/heading";
 import { Text } from "../components/text";
 import { useCallTool } from "../shared/use-call-tool";
@@ -623,99 +622,10 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
       )}
 
       {/* Waiver Targets */}
-      {(strategy.waiver_targets || []).length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Top Waiver Targets</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="w-full overflow-x-auto mcp-app-scroll-x">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="hidden sm:table-cell">Team</TableHead>
-                    <TableHead className="text-center">Games</TableHead>
-                    <TableHead className="text-right">Own%</TableHead>
-                    <TableHead className="hidden sm:table-cell">Targets</TableHead>
-                    {app && <TableHead className="w-10"></TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(strategy.waiver_targets || []).slice(0, 5).map(function (wt: WaiverTarget, idx: number) {
-                    return (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <PlayerName name={wt.name} playerId={wt.pid} mlbId={wt.mlb_id} app={app} navigate={navigate} context="waivers" />
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <TeamLogo abbrev={wt.team} />
-                            {wt.team}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-sm">{wt.games}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{wt.pct}%</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <div className="flex flex-wrap gap-0.5">
-                            {(wt.categories || []).map(function (cat) {
-                              return <Badge key={cat} variant="secondary">{cat}</Badge>;
-                            })}
-                          </div>
-                        </TableCell>
-                        {app && (
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={function () { handleAdd(wt.pid); }}
-                              disabled={loading}
-                            >
-                              <UserPlus className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <WaiverTargetsCard data={data} strategy={strategy} app={app} navigate={navigate} loading={loading} onAdd={handleAdd} />
 
-      {/* Waiver Wire Risers — low-owned players gaining traction */}
-      {(whatsNew.trending || []).length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Waiver Wire Risers</CardTitle>
-              <Badge variant="secondary">{"<50% owned"}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              {(whatsNew.trending || []).slice(0, 6).map(function (t: WhatsNewTrending) {
-                return (
-                  <div key={t.name} className="flex items-center gap-2 text-sm">
-                    <TrendingUp className="h-3.5 w-3.5 text-sem-success" />
-                    <span className="font-medium">
-                      <PlayerName name={t.name} context="waivers" />
-                    </span>
-                    <span className="text-xs text-sem-success">{t.delta}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{t.percent_owned}% owned</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Trending Pickups */}
+      <TrendingPickupsCard trending={whatsNew.trending || []} />
 
       {/* League Activity */}
       {(whatsNew.league_activity || []).length > 0 && (
@@ -746,5 +656,125 @@ export function MorningBriefingView({ data, app, navigate }: { data: MorningBrie
         <Text>Lineup edit deadline: {data.edit_date}</Text>
       )}
     </div>
+  );
+}
+
+/* ── Waiver Targets Card ─────────────────────────────────── */
+
+var EMPTY_DELTA = new Set(["0.0", "+0.0", "0", ""]);
+
+function WaiverTargetsCard({ data, strategy, app, navigate, loading, onAdd }: {
+  data: MorningBriefingData; strategy: any; app?: any; navigate?: (data: any) => void; loading: boolean; onAdd: (pid: string) => void;
+}) {
+  var waiverRecs = ([] as any[])
+    .concat((data.waiver_batters as any)?.recommendations || [])
+    .concat((data.waiver_pitchers as any)?.recommendations || [])
+    .sort(function (a: any, b: any) { return (b.score || 0) - (a.score || 0); })
+    .slice(0, 5);
+  if (waiverRecs.length === 0) {
+    waiverRecs = (strategy.waiver_targets || []).slice(0, 5);
+  }
+  if (waiverRecs.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base">Top Waiver Targets</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y divide-border/40">
+          {waiverRecs.map(function (rec: any, idx: number) {
+            var helps = rec.helps_categories || rec.categories || [];
+            var tier = rec.tier || null;
+            var zScore = rec.z_score != null ? rec.z_score : null;
+            var positions = rec.positions || "";
+            var pct = rec.pct != null ? rec.pct : rec.percent_owned;
+            var pid = rec.pid || "";
+            var contextLine = rec.context_line || null;
+            var regression = rec.regression || null;
+
+            return (
+              <div key={idx} className="flex items-start gap-3 py-2.5 px-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium text-sm truncate">
+                      <PlayerName name={rec.name} playerId={pid} mlbId={rec.mlb_id} app={app} navigate={navigate} context="waivers" />
+                    </span>
+                    {tier && <Badge variant="secondary" className="text-[10px] shrink-0">{tier}</Badge>}
+                    {zScore != null && zScore !== 0 && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{"z=" + zScore}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                    {positions && <span>{positions}</span>}
+                    {pct != null && <span>{pct + "% owned"}</span>}
+                    {regression && <span className={"font-medium " + (regression.indexOf("buy") >= 0 ? "text-sem-success" : "text-sem-warning")}>{regression}</span>}
+                  </div>
+                  {helps.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">Improves:</span>
+                      {helps.map(function (cat: string) {
+                        return <Badge key={cat} variant="secondary" className="text-[10px] h-4">{cat}</Badge>;
+                      })}
+                    </div>
+                  )}
+                  {contextLine && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 italic">{contextLine}</p>
+                  )}
+                </div>
+                {app && pid && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 mt-0.5"
+                    onClick={function () { onAdd(pid); }}
+                    disabled={loading}
+                  >
+                    <UserPlus className="h-3 w-3" /> Add
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Trending Pickups Card ────────────────────────────────── */
+
+function TrendingPickupsCard({ trending }: { trending: WhatsNewTrending[] }) {
+  var risers = trending.filter(function (t) {
+    return t.delta && !EMPTY_DELTA.has(t.delta);
+  });
+  if (risers.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-sem-success" />
+          <CardTitle className="text-base">Trending Pickups</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-1.5">
+          {risers.slice(0, 6).map(function (t) {
+            return (
+              <div key={t.name} className="flex items-center gap-2 text-sm">
+                <TrendingUp className="h-3.5 w-3.5 text-sem-success shrink-0" />
+                <span className="font-medium truncate">
+                  <PlayerName name={t.name} context="waivers" />
+                </span>
+                <span className="text-xs text-sem-success font-mono shrink-0">{t.delta}</span>
+                <span className="text-xs text-muted-foreground ml-auto shrink-0">{t.percent_owned}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

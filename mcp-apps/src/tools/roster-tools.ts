@@ -5,7 +5,8 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
-import { pid } from "../api/format-text.js";
+import { pid, buildFooter } from "../api/format-text.js";
+import { READ_ANNO, WRITE_ANNO, WRITE_DESTRUCTIVE_ANNO } from "../api/annotations.js";
 import { str, type RosterResponse, type FreeAgentsResponse, type PlayerListResponse, type SearchResponse, type ActionResponse, type WaiverClaimResponse, type WaiverClaimSwapResponse, type WhoOwnsResponse, type PercentOwnedResponse, type ChangeTeamNameResponse, type ChangeTeamLogoResponse, type PlayerStatsResponse, type WaiversResponse, type TakenPlayersResponse } from "../api/types.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
@@ -42,7 +43,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     "yahoo_roster",
     {
       description: "Use this to see your full fantasy roster — every player, their assigned position, eligible positions, injury status, Statcast quality tier, and hot/cold trend. Returns player IDs needed for add/drop/trade tools.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async () => {
@@ -59,12 +60,29 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           }
           return line;
         }).join("\n");
-        var injured = (data.players || []).filter(function (p) { return p.status && p.status !== "Healthy"; });
-        var ai_recommendation = injured.length > 0
-          ? injured.length + " player" + (injured.length === 1 ? "" : "s") + " on your roster " + (injured.length === 1 ? "has" : "have") + " an injury designation. Check IL eligibility."
-          : "Roster is fully healthy. No injury concerns.";
+        var players = data.players || [];
+        var injured = players.filter(function (p) { return p.status && p.status !== "Healthy"; });
+        var eliteStrong = players.filter(function (p) { return p.intel && p.intel.statcast && (p.intel.statcast.quality_tier === "elite" || p.intel.statcast.quality_tier === "strong"); }).length;
+        var belowPoor = players.filter(function (p) { return p.intel && p.intel.statcast && (p.intel.statcast.quality_tier === "below" || p.intel.statcast.quality_tier === "poor"); }).length;
+        var hot = players.filter(function (p) { return p.intel && p.intel.trends && p.intel.trends.hot_cold === "hot"; }).length;
+        var cold = players.filter(function (p) { return p.intel && p.intel.trends && (p.intel.trends.hot_cold === "cold" || p.intel.trends.hot_cold === "ice"); }).length;
+
+        var assessment = eliteStrong + " elite/strong quality, " + belowPoor + " below/poor."
+          + (injured.length > 0 ? " " + injured.length + " injured." : " Fully healthy.")
+          + (hot > 0 ? " " + hot + " hot." : "")
+          + (cold > 0 ? " " + cold + " cold." : "");
+
+        var steps: string[] = [];
+        if (injured.length > 0) steps.push("Fix " + injured.length + " injur" + (injured.length === 1 ? "y" : "ies") + " -> yahoo_injury_report");
+        steps.push("Optimize today's lineup -> yahoo_lineup_optimize");
+        if (belowPoor > 0) steps.push("Find upgrades for " + belowPoor + " weak spots -> yahoo_waiver_recommendations");
+        if (cold > 0) steps.push("Check regression signals on cold players -> fantasy_regression_candidates");
+
+        var ai_recommendation = "Roster quality: " + assessment
+          + (belowPoor > 0 ? " Use yahoo_optimal_moves to find upgrade swaps." : "");
+
         return {
-          content: [{ type: "text" as const, text }],
+          content: [{ type: "text" as const, text: text + buildFooter(assessment, steps) }],
           structuredContent: { type: "roster", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
@@ -85,7 +103,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ pos_type, count, limit, offset }) => {
@@ -103,12 +121,20 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           return line;
         }).join("\n");
         var top = (data.players || []).slice(0, 3);
-        var ai_recommendation: string | null = null;
-        if (top.length > 0) {
-          ai_recommendation = "Top available: " + top.map(function (p) { return p.name; }).join(", ") + ". These players address roster needs based on ownership trends.";
-        }
+        var ai_recommendation = top.length > 0
+          ? "Top available: " + top.map(function (p) { return p.name; }).join(", ") + ". Use yahoo_waiver_recommendations for z-score ranked picks tailored to your category needs."
+          : null;
+        var footer = buildFooter(
+          data.players.length + " free agent " + label.toLowerCase() + " available.",
+          [
+            "Z-score ranked recommendations -> yahoo_waiver_recommendations",
+            "Deep-dive any player -> fantasy_player_report {player_name}",
+            "Add a player -> yahoo_add {player_id} (or yahoo_swap to add+drop atomically)",
+          ]
+        );
         return {
-          content: [{ type: "text" as const, text }],
+          content: [{ type: "text" as const, text: text + footer }],
+          structuredContent: { type: "free-agents", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -129,7 +155,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ pos_type, count, status, limit, offset }) => {
@@ -154,6 +180,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { type: "player-list", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -168,7 +195,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to find a specific player by name among free agents. Returns matching players with positions, ownership %, and player IDs.",
       inputSchema: { player_name: z.string().describe("Player name to search for") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name }) => {
@@ -185,6 +212,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { type: "search", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -201,13 +229,12 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to add a free agent to your roster. Requires the Yahoo player ID (get it from yahoo_roster, yahoo_search, or yahoo_free_agents).",
       inputSchema: { player_id: z.string().describe("Yahoo player ID to add") },
-      annotations: { readOnlyHint: false },
+      annotations: WRITE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ player_id }) => {
       try {
         const data = await apiPost<ActionResponse>("/api/add", { player_id });
-        var ai_recommendation = data.success ? "Player added successfully. Check your lineup for optimal positioning." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Add result: " + JSON.stringify(data) }],
         };
@@ -224,13 +251,12 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to permanently drop a player from your roster. The player becomes a free agent available to other teams. Requires the Yahoo player ID from yahoo_roster.",
       inputSchema: { player_id: z.string().describe("Yahoo player ID to drop") },
-      annotations: { readOnlyHint: false, destructiveHint: true },
+      annotations: WRITE_DESTRUCTIVE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ player_id }) => {
       try {
         const data = await apiPost<ActionResponse>("/api/drop", { player_id });
-        var ai_recommendation = data.success ? "Player dropped. Consider picking up a replacement from free agents." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Drop result: " + JSON.stringify(data) }],
         };
@@ -247,13 +273,12 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to atomically add a free agent and drop a roster player in one transaction. Guarantees both happen together so your roster stays full. Requires player IDs from yahoo_roster and yahoo_free_agents.",
       inputSchema: { add_id: z.string().describe("Yahoo player ID to add"), drop_id: z.string().describe("Yahoo player ID to drop") },
-      annotations: { readOnlyHint: false },
+      annotations: WRITE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ add_id, drop_id }) => {
       try {
         const data = await apiPost<ActionResponse>("/api/swap", { add_id, drop_id });
-        var ai_recommendation = data.success ? "Swap completed. Verify lineup positioning for the new player." : null;
         return {
           content: [{ type: "text" as const, text: data.message || "Swap result: " + JSON.stringify(data) }],
         };
@@ -270,7 +295,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to submit a waiver claim for a player in the claim period (not yet a free agent). Supports optional FAAB bid amount and optional drop player for claim+drop combos.",
       inputSchema: { player_id: z.string().describe("Yahoo player ID to claim"), drop_id: z.string().describe("Yahoo player ID to drop (optional, for claim+drop)").optional(), faab: z.number().describe("FAAB bid amount in dollars").optional() },
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: WRITE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ player_id, drop_id, faab }) => {
@@ -279,7 +304,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           const body: Record<string, string> = { add_id: player_id, drop_id };
           if (faab !== undefined) body.faab = String(faab);
           const data = await apiPost<WaiverClaimSwapResponse>("/api/waiver-claim-swap", body);
-          var ai_recommendation: string | null = data.message ? "Waiver claim with drop submitted. Results process at the next waiver period." : null;
           return {
             content: [{ type: "text" as const, text: data.message || "Waiver claim+drop result: " + JSON.stringify(data) }],
           };
@@ -287,7 +311,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           const body: Record<string, string> = { player_id };
           if (faab !== undefined) body.faab = String(faab);
           const data = await apiPost<WaiverClaimResponse>("/api/waiver-claim", body);
-          var ai_recommendation2: string | null = data.message ? "Waiver claim submitted. Results process at the next waiver period." : null;
           return {
             content: [{ type: "text" as const, text: data.message || "Waiver claim result: " + JSON.stringify(data) }],
           };
@@ -304,7 +327,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     "yahoo_browser_status",
     {
       description: "Use this to verify whether the browser session for write operations (add, drop, trade, lineup changes) is still valid. Returns cookie count and session status. Use this before any write operation fails, or when yahoo_add/yahoo_drop/yahoo_propose_trade return auth errors.",
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async () => {
@@ -313,7 +336,6 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         const text = data.valid
           ? "Browser session is valid (" + (data.cookie_count || 0) + " Yahoo cookies)"
           : "Browser session not valid: " + (data.reason || "unknown") + ". Run './yf browser-login' to set up.";
-        var ai_recommendation = data.valid ? null : "Browser session expired. Run './yf browser-login' to enable write operations.";
         return {
           content: [{ type: "text" as const, text }],
         };
@@ -330,13 +352,12 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to update your fantasy team's display name in the league. Takes the new name as a string parameter. Use yahoo_change_team_logo instead when you want to change your team's avatar image.",
       inputSchema: { new_name: z.string().describe("New team name") },
-      annotations: { readOnlyHint: false },
+      annotations: WRITE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ new_name }) => {
       try {
         const data = await apiPost<ChangeTeamNameResponse>("/api/change-team-name", { new_name });
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: data.message || "Result: " + JSON.stringify(data) }],
         };
@@ -353,13 +374,12 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to update your fantasy team's logo image. Requires an absolute file path to a PNG or JPG image inside the container. Use yahoo_change_team_name instead when you want to change your team's display name.",
       inputSchema: { image_path: z.string().describe("Absolute path to image file (PNG/JPG) inside the container") },
-      annotations: { readOnlyHint: false },
+      annotations: WRITE_ANNO,
       _meta: { ui: { resourceUri: ROSTER_URI } },
     },
     async ({ image_path }) => {
       try {
         const data = await apiPost<ChangeTeamLogoResponse>("/api/change-team-logo", { image_path });
-        var ai_recommendation: string | null = null;
         return {
           content: [{ type: "text" as const, text: data.message || "Result: " + JSON.stringify(data) }],
         };
@@ -378,7 +398,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to check whether a specific player is owned, on waivers, or a free agent. Returns the owner's team name if rostered.",
       inputSchema: { player_id: z.string().describe("Yahoo player ID to look up") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_id }) => {
@@ -402,6 +422,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         }
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { type: "who-owns", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -416,7 +437,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     {
       description: "Use this to look up ownership percentages across all Yahoo leagues for one or more players by their IDs. Accepts comma-separated player IDs.",
       inputSchema: { ids: z.string().describe("Comma-separated Yahoo player IDs (e.g. '10660,9542')") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ ids }) => {
@@ -445,14 +466,14 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
     server,
     "yahoo_player_stats",
     {
-      description: "Use this to pull a specific player's fantasy stats from Yahoo for any time period (season, lastweek, lastmonth, specific week, or date). Returns all scoring category stats.",
+      description: "Use this to pull a specific player's fantasy stats from Yahoo for any time period (season, lastweek, lastmonth, specific week, or date). Returns all scoring category stats. Use yahoo_value instead for z-score breakdown, or fantasy_player_report for a full scouting report combining stats + Statcast + trends.",
       inputSchema: {
         player_name: z.string().describe("Player name to look up"),
         period: z.string().describe("Stats period: season, average_season, lastweek, lastmonth, week, date").default("season"),
         week: z.string().describe("Week number (when period=week)").default(""),
         date: z.string().describe("Date YYYY-MM-DD (when period=date)").default(""),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name, period, week, date }) => {
@@ -468,9 +489,9 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
             lines.push("  " + str(key).padEnd(20) + str(val));
           }
         }
-        const ai_recommendation = "Review " + data.player_name + "'s stats to evaluate roster value and trade potential.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -488,7 +509,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         limit: z.number().default(20).describe("Max results to return (default 20, max 50)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ limit, offset }) => {
@@ -507,6 +528,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           : null;
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -525,7 +547,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
         limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ position, limit, offset }) => {
@@ -541,9 +563,9 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           if (p.owner) line += "  -> " + p.owner;
           return line;
         }).join("\n");
-        const ai_recommendation = data.count + " players rostered" + (position ? " at " + position : "") + " across the league. Use this to understand player pool availability.";
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },

@@ -2,8 +2,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
+import { READ_ANNO, WRITE_ANNO } from "../api/annotations.js";
 import { str, type RankingsResponse, type CompareResponse, type ValueResponse } from "../api/types.js";
+import { buildFooter } from "../api/format-text.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
+
+function adjZLabel(rawZ: number, adjZ: number | null | undefined): string {
+  if (adjZ != null && adjZ !== rawZ) return "z=" + Number(adjZ).toFixed(2) + " (raw=" + rawZ.toFixed(2) + ")";
+  return "z=" + rawZ.toFixed(2);
+}
 
 export function registerValuationsTools(server: McpServer, enabledTools?: Set<string>) {
   const shouldRegister = (name: string) => _shouldRegister(enabledTools, name);
@@ -20,7 +27,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         limit: z.number().default(25).describe("Max results to return (default 25, max 50)"),
         offset: z.number().default(0).describe("Offset for pagination"),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ pos_type, count, limit, offset }) => {
@@ -29,13 +36,24 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         const data = await apiGet<RankingsResponse>("/api/rankings", { pos_type, count: String(effectiveCount), limit: String(effectiveCount), offset: String(offset) });
         const effectiveType = data.pos_type || pos_type;
         const label = effectiveType.toUpperCase() === "B" ? "Hitter" : "Pitcher";
-        const text = "Top " + effectiveCount + " " + label + " Rankings (z-score, source: " + data.source + "):\n"
-          + data.players.map((p) => {
+        const text = "Top " + effectiveCount + " " + label + " Rankings (adjusted z-score, source: " + data.source + "):\n"
+          + data.players.map((p: any) => {
             const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
-            return "  " + String(p.rank).padStart(3) + ". " + str(p.name).padEnd(25) + " " + str(p.pos).padEnd(8) + " z=" + p.z_score.toFixed(2) + tier;
+            return "  " + String(p.rank).padStart(3) + ". " + str(p.name).padEnd(25) + " " + str(p.pos).padEnd(8) + " " + adjZLabel(p.z_score, p.adjusted_z) + tier;
           }).join("\n");
+        var buyLow = data.players.filter(function (p: any) { return p.adjusted_z != null && p.adjusted_z > p.z_score + 0.3; }).length;
+        var sellHigh = data.players.filter(function (p: any) { return p.adjusted_z != null && p.adjusted_z < p.z_score - 0.3; }).length;
+        var footer = buildFooter(
+          effectiveCount + " " + label.toLowerCase() + "s ranked." + (buyLow > 0 ? " " + buyLow + " buy-low (adjusted z > raw)." : "") + (sellHigh > 0 ? " " + sellHigh + " sell-high (adjusted z < raw)." : ""),
+          [
+            "Deep-dive any player -> yahoo_value {player_name}",
+            "Compare two players -> yahoo_compare {player1} {player2}",
+            "Find regression candidates -> fantasy_regression_candidates",
+          ]
+        );
         return {
-          content: [{ type: "text" as const, text }],
+          content: [{ type: "text" as const, text: text + footer }],
+          structuredContent: { type: "rankings", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -50,7 +68,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
     {
       description: "Use this to compare two players head-to-head with per-category z-score breakdowns. Returns who wins in each scoring category and overall z-score totals. Use yahoo_trade_analysis instead when you want a full trade evaluation with surplus value and category impact, or yahoo_value for a single player's detailed breakdown.",
       inputSchema: { player1: z.string().describe("First player name"), player2: z.string().describe("Second player name") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player1, player2 }) => {
@@ -58,9 +76,11 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         const data = await apiGet<CompareResponse>("/api/compare", { player1, player2 });
         const final1 = data.z_scores["Final"] ? data.z_scores["Final"].player1 : 0;
         const final2 = data.z_scores["Final"] ? data.z_scores["Final"].player2 : 0;
+        var z1Label = adjZLabel(final1, (data.player1 as any).adjusted_z);
+        var z2Label = adjZLabel(final2, (data.player2 as any).adjusted_z);
         const lines = [
           "Player Comparison:",
-          "  " + data.player1.name + " (z=" + final1.toFixed(2) + ")  vs  " + data.player2.name + " (z=" + final2.toFixed(2) + ")",
+          "  " + data.player1.name + " (" + z1Label + ")  vs  " + data.player2.name + " (" + z2Label + ")",
           "",
         ];
         const cats1: Record<string, number> = {};
@@ -73,6 +93,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "compare", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -87,7 +108,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
     {
       description: "Use this to see a single player's complete z-score breakdown across every scoring category with raw stat values, park factor, and Statcast quality tier. Use yahoo_compare instead when you want to evaluate two players side by side, or yahoo_rankings for a ranked list of top players by z-score.",
       inputSchema: { player_name: z.string().describe("Player name to look up") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name }) => {
@@ -100,11 +121,21 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
           };
         }
         const zFinal = p.z_scores["Final"] || 0;
+        const adjZ = (p as any).adjusted_z;
+        const zAdj = (p as any).z_adjustments || {};
         const tier = (p.intel && p.intel.statcast && p.intel.statcast.quality_tier) ? " {" + p.intel.statcast.quality_tier + "}" : "";
         var parkLabel = "";
         var pf = (p as any).park_factor;
         if (pf != null) parkLabel = "  PF=" + Number(pf).toFixed(2);
-        const lines = ["Value Breakdown: " + p.name + " (" + str(p.pos) + ", " + str(p.team) + ", z=" + zFinal.toFixed(2) + ")" + tier + parkLabel];
+        var zLabel = adjZLabel(zFinal, adjZ);
+        const lines = ["Value Breakdown: " + p.name + " (" + str(p.pos) + ", " + str(p.team) + ", " + zLabel + ")" + tier + parkLabel];
+        if (Object.keys(zAdj).length > 0) {
+          var parts: string[] = [];
+          if (zAdj.regression) parts.push("regression " + (zAdj.regression > 0 ? "+" : "") + zAdj.regression);
+          if (zAdj.quality) parts.push("quality " + (zAdj.quality > 0 ? "+" : "") + zAdj.quality);
+          if (zAdj.momentum) parts.push("momentum " + (zAdj.momentum > 0 ? "+" : "") + zAdj.momentum);
+          lines.push("  Adjustments: " + parts.join(", "));
+        }
         const categories: Array<{ category: string; z_score: number; raw_stat: number | null }> = [];
         for (const [cat, z] of Object.entries(p.z_scores)) {
           if (cat === "Final") continue;
@@ -112,8 +143,22 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
           categories.push({ category: cat, z_score: Number(z), raw_stat: rawStat });
           lines.push("  " + str(cat).padEnd(12) + " z=" + Number(z).toFixed(2) + (rawStat != null ? "  (" + rawStat + ")" : ""));
         }
+        var adjParts: string[] = [];
+        if (zAdj.regression) adjParts.push("regression");
+        if (zAdj.quality) adjParts.push(((p as any).intel && (p as any).intel.statcast && (p as any).intel.statcast.quality_tier) || "quality");
+        if (zAdj.momentum) adjParts.push(adjParts.length > 0 ? "momentum" : "trending");
+        var adjReason = adjParts.length > 0 ? " (driven by " + adjParts.join(", ") + ")" : "";
+        var footer = buildFooter(
+          p.name + " is " + ((p as any).tier || "unranked") + adjReason + ".",
+          [
+            "Compare against alternatives -> yahoo_compare {" + p.name + "} {other_player}",
+            "Full scouting report -> fantasy_player_report " + p.name,
+            "Check who owns this player -> yahoo_who_owns " + (p as any).player_id,
+          ]
+        );
         return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: lines.join("\n") + footer }],
+          structuredContent: { type: "value", ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -130,7 +175,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
       inputSchema: {
         proj_type: z.string().describe("Projection system: consensus, steamer, zips, or fangraphsdc").default("consensus"),
       },
-      annotations: { readOnlyHint: false },
+      annotations: WRITE_ANNO,
       _meta: {},
     },
     async ({ proj_type }) => {
@@ -144,6 +189,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -160,7 +206,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
       inputSchema: {
         count: z.number().describe("Number of biggest movers to return").default(25),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ count }) => {
@@ -188,6 +234,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -205,7 +252,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         pos_type: z.string().describe("B for batters, P for pitchers").default("B"),
         count: z.number().describe("Number of players to show").default(20),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ pos_type, count }) => {
@@ -222,6 +269,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -236,7 +284,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
     {
       description: "Use this to see how much to trust a player's current projections vs actual stats using Bayesian analysis. Shows per-stat blend ratios (projection% vs actual%), posterior variance, confidence level, and how many days until actuals dominate each stat. Helps assess projection reliability for trade decisions, waiver adds, and lineup choices.",
       inputSchema: { player_name: z.string().describe("Player name to analyze") },
-      annotations: { readOnlyHint: true },
+      annotations: READ_ANNO,
       _meta: {},
     },
     async ({ player_name }) => {
@@ -256,6 +304,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ...data },
         };
       } catch (e) { return toolError(e); }
     },
