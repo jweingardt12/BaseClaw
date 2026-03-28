@@ -231,7 +231,14 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "waiver-analyze", ...data, ai_recommendation: (data as any).ai_recommendation },
+          structuredContent: {
+            type: "waiver-analyze",
+            pos_type: (data.waiver_batters || {}).pos_type || "B",
+            weak_categories: (data.waiver_batters || {}).weak_categories,
+            recommendations: (data.waiver_batters || {}).recommendations,
+            season_context: ((data.waiver_batters || {}) as any).season_context,
+            ai_recommendation: (data as any).ai_recommendation,
+          },
         };
       } catch (e) { return toolError(e); }
     },

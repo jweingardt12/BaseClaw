@@ -160,6 +160,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateCategoryInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "category-check", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -258,7 +259,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         const ai_recommendation = generateStreamingInsight(data);
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          structuredContent: { type: "streaming", ...data },
+          structuredContent: { type: "streaming", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
     },
