@@ -32,18 +32,12 @@ interface GameEntry {
   [key: string]: unknown;
 }
 
-var TIER_BG: Record<string, string> = {
-  success: "bg-sem-success-subtle border-sem-success-border",
-  info: "bg-sem-info-subtle border-sem-info-border",
-  warning: "bg-sem-warning-subtle border-sem-warning-border",
-  risk: "bg-sem-risk-subtle border-sem-risk-border",
-};
-
-var TIER_TEXT: Record<string, string> = {
-  success: "text-sem-success",
-  info: "text-sem-info",
-  warning: "text-sem-warning",
-  risk: "text-sem-risk",
+var TIER_STYLE: Record<string, { bg: string; text: string; ring: string }> = {
+  success: { bg: "bg-sem-success-subtle border-sem-success-border", text: "text-sem-success", ring: "ring-sem-success/60" },
+  info:    { bg: "bg-sem-info-subtle border-sem-info-border",       text: "text-sem-info",    ring: "ring-border" },
+  warning: { bg: "bg-sem-warning-subtle border-sem-warning-border", text: "text-sem-warning", ring: "ring-sem-warning/60" },
+  risk:    { bg: "bg-sem-risk-subtle border-sem-risk-border",       text: "text-sem-risk",    ring: "ring-sem-risk/60" },
+  neutral: { bg: "bg-muted",                                        text: "text-foreground",  ring: "ring-border" },
 };
 
 function tierColor(tier: string): "success" | "risk" | "warning" | "info" | "neutral" {
@@ -83,14 +77,12 @@ function shortTeam(name: string): string {
 }
 
 function batterGameScore(g: GameEntry): number {
-  var score = 0;
-  score += Number(g.hits || 0) * 1;
-  score += Number(g.homeRuns || 0) * 3;
-  score += Number(g.rbi || 0) * 1;
-  score += Number(g.runs || 0) * 0.5;
-  score += Number(g.stolenBases || 0) * 1.5;
-  score -= Number(g.strikeOuts || 0) * 0.3;
-  return score;
+  return Number(g.hits || 0)
+    + Number(g.homeRuns || 0) * 3
+    + Number(g.rbi || 0)
+    + Number(g.runs || 0) * 0.5
+    + Number(g.stolenBases || 0) * 1.5
+    - Number(g.strikeOuts || 0) * 0.3;
 }
 
 function parseInnings(ip: unknown): number {
@@ -437,7 +429,6 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
   var qualityTier = sc.quality_tier || expected.quality_tier;
   var tc = qualityTier ? tierColor(qualityTier) : "neutral";
 
-
   return (
     <div className="space-y-3 animate-stagger min-w-0">
       {/* Back button */}
@@ -457,7 +448,7 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
         <CardContent className="p-3">
           <div className="flex items-start gap-3">
             {data.mlb_id && (
-              <Avatar className={"size-14 shrink-0 ring-2 " + (tc === "success" ? "ring-sem-success/60" : tc === "risk" ? "ring-sem-risk/60" : tc === "warning" ? "ring-sem-warning/60" : "ring-border")}>
+              <Avatar className={"size-14 shrink-0 ring-2 " + (TIER_STYLE[tc] || TIER_STYLE.neutral).ring}>
                 <AvatarImage src={mlbHeadshotUrl(data.mlb_id)} />
                 <AvatarFallback className="text-lg font-bold">{data.name.charAt(0)}</AvatarFallback>
               </Avatar>
@@ -471,7 +462,7 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
                   </Badge>
                 )}
                 {qualityTier && (
-                  <Badge className={"border " + (TIER_BG[tc] || "bg-muted") + " " + (TIER_TEXT[tc] || "text-foreground")}>
+                  <Badge className={"border " + (TIER_STYLE[tc] || TIER_STYLE.neutral).bg + " " + (TIER_STYLE[tc] || TIER_STYLE.neutral).text}>
                     {qualityTier}
                   </Badge>
                 )}
@@ -480,12 +471,16 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
                 )}
               </div>
             </div>
-            {val.z_final != null && val.z_final !== 0 && (
-              <div className={"flex flex-col items-center justify-center shrink-0 rounded-lg px-2.5 py-1.5 border " + (val.z_final >= 12 ? "bg-sem-success-subtle border-sem-success-border" : val.z_final >= 0 ? "bg-sem-info-subtle border-sem-info-border" : "bg-sem-risk-subtle border-sem-risk-border")}>
-                <span className={"text-2xl font-bold font-mono leading-none tabular-nums " + (val.z_final >= 12 ? "text-sem-success" : val.z_final >= 0 ? "text-sem-info" : "text-sem-risk")}>{num(val.z_final, 1)}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">z-score</span>
-              </div>
-            )}
+            {val.z_final != null && val.z_final !== 0 && (function () {
+              var zc = val.z_final >= 12 ? "success" : val.z_final >= 0 ? "info" : "risk";
+              var zStyle = TIER_STYLE[zc] || TIER_STYLE.neutral;
+              return (
+                <div className={"flex flex-col items-center justify-center shrink-0 rounded-lg px-2.5 py-1.5 border " + zStyle.bg}>
+                  <span className={"text-2xl font-bold font-mono leading-none tabular-nums " + zStyle.text}>{num(val.z_final, 1)}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">z-score</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Hero Stats */}
