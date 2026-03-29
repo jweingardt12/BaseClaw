@@ -9,7 +9,7 @@ import { EmptyMessage } from "@/shared/empty-message";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerRowData } from "../shared/player-row";
 import { TeamLogo } from "../shared/team-logo";
-import { qualityColor, hotColdIcon } from "../shared/intel-badge";
+import { qualityColor, hotColdIcon, SampleBadge } from "../shared/intel-badge";
 import { TrendIndicator } from "../shared/trend-indicator";
 
 function getPositions(p: PlayerRowData): string {
@@ -221,7 +221,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                       {hasStatus && <Badge variant="destructive" className="text-[10px] shrink-0 ml-0.5">{p.status}</Badge>}
                     </div>
 
-                    {/* Info line: position + ownership + game */}
+                    {/* Info line: position + ownership + sample + game */}
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                       {positions && <span>{positions}</span>}
                       {pct != null && (
@@ -230,6 +230,7 @@ export function FreeAgentsView({ data, app, navigate }: { data: FreeAgentsData; 
                           {p.trend && <TrendIndicator trend={p.trend} />}
                         </span>
                       )}
+                      <SampleBadge sample={p.sample} />
                       {opponent && (
                         <span className={"inline-flex items-center gap-1 " + (opponent.indexOf("vs ") === 0 ? "text-sem-success" : "")}>
                           <TeamLogo abbrev={oppAbbrev} size={10} />

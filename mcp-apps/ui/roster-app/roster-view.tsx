@@ -8,7 +8,7 @@ import { RefreshButton } from "@/shared/refresh-button";
 import { useCallTool } from "../shared/use-call-tool";
 import { PlayerRowData } from "../shared/player-row";
 import { TeamLogo } from "../shared/team-logo";
-import { qualityColor, hotColdIcon } from "../shared/intel-badge";
+import { qualityColor, hotColdIcon, SampleBadge } from "../shared/intel-badge";
 
 /* ── Constants ────────────────────────────────────────────── */
 
@@ -164,7 +164,7 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
 
                     {/* Stats line */}
                     {keyStats.length > 0 && (
-                      <div className="flex gap-3 mt-0.5 text-[11px] text-muted-foreground font-mono">
+                      <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground font-mono">
                         {keyStats.map(function (s) {
                           return (
                             <span key={s.key}>
@@ -174,6 +174,7 @@ export function RosterView({ data, app, navigate }: { data: RosterData; app: any
                             </span>
                           );
                         })}
+                        <SampleBadge sample={p.sample} />
                       </div>
                     )}
 

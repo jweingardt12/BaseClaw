@@ -5,7 +5,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
-import { pid, buildFooter } from "../api/format-text.js";
+import { pid, buildFooter, sampleWarning } from "../api/format-text.js";
 import { READ_ANNO, WRITE_ANNO, WRITE_DESTRUCTIVE_ANNO } from "../api/annotations.js";
 import { str, type RosterResponse, type FreeAgentsResponse, type PlayerListResponse, type SearchResponse, type ActionResponse, type WaiverClaimResponse, type WaiverClaimSwapResponse, type WhoOwnsResponse, type PercentOwnedResponse, type ChangeTeamNameResponse, type ChangeTeamLogoResponse, type PlayerStatsResponse, type WaiversResponse, type TakenPlayersResponse } from "../api/types.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
@@ -84,7 +84,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           + (belowPoor > 0 ? " Use yahoo_optimal_moves to find upgrade swaps." : "");
 
         return {
-          content: [{ type: "text" as const, text: text + buildFooter(assessment, steps) }],
+          content: [{ type: "text" as const, text: text + sampleWarning(players) + buildFooter(assessment, steps) }],
           structuredContent: { type: "roster", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }
@@ -152,7 +152,7 @@ export function registerRosterTools(server: McpServer, distDir: string, writesEn
           ]
         );
         return {
-          content: [{ type: "text" as const, text: text + footer }],
+          content: [{ type: "text" as const, text: text + sampleWarning(data.players) + footer }],
           structuredContent: { type: "free-agents", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }

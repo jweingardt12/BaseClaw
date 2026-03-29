@@ -31,6 +31,7 @@ export interface PlayerRowData {
   z_score?: number | null;
   score?: number;
   tier?: string;
+  sample?: { size: number; label: string; confidence: string; pct_stabilized: number } | null;
 }
 
 /** Reusable player cell content - name with team logo, headshot, and intel badge */

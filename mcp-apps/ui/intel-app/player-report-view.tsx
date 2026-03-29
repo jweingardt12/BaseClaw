@@ -24,6 +24,7 @@ interface PlayerReportData extends PlayerIntel {
     pos?: string;
     per_category_zscores?: Record<string, number>;
   };
+  percentiles?: { metrics?: Record<string, number>; data_season?: number };
 }
 
 interface GameEntry {
@@ -193,6 +194,87 @@ function NewsSection({ headlines, app }: { headlines: Headline[]; app: any }) {
             );
           })}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+var PCT_BAR_BG: Record<string, string> = { success: "bg-sem-success", info: "bg-sem-info", warning: "bg-sem-warning", risk: "bg-sem-risk", neutral: "bg-muted-foreground/50" };
+var PCT_BAR_TEXT: Record<string, string> = { success: "text-sem-success", info: "text-sem-info", warning: "text-sem-warning", risk: "text-sem-risk", neutral: "text-muted-foreground" };
+
+function PercentileBar({ label, pct, value }: { label: string; pct: number | null | undefined; value?: string }) {
+  if (pct == null) return null;
+  var p = Math.max(0, Math.min(100, Math.round(pct)));
+  var tier = pctColor(p);
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <span className="text-[11px] text-muted-foreground w-[72px] shrink-0 text-right">{label}</span>
+      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+        <div className={(PCT_BAR_BG[tier] || PCT_BAR_BG.neutral) + " h-full rounded-full transition-all"} style={{ width: p + "%" }} />
+      </div>
+      <span className={"text-xs font-mono font-bold w-8 text-right tabular-nums " + (PCT_BAR_TEXT[tier] || PCT_BAR_TEXT.neutral)}>{p}</span>
+      {value && <span className="text-[10px] text-muted-foreground w-12 text-right font-mono">{value}</span>}
+    </div>
+  );
+}
+
+interface RankingsDef { label: string; pctKey: string; valKey?: string }
+
+var BATTER_RANKINGS: RankingsDef[] = [
+  { label: "xwOBA", pctKey: "xwoba", valKey: "xwoba_val" },
+  { label: "xBA", pctKey: "xba", valKey: "xba_val" },
+  { label: "Exit Velo", pctKey: "exit_velocity", valKey: "ev_val" },
+  { label: "Barrel%", pctKey: "barrel_pct", valKey: "barrel_val" },
+  { label: "Hard Hit%", pctKey: "hard_hit_pct", valKey: "hh_val" },
+  { label: "K%", pctKey: "k_pct" },
+  { label: "BB%", pctKey: "bb_pct" },
+  { label: "Whiff%", pctKey: "whiff_pct" },
+  { label: "Chase%", pctKey: "chase_rate" },
+  { label: "Speed", pctKey: "sprint_speed", valKey: "sprint_val" },
+];
+
+var PITCHER_RANKINGS: RankingsDef[] = BATTER_RANKINGS.filter(function (d) { return d.pctKey !== "sprint_speed"; });
+
+function LeagueRankings({ percentiles, statcast, isPitcher }: { percentiles: any; statcast: any; isPitcher: boolean }) {
+  var metrics = (percentiles && percentiles.metrics) || {};
+  if (Object.keys(metrics).length === 0) return null;
+
+  var defs = isPitcher ? PITCHER_RANKINGS : BATTER_RANKINGS;
+  var expected = (statcast && statcast.expected) || {};
+  var bb = (statcast && statcast.batted_ball) || {};
+  var spd = (statcast && statcast.speed) || {};
+
+  // Map raw values for display alongside percentile bars
+  var valMap: Record<string, string> = {};
+  if (expected.xwoba != null) valMap.xwoba_val = num(expected.xwoba, 3);
+  if (expected.xba != null) valMap.xba_val = num(expected.xba, 3);
+  if (bb.avg_exit_velo != null) valMap.ev_val = num(bb.avg_exit_velo, 1);
+  if (bb.barrel_pct != null) valMap.barrel_val = num(bb.barrel_pct, 1) + "%";
+  if (bb.hard_hit_pct != null) valMap.hh_val = num(bb.hard_hit_pct, 1) + "%";
+  if (spd.sprint_speed != null) valMap.sprint_val = num(spd.sprint_speed, 1);
+
+  var rendered = defs.filter(function (d) { return metrics[d.pctKey] != null; });
+  if (rendered.length === 0) return null;
+
+  var dataSeason = percentiles.data_season;
+  var isOldData = dataSeason && dataSeason !== new Date().getFullYear();
+
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-1">
+          <Subheading>League Rankings</Subheading>
+          {isOldData && <span className="text-[10px] text-muted-foreground">{dataSeason} data</span>}
+        </div>
+        <div>
+          {rendered.map(function (d) {
+            var val = d.valKey ? valMap[d.valKey] : undefined;
+            return <PercentileBar key={d.pctKey} label={d.label} pct={metrics[d.pctKey]} value={val} />;
+          })}
+        </div>
+        {expected.pa != null && (
+          <div className="mt-1.5 text-[10px] text-muted-foreground text-right">{expected.pa + " PA"}</div>
+        )}
       </CardContent>
     </Card>
   );
@@ -424,6 +506,7 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
   var stuffMetrics = sc.stuff_metrics || {};
   var expected = sc.expected || {};
   var battedBall = sc.batted_ball || {};
+  var percentiles = data.percentiles || {};
 
   var hasYahooStats = Object.keys(ys).length > 0 && Object.values(ys).some(function (v) { return v != null && v !== "" && v !== "-" && v !== 0; });
   var qualityTier = sc.quality_tier || expected.quality_tier;
@@ -556,6 +639,9 @@ export function PlayerReportView({ data, app, navigate }: { data: PlayerReportDa
           )}
         </div>
       ))}
+
+      {/* League Rankings (Savant percentile bars) */}
+      <LeagueRankings percentiles={percentiles} statcast={sc} isPitcher={isPitcher} />
 
       {/* Recent Trends */}
       {splits && Object.keys(splits).length > 0 && (

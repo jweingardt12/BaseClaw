@@ -44,6 +44,8 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
     }),
   );
 
+  var PCT_LABELS: Record<string, string> = { xwoba: "xwOBA", xba: "xBA", exit_velocity: "EV", barrel_pct: "Brl%", hard_hit_pct: "HH%", k_pct: "K%", bb_pct: "BB%", whiff_pct: "Whiff%", chase_rate: "Chase%", sprint_speed: "Speed" };
+
   // fantasy_player_report
   if (shouldRegister("fantasy_player_report")) {
   registerAppTool(
@@ -70,6 +72,11 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           if (sc.data_season && sc.data_season !== new Date().getFullYear()) {
             lines.push("  (Using " + sc.data_season + " data - preseason)");
           }
+          var pa = (expected as any).pa;
+          var era_a = (sc as any).era_analysis;
+          var ip = era_a && era_a.ip;
+          if (pa != null) lines.push("  Sample: " + pa + " PA" + (pa < 100 ? " (small sample - stats may be volatile)" : ""));
+          else if (ip != null) lines.push("  Sample: " + ip + " IP" + (Number(ip) < 30 ? " (small sample - stats may be volatile)" : ""));
           if (expected.xwoba != null) lines.push("  xwOBA: " + expected.xwoba + " (" + (expected.xwoba_pct || "?") + "th pct)");
           if (bb.avg_exit_velo != null) lines.push("  Exit Velo: " + bb.avg_exit_velo + " (" + (bb.ev_pct || "?") + "th pct)");
           if (bb.barrel_pct_rank != null) lines.push("  Barrel Rate: " + bb.barrel_pct_rank + "th pct");
@@ -389,6 +396,20 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           lines.push("STATCAST: " + parts.join(" | "));
         }
 
+        // League rankings (Savant percentiles)
+        const pctData = data.percentiles as Record<string, unknown> | undefined;
+        const pctMetrics = pctData ? pctData.metrics as Record<string, number> | undefined : undefined;
+        if (pctMetrics && Object.keys(pctMetrics).length > 0) {
+          const pctParts: string[] = [];
+          for (var [pk, pv] of Object.entries(pctMetrics)) {
+            if (pv != null) pctParts.push((PCT_LABELS[pk] || pk) + " " + Math.round(pv) + "th");
+          }
+          if (pctParts.length > 0) {
+            lines.push("");
+            lines.push("LEAGUE RANKINGS (percentile): " + pctParts.join(" | "));
+          }
+        }
+
         // Trends
         const trends = data.trends as Record<string, unknown> | undefined;
         if (trends && trends.status) {
@@ -408,6 +429,21 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
           if (yt.rank !== undefined) ytLine += " | rank #" + str(yt.rank);
           if (yt.delta !== undefined) ytLine += " (delta: " + str(yt.delta) + ")";
           lines.push(ytLine);
+        }
+
+        // Discipline (FanGraphs)
+        const disc = data.discipline as Record<string, unknown> | undefined;
+        if (disc && !disc.error && !disc.note) {
+          var discParts: string[] = [];
+          if (disc.bb_rate != null) discParts.push("BB% " + str(disc.bb_rate));
+          if (disc.k_rate != null) discParts.push("K% " + str(disc.k_rate));
+          if (disc.o_swing_pct != null) discParts.push("O-Swing% " + str(disc.o_swing_pct));
+          if (disc.z_contact_pct != null) discParts.push("Z-Contact% " + str(disc.z_contact_pct));
+          if (disc.swstr_pct != null) discParts.push("SwStr% " + str(disc.swstr_pct));
+          if (discParts.length > 0) {
+            lines.push("");
+            lines.push("DISCIPLINE: " + discParts.join(" | "));
+          }
         }
 
         // Role change
@@ -445,6 +481,41 @@ export function registerIntelTools(server: McpServer, distDir: string, enabledTo
             yahoo_player_id: yahooStats.player_id,
             ...data,
           },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // fantasy_statcast_leaders
+  if (shouldRegister("fantasy_statcast_leaders")) {
+  registerAppTool(
+    server,
+    "fantasy_statcast_leaders",
+    {
+      description: "Use this to see MLB leaderboards for Statcast advanced metrics. Metrics: exit_velocity, max_exit_velocity, barrel_pct, hard_hit_pct, xwoba, xba, xslg, sprint_speed, bat_speed, swing_length, squared_up_rate, blast_pct, launch_angle. Set player_type to 'pitcher' for pitching metrics.",
+      inputSchema: {
+        metric: z.string().describe("Metric to rank by (e.g. exit_velocity, xwoba, barrel_pct, sprint_speed, bat_speed)"),
+        player_type: z.string().describe("batter or pitcher").default("batter"),
+        count: z.coerce.number().describe("Number of leaders to return").default(20),
+      },
+      annotations: READ_ANNO,
+      _meta: {},
+    },
+    async ({ metric, player_type, count }) => {
+      try {
+        var data = await apiGet<any>("/api/intel/statcast-leaders", { metric, player_type, count: String(count) });
+        if (data.error) return { content: [{ type: "text" as const, text: "Error: " + data.error }] };
+        var leaders = data.leaders || [];
+        var lines = [data.label + " Leaders (" + data.data_season + " " + data.player_type + "s, " + leaders.length + " shown):"];
+        lines.push("  " + "#".padStart(3) + "  " + "Player".padEnd(25) + "Team".padEnd(6) + "Value".padStart(8));
+        lines.push("  " + "-".repeat(45));
+        for (var l of leaders) {
+          var valStr = typeof l.value === "number" ? (l.value % 1 === 0 ? String(l.value) : l.value.toFixed(3)) : String(l.value);
+          lines.push("  " + String(l.rank).padStart(3) + ". " + str(l.name).padEnd(25) + str(l.team).padEnd(6) + valStr.padStart(8));
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
         };
       } catch (e) { return toolError(e); }
     },

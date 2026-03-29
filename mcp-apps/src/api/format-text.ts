@@ -70,3 +70,23 @@ export function compactSection(name: string, items: string[]): string {
   if (!items || items.length === 0) return "";
   return name + ": " + items.join(" | ");
 }
+
+/** Summarize sample size context for a batch of players.
+ *  Returns a warning line if most players have low/very_low confidence, else empty string. */
+export function sampleWarning(players: any[]): string {
+  if (!players || players.length === 0) return "";
+  var lowCount = 0;
+  var total = 0;
+  for (var p of players) {
+    var s = p.sample;
+    if (!s) continue;
+    total++;
+    if (s.confidence === "very_low" || s.confidence === "low") lowCount++;
+  }
+  if (total === 0) return "";
+  var pct = Math.round((lowCount / total) * 100);
+  if (pct >= 50) {
+    return "\nNOTE: " + pct + "% of players have low sample sizes (" + lowCount + "/" + total + "). Stats are heavily projection-weighted early season — use Statcast quality tiers and process metrics for more reliable signals.";
+  }
+  return "";
+}

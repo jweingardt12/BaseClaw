@@ -75,6 +75,25 @@ export function hotColdColor(status: string | null | undefined): string {
   return "";
 }
 
+var CONFIDENCE_COLORS: Record<string, string> = {
+  very_low: "text-red-400",
+  low: "text-amber-400",
+  medium: "text-muted-foreground",
+  high: "text-muted-foreground/60",
+};
+
+export function SampleBadge({ sample }: { sample?: { size: number; label: string; confidence: string; pct_stabilized: number } | null }) {
+  if (!sample) return null;
+  var color = CONFIDENCE_COLORS[sample.confidence] || "text-muted-foreground";
+  var warn = sample.confidence === "very_low" || sample.confidence === "low";
+  return (
+    <span className={"text-[10px] font-mono " + color} title={Math.round(sample.pct_stabilized * 100) + "% stabilized"}>
+      {sample.size + " " + sample.label}
+      {warn && " \u26A0"}
+    </span>
+  );
+}
+
 interface IntelBadgeProps {
   intel?: PlayerIntel | null;
   size?: "sm" | "md";

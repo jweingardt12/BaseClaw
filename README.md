@@ -62,6 +62,7 @@ Ask Claude about your Yahoo Fantasy Baseball league in plain English. Get instan
 - "Am I on pace to make the playoffs?"
 
 **Advanced analytics**
+- "Who's leading the league in exit velocity?" *(Statcast leaderboards for any advanced metric)*
 - "Which hitters are gaining bat speed this season? Show me bat tracking breakouts"
 - "Any pitchers making significant pitch mix changes?"
 - "Which teams are dealing with travel fatigue today?"
@@ -329,7 +330,8 @@ The `AGENTS.md` file defines the agent's identity and behavior:
 - **Regression awareness** — Check regression scores before any add/drop/trade; buy-low signals prevent panic-dropping slumping stars, sell-high signals maximize trade value
 - **Trade intelligence** — Surplus value analysis, category fit over raw value, consolidation premium, catcher scarcity, rival blocking (never help teams within 2 standings positions)
 - **Prospect news intelligence** — Signal classification from 16 news sources with Bayesian call-up probability blending. Injury news, reassignments, and bullish reports automatically adjust stash recommendations and trade targets
-- **Statcast decision rules** — Research-backed thresholds for barrel rate, exit velocity, sprint speed, xwOBA gaps, ERA vs SIERA, Stuff+, velocity changes
+- **Statcast decision rules** — Research-backed thresholds for barrel rate, exit velocity, sprint speed, xwOBA gaps, ERA vs SIERA, Stuff+, velocity changes. Player cards show **Savant-style percentile bars** for league rankings across all advanced metrics
+- **Sample size awareness** — Every tool and UI view flags low-confidence stats early in the season. Bayesian stabilization thresholds (200 PA batters, 117 IP pitchers) drive confidence labels so agents and users know when to trust stats vs. projections
 - **Season phases** — Early (build depth, stream aggressively), mid (trade for balance, buy low), late (playoff positioning)
 - **Decision trees** — Injury response pipelines, trade search with surplus value evaluation, waiver deadline claim chains
 - **FAAB management** — Kelly criterion bid sizing with posterior variance from Bayesian model, competition shading, category scarcity bonus, season phase multipliers, contender detection
@@ -345,7 +347,7 @@ Customize `AGENTS.md` to adjust strategy, risk tolerance, or reporting style.
 
 BaseClaw pulls data from three sources: **Yahoo Fantasy API** (your roster, standings, matchups, free agents, transactions), **FanGraphs** (consensus projections from Steamer + ZiPS + Depth Charts), and **Baseball Savant** (Statcast metrics, Stuff+, pitch arsenal data, bat tracking). Prospect intelligence comes from MLB Stats API plus 16 news sources with Bayesian signal classification.
 
-Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-timers don't inflate rankings. Projections are park-factor adjusted and blended with live stats via **Bayesian conjugate updating** — each stat uses its own stabilization point (K-rate stabilizes at 60 PA, batting average at 400 PA), producing mathematically optimal shrinkage rates per player per stat instead of one-size-fits-all date thresholds. Raw z-scores are then adjusted into **adjusted z-scores** that blend in Statcast quality tier (+1.5 for elite, +0.75 for strong), regression signals (buy-low/sell-high from the 14-signal engine), and hot/cold momentum — so rankings reflect true talent, not just projections. **All recommendations use adjusted z-scores** — waiver picks, streaming pitchers, and trade surplus calculations factor in Statcast quality, regression signals, and momentum instead of raw projection z-scores. FAAB bidding uses **Kelly criterion** math for optimal bid sizing. Breakout detection uses **bat tracking** (bat speed, fast-swing rate, squared-up rate) and **pitch mix screening** (arsenal changes cross-referenced with effectiveness metrics). **Travel fatigue scoring** based on a peer-reviewed PNAS study of 46,535 games feeds into streaming and lineup decisions. **Live game info** — game times, live scores, and inning status from MLB Stats API appear on roster and free agent views. Free agents include **toggleable advanced stat views** (Overview, Statcast, Process, Value) with data from Baseball Savant and FanGraphs. Every tool response includes **agent steering** — strategic assessments and cross-tool next steps so the AI agent can guide users toward optimal decisions without being asked.
+Player valuations use **FVARz z-scores** — volume-weighted rate stats so part-timers don't inflate rankings. Projections are park-factor adjusted and blended with live stats via **Bayesian conjugate updating** — each stat uses its own stabilization point (K-rate stabilizes at 60 PA, batting average at 400 PA), producing mathematically optimal shrinkage rates per player per stat instead of one-size-fits-all date thresholds. Raw z-scores are then adjusted into **adjusted z-scores** that blend in Statcast quality tier (+1.5 for elite, +0.75 for strong), regression signals (buy-low/sell-high from the 14-signal engine), and hot/cold momentum — so rankings reflect true talent, not just projections. **All recommendations use adjusted z-scores** — waiver picks, streaming pitchers, and trade surplus calculations factor in Statcast quality, regression signals, and momentum instead of raw projection z-scores. FAAB bidding uses **Kelly criterion** math for optimal bid sizing. Breakout detection uses **bat tracking** (bat speed, fast-swing rate, squared-up rate) and **pitch mix screening** (arsenal changes cross-referenced with effectiveness metrics). **Travel fatigue scoring** based on a peer-reviewed PNAS study of 46,535 games feeds into streaming and lineup decisions. **Live game info** — game times, live scores, and inning status from MLB Stats API appear on roster and free agent views. Free agents include **toggleable advanced stat views** (Overview, Statcast, Process, Value) with data from Baseball Savant and FanGraphs. Every tool response includes **agent steering** — strategic assessments and cross-tool next steps so the AI agent can guide users toward optimal decisions without being asked. **Sample size awareness** is built into the full stack — PA/IP counts with confidence labels (derived from Bayesian stabilization points) appear on every player in tool text, roster views, and free agent views, with automatic warnings when most players have low samples early in the season. Player cards include **Savant-style percentile bar rankings** showing where a player ranks in the league across xwOBA, xBA, exit velo, barrel%, hard hit%, K%, BB%, whiff%, chase rate, and sprint speed. **Statcast leaderboards** let you query MLB leaders for any advanced metric (exit velocity, barrel rate, xwOBA, sprint speed, bat speed, and more).
 
 <details>
 <summary><strong>Architecture</strong></summary>
@@ -608,7 +610,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 | `yahoo_projection_disagreements` | Players where projection systems disagree most — draft sleeper/bust signals |
 | `fantasy_projection_confidence` | Bayesian blend ratios per stat — shows projection% vs actual% weight, posterior variance, confidence level, and days until actuals dominate. Helps assess how much to trust current projections for trades, waivers, and lineup decisions |
 
-**Intelligence** (10 tools)
+**Intelligence** (11 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -622,6 +624,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 | `fantasy_news_feed` | Real-time news from 16 sources (ESPN, FanGraphs, CBS, Yahoo, MLB.com, RotoWire, Pitcher List, Razzball, Google News, RotoBaller, Reddit, 5 Bluesky analyst feeds) — filter by source or player |
 | `fantasy_bat_tracking_breakouts` | Hitters with improving bat speed, fast-swing rate, and squared-up rate from Baseball Savant bat tracking data. Cross-references with z-scores to find buy-low breakout candidates weeks before traditional stats reflect improvement |
 | `fantasy_pitch_mix_breakouts` | Pitchers making significant arsenal changes — usage shifts >= 10%, velocity changes >= 1.5 mph, new pitches added. Cross-referenced with effectiveness metrics (whiff rate, run value) and z-scores to rank by breakout signal strength |
+| `fantasy_statcast_leaders` | MLB Statcast leaderboards for any advanced metric — exit velocity, barrel%, xwOBA, xBA, xSLG, hard hit%, sprint speed, bat speed, swing length, squared-up rate, blast%. Supports common aliases ("ev", "speed", "barrel") |
 
 **Prospect Intelligence** (11 tools)
 

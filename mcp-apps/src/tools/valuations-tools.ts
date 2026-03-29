@@ -4,7 +4,7 @@ import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { READ_ANNO, WRITE_ANNO } from "../api/annotations.js";
 import { str, type RankingsResponse, type CompareResponse, type ValueResponse } from "../api/types.js";
-import { buildFooter } from "../api/format-text.js";
+import { buildFooter, sampleWarning } from "../api/format-text.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
 function adjZLabel(rawZ: number, adjZ: number | null | undefined): string {
@@ -52,7 +52,7 @@ export function registerValuationsTools(server: McpServer, enabledTools?: Set<st
           ]
         );
         return {
-          content: [{ type: "text" as const, text: text + footer }],
+          content: [{ type: "text" as const, text: text + sampleWarning(data.players) + footer }],
           structuredContent: { type: "rankings", ...data },
         };
       } catch (e) { return toolError(e); }

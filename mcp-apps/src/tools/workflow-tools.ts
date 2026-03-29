@@ -3,7 +3,7 @@ import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { READ_ANNO, WRITE_IDEMPOTENT_ANNO } from "../api/annotations.js";
-import { header, actionList, issueList, waiverPairList, compactSection, pid, tkey, buildFooter } from "../api/format-text.js";
+import { header, actionList, issueList, waiverPairList, compactSection, pid, tkey, buildFooter, sampleWarning } from "../api/format-text.js";
 import {
   str,
   type MorningBriefingResponse,
@@ -243,6 +243,9 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
         lines.push(header("WAIVER_RECOMMENDATIONS", (data.pairs || []).length + " options | weak: " + weakest.join(", ")));
         lines.push("");
         lines.push(waiverPairList(data.pairs || []));
+        var addPlayers = (data.pairs || []).map(function (pair) { return pair.add; });
+        var sw = sampleWarning(addPlayers);
+        if (sw) lines.push(sw);
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
@@ -564,6 +567,10 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
             lines.push(...contextLines);
           }
         }
+
+        var allPlayers = [...(data.give_players || []), ...(data.get_players || [])];
+        var tradeSW = sampleWarning(allPlayers);
+        if (tradeSW) lines.push(tradeSW);
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],

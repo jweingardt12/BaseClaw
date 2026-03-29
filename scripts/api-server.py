@@ -1472,13 +1472,15 @@ def api_player_intel():
     except Exception as e:
         result["news_context"] = {"error": str(e)}
 
-    # 2. Statcast + game log trends (hot/cold, splits)
+    # 2. Statcast + game log trends (hot/cold, splits) + percentiles + discipline
     try:
         from intel import batch_intel
-        intel_data = batch_intel([player], include=["statcast", "trends"])
+        intel_data = batch_intel([player], include=["statcast", "trends", "percentiles", "discipline"])
         player_intel = intel_data.get(player, {})
         result["statcast"] = player_intel.get("statcast", {})
         result["trends"] = player_intel.get("trends", {})
+        result["percentiles"] = player_intel.get("percentiles", {})
+        result["discipline"] = player_intel.get("discipline", {})
     except Exception as e:
         result["statcast"] = {"error": str(e)}
         result["trends"] = {"error": str(e)}
@@ -1582,6 +1584,18 @@ def api_projection_confidence():
         if not name:
             return safe_jsonify({"error": "Missing name parameter"}, 400)
         result = valuations.compute_projection_confidence(name)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/intel/statcast-leaders")
+def api_statcast_leaders():
+    try:
+        metric = request.args.get("metric", "exit_velocity")
+        player_type = request.args.get("player_type", "batter")
+        count = int(request.args.get("count", "20"))
+        result = intel.statcast_leaderboard(metric, player_type=player_type, count=count)
         return safe_jsonify(result)
     except Exception as e:
         return safe_jsonify({"error": str(e)}, 500)

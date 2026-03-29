@@ -485,18 +485,22 @@ def fetch_aggregated_news(sources=None, player=None, limit=50):
     # Filter by player if specified
     if player:
         player_lower = player.lower()
-        # Extract last name for partial matching (guard short names like "Lee")
         parts = player_lower.split()
         last_name = parts[-1] if len(parts) >= 2 else ""
+        first_name = parts[0] if len(parts) >= 2 else ""
         unique = [
             e for e in unique
             if _names_match(player, e.get("player", ""))
             or player_lower in (
                 e.get("headline", "") + " " + e.get("summary", "") + " " + e.get("raw_title", "")
             ).lower()
-            or (last_name and len(last_name) > 3 and last_name in (
-                e.get("headline", "") + " " + e.get("summary", "") + " " + e.get("raw_title", "")
-            ).lower())
+            or (last_name and len(last_name) > 3
+                and last_name in (
+                    e.get("headline", "") + " " + e.get("summary", "") + " " + e.get("raw_title", "")
+                ).lower()
+                and first_name in (
+                    e.get("headline", "") + " " + e.get("summary", "") + " " + e.get("raw_title", "")
+                ).lower())
         ]
 
     return unique[:limit]

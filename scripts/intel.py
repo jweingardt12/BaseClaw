@@ -3243,6 +3243,154 @@ def batch_intel(names, include=None):
 
 
 # ============================================================
+# 10b. Statcast Leaderboard Query
+# ============================================================
+
+# Map user-friendly metric names to (fetch_func, column_candidates, higher_is_better, label)
+_LEADERBOARD_METRICS = {
+    # Batted ball
+    "exit_velocity": ("statcast", ["avg_hit_speed", "exit_velocity_avg"], True, "Exit Velocity (mph)"),
+    "max_exit_velocity": ("statcast", ["max_hit_speed", "exit_velocity_max"], True, "Max Exit Velocity (mph)"),
+    "barrel_pct": ("statcast", ["brl_percent", "barrel_batted_rate"], True, "Barrel %"),
+    "hard_hit_pct": ("statcast", ["hard_hit_percent", "hard_hit_rate"], True, "Hard Hit %"),
+    "launch_angle": ("statcast", ["avg_launch_angle", "launch_angle_avg"], False, "Avg Launch Angle"),
+    # Expected
+    "xwoba": ("expected", ["est_woba", "xwoba"], True, "xwOBA"),
+    "xba": ("expected", ["est_ba", "xba"], True, "xBA"),
+    "xslg": ("expected", ["est_slg", "xslg"], True, "xSLG"),
+    # Speed
+    "sprint_speed": ("sprint", ["sprint_speed"], True, "Sprint Speed (ft/s)"),
+    # Bat tracking
+    "bat_speed": ("bat_tracking", ["bat_speed"], True, "Bat Speed (mph)"),
+    "swing_length": ("bat_tracking", ["swing_length"], False, "Swing Length (ft)"),
+    "squared_up_rate": ("bat_tracking", ["squared_up_per_swing", "squared_up_rate"], True, "Squared Up %"),
+    "blast_pct": ("bat_tracking", ["blast_per_swing", "blast_pct"], True, "Blast %"),
+}
+
+_LEADERBOARD_ALIASES = {
+    "ev": "exit_velocity", "exit_velo": "exit_velocity", "velo": "exit_velocity",
+    "barrel": "barrel_pct", "barrels": "barrel_pct",
+    "hard_hit": "hard_hit_pct", "hh": "hard_hit_pct",
+    "speed": "sprint_speed", "sprint": "sprint_speed",
+    "bat_tracking": "bat_speed",
+}
+
+def statcast_leaderboard(metric, player_type="batter", count=20):
+    """Query Savant leaderboard data for a specific metric.
+    Returns list of {rank, name, team, value} sorted by the metric.
+    """
+    metric_lower = metric.lower().replace(" ", "_").replace("-", "_").replace("%", "_pct")
+    metric_lower = _LEADERBOARD_ALIASES.get(metric_lower, metric_lower)
+
+    spec = _LEADERBOARD_METRICS.get(metric_lower)
+    if not spec:
+        available = sorted(_LEADERBOARD_METRICS.keys())
+        return {"error": "Unknown metric '" + metric + "'. Available: " + ", ".join(available)}
+
+    source, col_candidates, higher_is_better, label = spec
+
+    # Fetch the right data source
+    if source == "statcast":
+        data = _fetch_savant_statcast(player_type)
+    elif source == "expected":
+        data = _fetch_savant_expected(player_type)
+    elif source == "sprint":
+        data = _fetch_savant_sprint_speed(player_type)
+    elif source == "bat_tracking":
+        data = _fetch_savant_bat_tracking()
+    else:
+        return {"error": "Unknown source: " + source}
+
+    if not data:
+        return {"error": "Could not fetch Savant data for " + label}
+
+    data_season = data.get("__data_season", YEAR)
+
+    # Data is a dict keyed by player name (plus __data_season and id:* keys)
+    # Collect all player rows
+    rows = []
+    for k, v in data.items():
+        if k.startswith("__") or k.startswith("id:") or not isinstance(v, dict):
+            continue
+        rows.append((k, v))
+
+    if not rows:
+        return {"error": "No data rows available"}
+
+    # Find the right column from the first row
+    sample = rows[0][1]
+    col = None
+    for c in col_candidates:
+        if sample.get(c) is not None:
+            col = c
+            break
+    if not col:
+        lower_map = {k.lower(): k for k in sample.keys()}
+        for c in col_candidates:
+            if c.lower() in lower_map:
+                col = lower_map[c.lower()]
+                break
+    if not col:
+        return {"error": "Column not found in data for " + label}
+
+    # Extract and sort
+    entries = []
+    for name_key, row in rows:
+        val = _safe_float(row.get(col))
+        if val is None:
+            continue
+        # Normalize "Last, First" format
+        name = name_key
+        if "," in str(name):
+            parts = str(name).split(",", 1)
+            name = parts[1].strip() + " " + parts[0].strip()
+        team = (row.get("team_name_abbrev")
+                or row.get("team_abbrev")
+                or row.get("team")
+                or row.get("Team")
+                or "")
+        entries.append({"name": str(name), "team": str(team), "value": val})
+
+    entries.sort(key=lambda e: e["value"], reverse=higher_is_better)
+    entries = entries[:count]
+    for i, e in enumerate(entries):
+        e["rank"] = i + 1
+
+    # Resolve teams from sprint speed CSV (has team column)
+    missing_teams = [e for e in entries if not e.get("team")]
+    if missing_teams:
+        try:
+            sprint_data = data if source == "sprint" else _fetch_savant_sprint_speed(player_type)
+            if sprint_data:
+                name_team = {}
+                for k, v in sprint_data.items():
+                    if k.startswith("__") or k.startswith("id:") or not isinstance(v, dict):
+                        continue
+                    n = k
+                    if "," in n:
+                        parts = n.split(",", 1)
+                        n = parts[1].strip() + " " + parts[0].strip()
+                    t = v.get("team", "")
+                    if t:
+                        name_team[n.lower()] = str(t)
+                for e in missing_teams:
+                    t = name_team.get(e["name"].lower())
+                    if t:
+                        e["team"] = t
+        except Exception:
+            pass
+
+    return {
+        "metric": metric_lower,
+        "label": label,
+        "data_season": data_season,
+        "player_type": player_type,
+        "higher_is_better": higher_is_better,
+        "leaders": entries,
+    }
+
+
+# ============================================================
 # 11. Standalone Commands
 # ============================================================
 

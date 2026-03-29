@@ -5,7 +5,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
-import { pid } from "../api/format-text.js";
+import { pid, sampleWarning } from "../api/format-text.js";
 import { READ_ANNO, WRITE_ANNO, WRITE_DESTRUCTIVE_ANNO, WRITE_IDEMPOTENT_ANNO } from "../api/annotations.js";
 import {
   generateLineupInsight,
@@ -259,7 +259,7 @@ export function registerSeasonTools(server: McpServer, distDir: string, writesEn
         }
         const ai_recommendation = generateStreamingInsight(data);
         return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: lines.join("\n") + sampleWarning(data.recommendations) }],
           structuredContent: { type: "streaming", ai_recommendation, ...data },
         };
       } catch (e) { return toolError(e); }

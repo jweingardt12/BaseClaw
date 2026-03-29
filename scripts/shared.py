@@ -542,6 +542,74 @@ def compute_adjusted_z(player_name, z_final, quality_tier=None, hot_cold=None):
 
 
 # ---------------------------------------------------------------------------
+# Sample size / confidence helpers
+# ---------------------------------------------------------------------------
+
+# Average PA/IP needed before current-season stats are more signal than noise
+_BATTER_STABILIZATION_PA = 200
+_PITCHER_STABILIZATION_BF = 350   # ~117 IP * 3
+
+def add_sample_context(players):
+    """Attach sample size + confidence to players that have intel data.
+
+    Reads PA from intel.statcast.expected.pa (batters) or
+    intel.statcast.era_analysis.ip (pitchers).
+    Adds a 'sample' dict: {size, label, confidence, pct_stabilized}.
+    """
+    for p in players:
+        intel = p.get("intel")
+        if not intel or not isinstance(intel, dict):
+            continue
+        statcast = intel.get("statcast") or {}
+        player_type = statcast.get("player_type", "batter")
+
+        pa = None
+        ip = None
+
+        expected = statcast.get("expected") or {}
+        pa = expected.get("pa")
+
+        era = statcast.get("era_analysis") or {}
+        ip = era.get("ip")
+
+        if player_type == "pitcher" and ip is not None:
+            try:
+                ip_val = float(ip)
+            except (TypeError, ValueError):
+                continue
+            bf_est = ip_val * 3
+            pct = min(1.0, bf_est / _PITCHER_STABILIZATION_BF)
+            p["sample"] = {
+                "size": round(ip_val, 1),
+                "label": "IP",
+                "confidence": _confidence_label(pct),
+                "pct_stabilized": round(pct, 2),
+            }
+        elif pa is not None:
+            try:
+                pa_val = int(float(pa))
+            except (TypeError, ValueError):
+                continue
+            pct = min(1.0, pa_val / _BATTER_STABILIZATION_PA)
+            p["sample"] = {
+                "size": pa_val,
+                "label": "PA",
+                "confidence": _confidence_label(pct),
+                "pct_stabilized": round(pct, 2),
+            }
+
+
+def _confidence_label(pct):
+    if pct < 0.25:
+        return "very_low"
+    if pct < 0.50:
+        return "low"
+    if pct < 0.75:
+        return "medium"
+    return "high"
+
+
+# ---------------------------------------------------------------------------
 # Player enrichment helpers
 # ---------------------------------------------------------------------------
 def enrich_with_intel(players, count=None, boost_scores=False):
@@ -585,6 +653,7 @@ def enrich_with_intel(players, count=None, boost_scores=False):
                         p["regression"] = reg
                 except Exception:
                     pass
+        add_sample_context(subset)
     except Exception as e:
         print("Warning: intel enrichment failed: " + str(e))
 

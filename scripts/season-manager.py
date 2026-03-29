@@ -556,9 +556,9 @@ def is_bench(player):
 
 
 def is_il(player):
-    """Check if player is on injured list slot"""
+    """Check if player is on injured list or minor league stash (NA) slot"""
     pos = get_player_position(player)
-    return pos in ("IL", "IL+", "DL", "DL+")
+    return pos in ("IL", "IL+", "DL", "DL+", "NA")
 
 
 def is_active_slot(player):

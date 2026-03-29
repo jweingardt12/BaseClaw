@@ -108,6 +108,7 @@ export const TOOLSETS: Record<string, string[]> = {
     "yahoo_ownership_trends",
     "yahoo_player_intel",
     "yahoo_projections_update",
+    "fantasy_statcast_leaders",
   ],
 
   // Prospects (~11 tools)
@@ -277,6 +278,7 @@ export const TOOL_DESCRIPTIONS: Record<string, string> = {
   yahoo_achievements: "Track milestones and achievements for your fantasy team this season",
 
   // Intel
+  fantasy_statcast_leaders: "MLB Statcast leaderboards for advanced metrics (exit velo, barrel%, xwOBA, sprint speed, bat speed, etc.)",
   fantasy_player_report: "Comprehensive player report combining stats, news, Statcast, and z-scores",
   fantasy_regression_candidates: "Players likely to regress toward or away from their current performance",
   fantasy_reddit_buzz: "Reddit discussion buzz and sentiment for fantasy-relevant players",
