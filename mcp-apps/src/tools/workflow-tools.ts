@@ -428,6 +428,22 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
               lines.push("  ⚠️ " + tp.name + " is injured (" + tp.injury_severity + ") — factor into trade timing");
             }
           }
+          // Roster fit from trade eval
+          var rosterFit = te.position_impact && (te.position_impact as any).roster_fit;
+          if (rosterFit && rosterFit.length > 0) {
+            lines.push("");
+            lines.push("ROSTER FIT:");
+            for (var rf of rosterFit) {
+              if (rf.action === "upgrade") {
+                lines.push("  " + rf.player + " -> " + rf.slot + " (upgrades " + rf.over + ")");
+              } else if (rf.action === "fill_empty") {
+                lines.push("  " + rf.player + " -> " + rf.slot + " (open slot)");
+              } else if (rf.action === "blocked") {
+                lines.push("  " + rf.player + " BLOCKED at " + rf.slot + " by " + (rf.blocked_by || "?") + " — would use Util/bench");
+              }
+            }
+          }
+
           lines.push("");
           lines.push("RECOMMENDATION: " + recommendation);
         }

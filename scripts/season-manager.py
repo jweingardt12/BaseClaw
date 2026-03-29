@@ -3045,6 +3045,77 @@ def cmd_trade_eval(args, as_json=False):
         if bonus > 0:
             pos_warnings.append("Losing scarce position: " + pos + " (scarcity bonus +" + str(bonus) + ")")
 
+    # Roster-aware positional analysis: check if incoming players have a starting slot
+    roster_pos_analysis = []
+    non_playing = {"BN", "Bench", "IL", "IL+", "DL", "DL+", "NA"}
+    try:
+        current_roster = roster if roster else team.roster()
+        # Map: position -> list of starters currently filling it
+        pos_filled = {}
+        for rp in current_roster:
+            if rp in give_players:
+                continue  # player being traded away
+            sel = get_player_position(rp)
+            if sel not in non_playing:
+                pos_filled[sel] = pos_filled.get(sel, [])
+                pos_filled[sel].append(rp.get("name", ""))
+
+        # Check each incoming player
+        for gp in get_players:
+            gp_name = gp.get("name", "")
+            gp_elig = gp.get("eligible_positions", [])
+            # Find an open slot or an upgrade opportunity
+            best_slot = None
+            upgrade_over = None
+            for elig_pos in gp_elig:
+                if elig_pos in ("Util", "BN", "P"):
+                    continue
+                current_at_pos = pos_filled.get(elig_pos, [])
+                if not current_at_pos:
+                    best_slot = elig_pos  # empty slot
+                    break
+                # Check if incoming player is better than current starter
+                gp_eval = get_player_zscore(gp_name) or {}
+                gp_z = gp_eval.get("z_final", 0)
+                for curr_name in current_at_pos:
+                    curr_eval = get_player_zscore(curr_name) or {}
+                    curr_z = curr_eval.get("z_final", 0)
+                    if gp_z > curr_z:
+                        upgrade_over = curr_name
+                        best_slot = elig_pos
+                        break
+                if best_slot:
+                    break
+
+            if best_slot and upgrade_over:
+                roster_pos_analysis.append({
+                    "player": gp_name,
+                    "slot": best_slot,
+                    "action": "upgrade",
+                    "over": upgrade_over,
+                })
+            elif best_slot:
+                roster_pos_analysis.append({
+                    "player": gp_name,
+                    "slot": best_slot,
+                    "action": "fill_empty",
+                })
+            else:
+                # No starting slot — blocked, would go to Util or bench
+                has_util = "Util" in gp_elig
+                roster_pos_analysis.append({
+                    "player": gp_name,
+                    "slot": "Util" if has_util else "BN",
+                    "action": "blocked",
+                    "blocked_by": pos_filled.get(gp_elig[0], ["?"])[0] if gp_elig else "?",
+                })
+                if not has_util:
+                    pos_warnings.append(gp_name + " has no starting slot — all eligible positions filled")
+                else:
+                    pos_warnings.append(gp_name + " blocked at " + gp_elig[0] + " by " + (pos_filled.get(gp_elig[0], ["?"])[0]) + " — would play Util")
+    except Exception as e:
+        print("Warning: roster position analysis failed: " + str(e))
+
     if as_json:
         give_list = []
         for i, p in enumerate(give_players):
@@ -3095,6 +3166,7 @@ def cmd_trade_eval(args, as_json=False):
             "position_impact": {
                 "losing": list(losing),
                 "gaining": list(gaining),
+                "roster_fit": roster_pos_analysis,
             },
             "their_side": their_side,
             "fairness": _assess_fairness(grade, their_side.get("grade") if their_side else None),
@@ -5103,7 +5175,7 @@ def cmd_trade_finder(args, as_json=False):
 
         # 2. Get z-score info for the target player
         target_z, target_tier, target_per_cat = _player_z_summary(target_player.get("name", target_name))
-        target_z = get_regression_adjusted_z(target_player.get("name", target_name), target_z)
+        target_z, _ = compute_adjusted_z(target_player.get("name", target_name), target_z)
         target_positions = target_player.get("eligible_positions", [])
         target_is_pitcher = is_pitcher_position(target_positions)
 
@@ -5120,7 +5192,7 @@ def cmd_trade_finder(args, as_json=False):
             positions = p.get("eligible_positions", [])
             is_pitcher = is_pitcher_position(positions)
             z_val, tier, per_cat = _player_z_summary(name)
-            z_val = get_regression_adjusted_z(name, z_val)
+            z_val, _ = compute_adjusted_z(name, z_val)
             my_players.append({
                 "name": name,
                 "player_id": str(p.get("player_id", "")),
@@ -8626,7 +8698,7 @@ def cmd_optimal_moves(args, as_json=False):
         pid = str(p.get("player_id", ""))
         z_info = get_player_zscore(name) or {}
         z_val = z_info.get("z_final", 0)
-        z_val = get_regression_adjusted_z(name, z_val)
+        z_val, _ = compute_adjusted_z(name, z_val)
         tier = z_info.get("tier", "Streamable")
         per_cat = z_info.get("per_category_zscores", {})
         eligible = p.get("eligible_positions", [])
@@ -8677,7 +8749,7 @@ def cmd_optimal_moves(args, as_json=False):
             if not z_info:
                 continue
             z_val = z_info.get("z_final", 0)
-            z_val = get_regression_adjusted_z(name, z_val)
+            z_val, _ = compute_adjusted_z(name, z_val)
             tier = z_info.get("tier", "Streamable")
             per_cat = z_info.get("per_category_zscores", {})
             fa_pool.append({
@@ -11092,21 +11164,19 @@ def cmd_trade_pipeline(args, as_json=False):
             give_names = [player.get("name", "") for player in pkg.get("give", [])]
             get_names = [player.get("name", "") for player in pkg.get("get", [])]
 
-            # Get z-score values for each player
+            # Get adjusted z-score values (includes quality tier + regression + momentum)
             give_value = 0
             get_value = 0
             for name in give_names:
                 z_info = get_player_zscore(name)
                 if z_info:
-                    z_val = z_info.get("z_final", 0)
-                    z_val = get_regression_adjusted_z(name, z_val)
-                    give_value += z_val
+                    adj_z, _ = compute_adjusted_z(name, z_info.get("z_final", 0))
+                    give_value += adj_z
             for name in get_names:
                 z_info = get_player_zscore(name)
                 if z_info:
-                    z_val = z_info.get("z_final", 0)
-                    z_val = get_regression_adjusted_z(name, z_val)
-                    get_value += z_val
+                    adj_z, _ = compute_adjusted_z(name, z_info.get("z_final", 0))
+                    get_value += adj_z
 
             net_value = get_value - give_value
             grade = _grade_trade(net_value)
