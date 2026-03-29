@@ -546,6 +546,27 @@ def get_player_team(player):
     return team_name
 
 
+def enrich_roster_teams(roster, lg, team):
+    """Add editorial_team_abbr to roster players from Yahoo enriched API.
+    Basic team.roster() lacks team data; this fills it in.
+    """
+    try:
+        yf_mod = importlib.import_module("yahoo-fantasy")
+        stat_lookup = yf_mod._get_stat_lookup(lg)
+        handler = lg.yhandler
+        uri = ("/team/" + team.team_key
+               + "/roster/players;out=percent_started,percent_owned"
+               + "/stats;type=season;season=" + str(date.today().year))
+        raw = handler.get(uri)
+        enriched = yf_mod._parse_enriched_data(raw, stat_lookup)
+        for p in roster:
+            pid = str(p.get("player_id", ""))
+            if pid in enriched and enriched[pid].get("team"):
+                p["editorial_team_abbr"] = enriched[pid]["team"]
+    except Exception as e:
+        print("Warning: roster team enrichment failed: " + str(e))
+
+
 def get_player_position(player):
     """Get the selected position for a roster player"""
     sp = player.get("selected_position", "?")
@@ -1154,22 +1175,7 @@ def cmd_lineup_optimize(args, as_json=False):
         print("Roster is empty (predraft or preseason)")
         return
 
-    # Enrich roster with team abbreviations (basic roster() lacks them)
-    try:
-        yf_mod = importlib.import_module("yahoo-fantasy")
-        stat_lookup = yf_mod._get_stat_lookup(lg)
-        handler = lg.yhandler
-        uri = ("/team/" + team.team_key
-               + "/roster/players;out=percent_started,percent_owned"
-               + "/stats;type=season;season=" + str(date.today().year))
-        raw = handler.get(uri)
-        enriched = yf_mod._parse_enriched_data(raw, stat_lookup)
-        for p in roster:
-            pid = str(p.get("player_id", ""))
-            if pid in enriched and enriched[pid].get("team"):
-                p["editorial_team_abbr"] = enriched[pid]["team"]
-    except Exception as e:
-        print("Warning: lineup-optimize team enrichment failed: " + str(e))
+    enrich_roster_teams(roster, lg, team)
 
     if not as_json:
         print("Fetching today's MLB schedule...")
@@ -3164,6 +3170,7 @@ def cmd_category_simulate(args, as_json=False):
     if drop_name:
         try:
             roster = team.roster()
+            enrich_roster_teams(roster, lg, team)
             for p in roster:
                 if drop_name.lower() in p.get("name", "").lower():
                     drop_player_info = p
@@ -3879,6 +3886,7 @@ def cmd_matchup_strategy(args, as_json=False):
             try:
                 my_team = lg.to_team(TEAM_ID)
                 my_roster = my_team.roster()
+                enrich_roster_teams(my_roster, lg, my_team)
                 my_games = _count_roster_games(my_roster, team_games)
                 schedule_data["my_batter_games"] = my_games.get("batter_games", 0)
                 schedule_data["my_pitcher_games"] = my_games.get("pitcher_games", 0)
@@ -3889,6 +3897,7 @@ def cmd_matchup_strategy(args, as_json=False):
             try:
                 opp_team = lg.to_team(opp_key)
                 opp_roster = opp_team.roster()
+                enrich_roster_teams(opp_roster, lg, opp_team)
                 opp_games = _count_roster_games(opp_roster, team_games)
                 schedule_data["opp_batter_games"] = opp_games.get("batter_games", 0)
                 schedule_data["opp_pitcher_games"] = opp_games.get("pitcher_games", 0)
@@ -6464,6 +6473,7 @@ def cmd_week_planner(args, as_json=False):
 
         # Get roster and match players to their MLB teams
         roster = team.roster()
+        enrich_roster_teams(roster, lg, team)
         # Build date list for the week
         s = datetime.strptime(start_date, "%Y-%m-%d").date()
         e = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -6759,6 +6769,7 @@ def cmd_pitcher_matchup(args, as_json=False):
 
         # Get roster SPs
         roster = team.roster()
+        enrich_roster_teams(roster, lg, team)
         pitchers = []
         for p in roster:
             positions = p.get("eligible_positions", [])
