@@ -1631,7 +1631,19 @@ def _category_check_preseason(lg, as_json=False):
         strong = [c for c, i in sorted_cats if i["rank"] <= 3]
         weak = [c for c, i in sorted_cats if i["rank"] >= (i["total"] - 2) and i["total"] > 3]
 
+        # Build roster profile for sustainability context
+        roster_profile = {}
+        try:
+            sc2, gm2, lg2, team2 = get_league_context()
+            roster2 = team2.roster()
+            enrich_roster_teams(roster2, lg2, team2)
+            enrich_with_intel(roster2)
+            roster_profile = _build_roster_profile(roster2)
+        except Exception:
+            pass
+
         if as_json:
+            cat_z = roster_profile.get("category_strengths", {})
             categories = []
             for cat, info in sorted_cats:
                 strength = ""
@@ -1645,6 +1657,7 @@ def _category_check_preseason(lg, as_json=False):
                     "rank": info["rank"],
                     "total": info["total"],
                     "strength": strength,
+                    "z_sum": cat_z.get(cat, round(info["value"], 2)),
                 })
             return {
                 "week": 0,
@@ -1652,6 +1665,7 @@ def _category_check_preseason(lg, as_json=False):
                 "strongest": strong,
                 "weakest": weak,
                 "source": "projected",
+                "roster_profile": roster_profile,
             }
 
         print("PRE-SEASON PROJECTED CATEGORY RANKS (z-score based)")
@@ -6311,6 +6325,8 @@ def cmd_league_intel(args, as_json=False):
             "sell_high_count": intel_sum.get("sell_high", 0),
             "hot_players": intel_sum.get("hot", 0),
             "cold_players": intel_sum.get("cold", 0),
+            "sustainability": t.get("sustainability"),
+            "transactions": t.get("transactions"),
         }
         team_profiles.append(profile)
 
@@ -6340,6 +6356,8 @@ def cmd_league_intel(args, as_json=False):
             "z_upside": t.get("z_upside", 0),
             "strongest_categories": t.get("strongest_categories", []),
             "weakest_categories": t.get("weakest_categories", []),
+            "sustainability": t.get("sustainability"),
+            "transactions": t.get("transactions"),
         })
 
     # Team name lookup shared by leaderboards + H2H
