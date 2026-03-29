@@ -1154,6 +1154,23 @@ def cmd_lineup_optimize(args, as_json=False):
         print("Roster is empty (predraft or preseason)")
         return
 
+    # Enrich roster with team abbreviations (basic roster() lacks them)
+    try:
+        yf_mod = importlib.import_module("yahoo-fantasy")
+        stat_lookup = yf_mod._get_stat_lookup(lg)
+        handler = lg.yhandler
+        uri = ("/team/" + team.team_key
+               + "/roster/players;out=percent_started,percent_owned"
+               + "/stats;type=season;season=" + str(date.today().year))
+        raw = handler.get(uri)
+        enriched = yf_mod._parse_enriched_data(raw, stat_lookup)
+        for p in roster:
+            pid = str(p.get("player_id", ""))
+            if pid in enriched and enriched[pid].get("team"):
+                p["editorial_team_abbr"] = enriched[pid]["team"]
+    except Exception as e:
+        print("Warning: lineup-optimize team enrichment failed: " + str(e))
+
     if not as_json:
         print("Fetching today's MLB schedule...")
     schedule = get_todays_schedule()
