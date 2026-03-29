@@ -502,11 +502,16 @@ def get_schedule_for_range(start_date, end_date):
     if statsapi:
         try:
             return statsapi.schedule(start_date=start_date, end_date=end_date, hydrate="probablePitcher")
+        except Exception:
+            pass
+        # Retry without hydrate
+        try:
+            return statsapi.schedule(start_date=start_date, end_date=end_date)
         except Exception as e:
             print("  Warning: statsapi range schedule failed: " + str(e))
-    # Fallback
+    # Fallback to raw MLB API
     try:
-        data = mlb_fetch("/schedule?sportId=1&startDate=" + start_date + "&endDate=" + end_date + "&hydrate=probablePitcher")
+        data = mlb_fetch("/schedule?sportId=1&startDate=" + start_date + "&endDate=" + end_date + "&hydrate=team,probablePitcher")
         return _parse_schedule_response(data)
     except Exception as e:
         print("  Warning: range schedule fetch failed: " + str(e))

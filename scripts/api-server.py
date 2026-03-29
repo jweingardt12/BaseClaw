@@ -1943,15 +1943,27 @@ def _run_briefing():
         _roster2 = _team2.roster()
         players_with_names = [(p, p.get("name", "")) for p in _roster2 if p.get("name", "")]
         ctx_futures = {name: _workflow_pool.submit(get_player_context, name) for _, name in players_with_names}
+        # Keywords that are expected for NA-slot players (not actionable)
+        _NA_EXPECTED = {"optioned", "sent to minors", "minor league", "assigned to"}
         for p, name in players_with_names:
             try:
                 ctx = ctx_futures[name].result(timeout=15)
             except Exception:
                 continue
             if ctx.get("flags") or ctx.get("injury_severity"):
+                sel_pos = p.get("selected_position", "")
+                is_na = (sel_pos == "NA" if isinstance(sel_pos, str)
+                         else sel_pos.get("position", "") == "NA")
+                flags = ctx.get("flags", [])
+                # Suppress expected flags for NA stashes
+                if is_na and flags:
+                    flags = [f for f in flags
+                             if not any(kw in f.get("message", "").lower() for kw in _NA_EXPECTED)]
+                if not flags and not ctx.get("injury_severity"):
+                    continue
                 entry = {"name": name, "status": p.get("status", "")}
-                if ctx.get("flags"):
-                    entry["flags"] = ctx.get("flags")
+                if flags:
+                    entry["flags"] = flags
                 if ctx.get("injury_severity"):
                     entry["injury_severity"] = ctx.get("injury_severity")
                 if ctx.get("headlines"):
