@@ -2713,6 +2713,9 @@ def api_achievements():
 
 _last_roster_state = {}  # name -> {status, position}
 _last_monitor_time = 0
+_monitor_lock = threading.Lock()
+_monitor_cache = {}  # cached response with TTL
+_MONITOR_CACHE_TTL = 60  # seconds — prevents redundant calls from hooks/cron
 
 
 @app.route("/api/roster-monitor")
@@ -2721,13 +2724,23 @@ def api_roster_monitor():
 
     Returns only actionable alerts, not the full roster state. Designed to be polled
     by OpenClaw heartbeat (every 30 min) with minimal overhead.
+    Response cached for 60 seconds to prevent redundant work from concurrent hook calls.
     """
     global _last_roster_state, _last_monitor_time
     import time as _time
 
+    # Endpoint-level cache: return cached response if fresh
+    cached_entry = _monitor_cache.get("result")
+    if cached_entry:
+        cached_data, cached_at = cached_entry
+        if _time.time() - cached_at < _MONITOR_CACHE_TTL:
+            return safe_jsonify(cached_data)
+
     alerts = []
     now = _time.time()
-    is_first_check = not _last_roster_state
+    with _monitor_lock:
+        is_first_check = not _last_roster_state
+        prev_state = dict(_last_roster_state)
 
     try:
         # 1. Current roster state
@@ -2747,7 +2760,7 @@ def api_roster_monitor():
         # 2. Detect status changes (IL placements, activations, new adds)
         if not is_first_check:
             for name, state in current_state.items():
-                prev = _last_roster_state.get(name)
+                prev = prev_state.get(name)
                 if not prev:
                     alerts.append({
                         "type": "roster_add",
@@ -2772,7 +2785,7 @@ def api_roster_monitor():
                             "player": name,
                         })
 
-            for name in _last_roster_state:
+            for name in prev_state:
                 if name not in current_state:
                     alerts.append({
                         "type": "roster_drop",
@@ -2834,9 +2847,10 @@ def api_roster_monitor():
         except Exception:
             pass
 
-        # 5. Update state for next check
-        _last_roster_state = current_state
-        _last_monitor_time = now
+        # 5. Update state for next check (thread-safe)
+        with _monitor_lock:
+            _last_roster_state = current_state
+            _last_monitor_time = now
 
     except Exception as e:
         return safe_jsonify({"error": str(e), "alerts": []}, 500)
@@ -2854,12 +2868,14 @@ def api_roster_monitor():
     severity_order = {"critical": 0, "warning": 1, "info": 2}
     unique_alerts.sort(key=lambda a: severity_order.get(a.get("severity", "info"), 3))
 
-    return safe_jsonify({
+    result = {
         "alerts": unique_alerts,
         "alert_count": len(unique_alerts),
         "first_check": is_first_check,
-        "roster_size": len(_last_roster_state),
-    })
+        "roster_size": len(current_state) if 'current_state' in dir() else 0,
+    }
+    _monitor_cache["result"] = (result, _time.time())
+    return safe_jsonify(result)
 
 
 if __name__ == "__main__":

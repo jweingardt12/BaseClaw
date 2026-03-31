@@ -1,5 +1,4 @@
-var BASECLAW_URL = process.env.BASECLAW_URL || "http://localhost:8766";
-var FETCH_TIMEOUT = 5000;
+import { fetchBaseclaw } from "../lib/fetch";
 
 // Common fantasy baseball verbs that precede player names
 var TRIGGER_PATTERNS = [
@@ -41,20 +40,7 @@ function extractPlayerNames(text: string): string[] {
 }
 
 async function fetchPlayerIntel(name: string): Promise<any> {
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT);
-  try {
-    var encoded = encodeURIComponent(name);
-    var response = await fetch(BASECLAW_URL + "/api/player-intel?name=" + encoded, { signal: controller.signal });
-    if (response.ok) {
-      return await response.json();
-    }
-    return null;
-  } catch (e) {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  return fetchBaseclaw("/api/player-intel?name=" + encodeURIComponent(name));
 }
 
 function formatIntelSummary(name: string, data: any): string {

@@ -710,6 +710,8 @@ def get_player_context(player_name, days=14):
         "reddit": reddit,
         "availability": availability,
     }
+    if len(_context_cache) > 300:
+        _context_cache.clear()
     cache_set(_context_cache, cache_key, result)
     return result
 

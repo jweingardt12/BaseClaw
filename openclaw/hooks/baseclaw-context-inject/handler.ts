@@ -1,21 +1,4 @@
-var BASECLAW_URL = process.env.BASECLAW_URL || "http://localhost:8766";
-var FETCH_TIMEOUT = 8000;
-
-async function fetchJson(path: string): Promise<any> {
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT);
-  try {
-    var response = await fetch(BASECLAW_URL + path, { signal: controller.signal });
-    if (response.ok) {
-      return await response.json();
-    }
-    return null;
-  } catch (e) {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
+import { fetchBaseclaw } from "../lib/fetch";
 
 function formatDate(d: Date): string {
   return d.getFullYear() + "-"
@@ -42,8 +25,8 @@ var handler = async function (event: any): Promise<void> {
 
   // Fetch league context and roster monitor in parallel
   var [leagueCtx, monitor] = await Promise.all([
-    fetchJson("/api/league-context"),
-    fetchJson("/api/roster-monitor"),
+    fetchBaseclaw("/api/league-context", 8000),
+    fetchBaseclaw("/api/roster-monitor", 8000),
   ]);
 
   var lines: string[] = [];

@@ -1,8 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-
-var BASECLAW_URL = process.env.BASECLAW_URL || "http://localhost:8766";
-var FETCH_TIMEOUT = 5000;
+import { fetchBaseclaw } from "../lib/fetch";
 
 // Structured extraction patterns (more precise than keyword matching)
 var SECTION_PATTERNS = {
@@ -42,21 +40,6 @@ function extractSection(transcript: string, patterns: RegExp[]): string[] {
   return Array.from(matches);
 }
 
-async function fetchMonitorState(): Promise<any> {
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT);
-  try {
-    var response = await fetch(BASECLAW_URL + "/api/roster-monitor", { signal: controller.signal });
-    if (response.ok) {
-      return await response.json();
-    }
-    return null;
-  } catch (e) {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 var handler = async function (event: any): Promise<void> {
   if (event.type !== "session" || event.action !== "compact:before") {
@@ -96,7 +79,7 @@ var handler = async function (event: any): Promise<void> {
   var alerts = extractSection(transcript, SECTION_PATTERNS.alerts);
 
   // Fetch current roster state for context
-  var monitor = await fetchMonitorState();
+  var monitor = await fetchBaseclaw("/api/roster-monitor");
 
   var now = new Date();
   var dateStr = now.getFullYear() + "-"

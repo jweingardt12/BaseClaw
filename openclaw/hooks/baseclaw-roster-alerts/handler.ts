@@ -1,22 +1,7 @@
-var BASECLAW_URL = process.env.BASECLAW_URL || "http://localhost:8766";
-var FETCH_TIMEOUT = 5000;
-var _lastAlertHashes = new Set<string>();
+import { fetchBaseclaw } from "../lib/fetch";
 
-async function fetchMonitor(): Promise<any> {
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT);
-  try {
-    var response = await fetch(BASECLAW_URL + "/api/roster-monitor", { signal: controller.signal });
-    if (response.ok) {
-      return await response.json();
-    }
-    return null;
-  } catch (e) {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
+var _lastAlertHashes = new Set<string>();
+var _alertOrder: string[] = [];  // FIFO for eviction
 
 var handler = async function (event: any): Promise<void> {
   if (event.type !== "message" || event.action !== "sent") {
@@ -24,7 +9,7 @@ var handler = async function (event: any): Promise<void> {
   }
 
   // Poll the real roster monitor for state changes
-  var monitor = await fetchMonitor();
+  var monitor = await fetchBaseclaw("/api/roster-monitor");
   if (!monitor || !monitor.alerts || monitor.alerts.length === 0) {
     return;
   }
@@ -36,13 +21,15 @@ var handler = async function (event: any): Promise<void> {
     var hash = alert.type + ":" + alert.message;
     if (!_lastAlertHashes.has(hash)) {
       _lastAlertHashes.add(hash);
+      _alertOrder.push(hash);
       newAlerts.push(alert);
     }
   }
 
-  // Cap the hash set to prevent unbounded growth
-  if (_lastAlertHashes.size > 200) {
-    _lastAlertHashes.clear();
+  // FIFO eviction: remove oldest entries when over 200
+  while (_lastAlertHashes.size > 200 && _alertOrder.length > 0) {
+    var oldest = _alertOrder.shift();
+    if (oldest) _lastAlertHashes.delete(oldest);
   }
 
   if (newAlerts.length === 0) {
