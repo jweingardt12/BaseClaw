@@ -2708,6 +2708,71 @@ def api_achievements():
 
 
 # ============================================================
+# Competitive Analysis & Research Tracking
+# ============================================================
+
+
+@app.route("/api/competitor-tracker")
+def api_competitor_tracker():
+    return _cached_endpoint("competitor-tracker",
+        lambda: season_manager.cmd_competitor_tracker([], as_json=True), 600)
+
+
+@app.route("/api/watchlist-add", methods=["POST"])
+def api_watchlist_add():
+    data = request.get_json(silent=True) or {}
+    name = data.get("name") or request.args.get("name", "")
+    reason = data.get("reason", "")
+    target_type = data.get("type", "monitor")
+    if not name:
+        return safe_jsonify({"error": "name required"}, 400)
+    try:
+        result = season_manager.cmd_watchlist_add([name, reason, target_type], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/watchlist-remove", methods=["POST"])
+def api_watchlist_remove():
+    data = request.get_json(silent=True) or {}
+    name = data.get("name") or request.args.get("name", "")
+    if not name:
+        return safe_jsonify({"error": "name required"}, 400)
+    try:
+        result = season_manager.cmd_watchlist_remove([name], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/watchlist")
+def api_watchlist_check():
+    try:
+        result = season_manager.cmd_watchlist_check([], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+@app.route("/api/category-arms-race")
+def api_category_arms_race():
+    return _cached_endpoint("cat-arms-race",
+        lambda: season_manager.cmd_category_arms_race([], as_json=True), 300)
+
+
+@app.route("/api/research-feed")
+def api_research_feed():
+    filter_type = request.args.get("filter", "all")
+    limit = request.args.get("limit", "20")
+    try:
+        result = season_manager.cmd_research_feed([filter_type, limit], as_json=True)
+        return safe_jsonify(result)
+    except Exception as e:
+        return safe_jsonify({"error": str(e)}, 500)
+
+
+# ============================================================
 # Proactive Roster Monitoring (powers OpenClaw heartbeat/hooks)
 # ============================================================
 

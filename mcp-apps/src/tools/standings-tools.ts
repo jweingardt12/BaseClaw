@@ -3,7 +3,7 @@ import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from "@model
 import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { apiGet, toolError } from "../api/python-client.js";
+import { apiGet, apiPost, toolError } from "../api/python-client.js";
 import { APP_RESOURCE_DOMAINS } from "../api/csp.js";
 import { tkey, buildFooter } from "../api/format-text.js";
 import { READ_ANNO } from "../api/annotations.js";
@@ -593,6 +593,159 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_competitor_tracker
+  if (shouldRegister("yahoo_competitor_tracker")) {
+    server.tool(
+    "yahoo_competitor_tracker",
+    "Track what rival managers are doing — roster moves, category impact, sniped targets, and threat levels for each competitor",
+    {},
+    async function () {
+      try {
+        var data = await apiGet<any>("/api/competitor-tracker");
+        var lines: string[] = ["COMPETITOR TRACKER", "=".repeat(50)];
+        lines.push("Your rank: #" + data.my_rank + " | Total rival moves: " + data.total_rival_moves);
+        if (data.alerts && data.alerts.length > 0) {
+          lines.push("\nALERTS:");
+          for (var a of data.alerts) {
+            lines.push("  [!] " + a.message);
+          }
+        }
+        if (data.sniped_targets && data.sniped_targets.length > 0) {
+          lines.push("\nSNIPED TARGETS:");
+          for (var s of data.sniped_targets) {
+            lines.push("  [-] " + s);
+          }
+        }
+        lines.push("\nTEAM ACTIVITY:");
+        for (var t of (data.teams || []).slice(0, 8)) {
+          lines.push("  " + t.name + " (#" + t.standings_rank + ") — " + t.move_count + " moves, net z=" + t.net_z_change + " [" + t.threat_level + "]");
+          if (t.categories_improving && t.categories_improving.length > 0) {
+            lines.push("    Improving: " + t.categories_improving.join(", "));
+          }
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "competitor-tracker", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_watchlist_add
+  if (shouldRegister("yahoo_watchlist_add")) {
+    server.tool(
+    "yahoo_watchlist_add",
+    "Add a player to your watchlist for tracking ownership changes, z-score movement, and news alerts",
+    { name: z.string().describe("Player name to watch"), reason: z.string().optional().describe("Why you're watching this player"), type: z.enum(["pickup", "trade_target", "monitor", "sell_candidate"]).optional().describe("Tracking type") },
+    async function (params: { name: string; reason?: string; type?: string }) {
+      try {
+        var data = await apiPost<any>("/api/watchlist-add", { name: params.name, reason: params.reason || "", type: params.type || "monitor" });
+        return { content: [{ type: "text" as const, text: "Added " + data.added + " to watchlist (" + (data.type || "monitor") + "). Owner: " + (data.owner || "free agent") + ". Z-score: " + data.z_score }] };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_watchlist_remove
+  if (shouldRegister("yahoo_watchlist_remove")) {
+    server.tool(
+    "yahoo_watchlist_remove",
+    "Remove a player from your watchlist",
+    { name: z.string().describe("Player name to remove") },
+    async function (params: { name: string }) {
+      try {
+        var data = await apiPost<any>("/api/watchlist-remove", { name: params.name });
+        return { content: [{ type: "text" as const, text: "Removed " + data.removed + " from watchlist" }] };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_watchlist
+  if (shouldRegister("yahoo_watchlist")) {
+    server.tool(
+    "yahoo_watchlist",
+    "Check all watched players for ownership changes, z-score movement, and status updates",
+    {},
+    async function () {
+      try {
+        var data = await apiGet<any>("/api/watchlist");
+        var lines: string[] = ["PLAYER WATCHLIST (" + data.count + " players)", "=".repeat(50)];
+        if (data.alerts && data.alerts.length > 0) {
+          lines.push("ALERTS:");
+          for (var a of data.alerts) {
+            lines.push("  [!] " + a.message);
+          }
+          lines.push("");
+        }
+        for (var p of data.players || []) {
+          var flags: string[] = [];
+          if (p.owner_changed) flags.push("OWNER CHANGED");
+          if (p.injury_severity) flags.push(p.injury_severity);
+          if (Math.abs(p.z_change || 0) > 0.5) flags.push("z " + (p.z_change > 0 ? "+" : "") + p.z_change);
+          lines.push("  " + p.name + " [" + (p.target_type || "monitor") + "] — " + p.current_owner + " (z=" + p.z_score + ")" + (flags.length ? " " + flags.join(" | ") : ""));
+          if (p.latest_headline) lines.push("    News: " + p.latest_headline.slice(0, 80));
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "watchlist", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_category_arms_race
+  if (shouldRegister("yahoo_category_arms_race")) {
+    server.tool(
+    "yahoo_category_arms_race",
+    "Show category-by-category competitive position — your rank, gap to nearest rivals, and who's gaining on you",
+    {},
+    async function () {
+      try {
+        var data = await apiGet<any>("/api/category-arms-race");
+        var lines: string[] = ["CATEGORY ARMS RACE", "=".repeat(50)];
+        for (var c of data.categories || []) {
+          var aboveStr = c.above ? " (" + c.above.team + " ahead by " + c.above.gap + ")" : "";
+          var belowStr = c.below ? " (" + c.below.team + " behind by " + c.below.gap + ")" : "";
+          lines.push("  " + c.name.padEnd(8) + "Rank #" + c.rank + "/" + c.total_teams + "  value=" + c.my_value + aboveStr + belowStr);
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "category-arms-race", ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_research_feed
+  if (shouldRegister("yahoo_research_feed")) {
+    server.tool(
+    "yahoo_research_feed",
+    "Unified intelligence feed — news, league transactions, trending pickups, prospect signals. Filter by: roster, league, market, prospects, all",
+    { filter: z.enum(["all", "roster", "league", "market", "prospects", "news"]).optional().describe("Feed filter").default("all"), limit: z.number().optional().describe("Max items").default(20) },
+    async function (params: { filter?: string; limit?: number }) {
+      try {
+        var data = await apiGet<any>("/api/research-feed?filter=" + (params.filter || "all") + "&limit=" + (params.limit || 20));
+        var lines: string[] = ["RESEARCH FEED (" + data.filter + ")", "=".repeat(50)];
+        for (var item of data.feed || []) {
+          var prefix = item.type === "news" ? "[NEWS]" : item.type === "transaction" ? "[TXN]" : item.type === "trending" ? "[HOT]" : item.type === "prospect" ? "[PRSP]" : "[?]";
+          var injury = item.injury_flag ? " [INJURY]" : "";
+          lines.push("  " + prefix + " " + item.headline + injury);
+          if (item.source) lines.push("    via " + item.source + (item.timestamp ? " — " + item.timestamp : ""));
+        }
+        if (data.feed.length === 0) lines.push("  No items matching filter '" + data.filter + "'");
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { type: "research-feed", ...data },
         };
       } catch (e) { return toolError(e); }
     },

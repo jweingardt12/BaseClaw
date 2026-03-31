@@ -11662,6 +11662,506 @@ def cmd_travel_fatigue(args, as_json=False):
         print("Error computing travel fatigue: " + str(e))
 
 
+# ============================================================
+# Competitive Analysis & Research Tracking
+# ============================================================
+
+
+def cmd_competitor_tracker(args, as_json=False):
+    """Track rival roster moves and flag competitive impact on your category standings."""
+    sc, gm, lg = get_league()
+    from valuations import get_player_zscore
+
+    my_team_name = ""
+    my_rank = 99
+    try:
+        team = lg.to_team(TEAM_ID)
+        my_team_name = team.team_data.get("name", "") if hasattr(team, "team_data") else ""
+    except Exception:
+        pass
+
+    # Get standings for rank context
+    standings = get_cached_standings(lg)
+    standings_by_name = {}
+    for idx, st in enumerate(standings, 1):
+        name = st.get("name", "")
+        standings_by_name[name] = idx
+        if TEAM_ID in str(st.get("team_key", "")):
+            my_rank = idx
+
+    # Get my category ranks
+    my_cat_ranks = {}
+    try:
+        cat_info, _, _ = _get_team_category_ranks(lg, TEAM_ID)
+        if isinstance(cat_info, dict):
+            for cat_name, info in cat_info.items():
+                my_cat_ranks[cat_name] = info.get("rank", 99) if isinstance(info, dict) else 99
+    except Exception:
+        pass
+
+    # Fetch recent league transactions
+    yf_mod = importlib.import_module("yahoo-fantasy")
+    tx_data = yf_mod.cmd_transactions([], as_json=True)
+    transactions = tx_data.get("transactions", [])
+
+    # Get watchlist for sniped target detection
+    db = get_db()
+    watched_names = set()
+    try:
+        rows = db.execute("SELECT name FROM player_watchlist").fetchall()
+        watched_names = set(r[0].lower() for r in rows)
+    except Exception:
+        pass
+
+    # Group transactions by team and analyze
+    team_moves = {}
+    sniped = []
+    alerts = []
+    for tx in transactions:
+        for p in tx.get("players", []):
+            team_name = p.get("fantasy_team", "")
+            action = p.get("action", "")
+            player_name = p.get("name", "Unknown")
+            if not team_name or team_name == my_team_name:
+                continue
+
+            if team_name not in team_moves:
+                team_moves[team_name] = []
+
+            z_info = get_player_zscore(player_name)
+            z_val = z_info.get("z_final", 0) if z_info else 0
+            per_cat = z_info.get("per_category_zscores", {}) if z_info else {}
+            cats_improved = [c for c, v in per_cat.items() if v > 0.3] if action == "add" else []
+
+            team_moves[team_name].append({
+                "type": action,
+                "player": player_name,
+                "z_score": round(z_val, 2),
+                "categories_improved": cats_improved,
+                "timestamp": tx.get("timestamp", ""),
+            })
+
+            # Check if this was a watched player
+            if player_name.lower() in watched_names and action == "add":
+                sniped.append(player_name + " picked up by " + team_name)
+
+            # Check if this affects categories we're competing on
+            rival_rank = standings_by_name.get(team_name, 99)
+            if abs(rival_rank - my_rank) <= 2:
+                for cat in cats_improved:
+                    my_cat_rank = my_cat_ranks.get(cat, 99)
+                    if my_cat_rank >= 4:
+                        alerts.append({
+                            "type": "rival_add",
+                            "message": team_name + " (#" + str(rival_rank) + ") added " + player_name
+                                + " — improves " + cat + " (you're ranked #" + str(my_cat_rank) + ")",
+                        })
+
+    # Build team summaries
+    teams = []
+    for team_name, moves in sorted(team_moves.items(), key=lambda x: len(x[1]), reverse=True):
+        rival_rank = standings_by_name.get(team_name, 99)
+        rank_diff = abs(rival_rank - my_rank)
+        threat = "direct_rival" if rank_diff <= 2 else ("competitor" if rank_diff <= 4 else "distant")
+        net_z = sum(m.get("z_score", 0) for m in moves if m.get("type") == "add") - sum(m.get("z_score", 0) for m in moves if m.get("type") == "drop")
+        all_cats = set()
+        for m in moves:
+            if m.get("type") == "add":
+                all_cats.update(m.get("categories_improved", []))
+        threat_level = "high" if threat == "direct_rival" and net_z > 2 else ("medium" if net_z > 0 else "low")
+        teams.append({
+            "name": team_name,
+            "standings_rank": rival_rank,
+            "relative_threat": threat,
+            "recent_moves": moves,
+            "move_count": len(moves),
+            "net_z_change": round(net_z, 2),
+            "categories_improving": sorted(all_cats),
+            "threat_level": threat_level,
+        })
+
+    result = {
+        "my_rank": my_rank,
+        "teams": teams,
+        "alerts": alerts,
+        "sniped_targets": sniped,
+        "total_rival_moves": sum(len(m) for m in team_moves.values()),
+    }
+
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def _init_watchlist_table():
+    """Create player_watchlist table if not exists."""
+    db = get_db()
+    db.execute("""CREATE TABLE IF NOT EXISTS player_watchlist (
+        name TEXT PRIMARY KEY,
+        added_date TEXT,
+        reason TEXT DEFAULT '',
+        target_type TEXT DEFAULT 'monitor',
+        last_owner TEXT DEFAULT '',
+        last_status TEXT DEFAULT '',
+        last_z_score REAL DEFAULT 0
+    )""")
+    db.commit()
+    return db
+
+
+def cmd_watchlist_add(args, as_json=False):
+    """Add a player to the watchlist for tracking."""
+    if not args:
+        if as_json:
+            return {"error": "Usage: watchlist-add <name> [reason] [type]"}
+        print("Usage: watchlist-add <name> [reason] [pickup|trade_target|monitor|sell_candidate]")
+        return
+
+    name = args[0]
+    reason = args[1] if len(args) > 1 else ""
+    target_type = args[2] if len(args) > 2 else "monitor"
+
+    from valuations import get_player_zscore
+    z_info = get_player_zscore(name)
+    z_val = z_info.get("z_final", 0) if z_info else 0
+
+    # Try to find current owner
+    sc, gm, lg = get_league()
+    owner = "free_agent"
+    try:
+        all_teams = get_cached_teams(lg)
+        for team_key, team_data in all_teams.items():
+            try:
+                t = lg.to_team(team_key)
+                for p in t.roster():
+                    if name.lower() in p.get("name", "").lower():
+                        owner = team_data.get("name", team_key)
+                        break
+            except Exception:
+                continue
+            if owner != "free_agent":
+                break
+    except Exception:
+        pass
+
+    db = _init_watchlist_table()
+    db.execute(
+        "INSERT OR REPLACE INTO player_watchlist (name, added_date, reason, target_type, last_owner, last_z_score) VALUES (?, date('now'), ?, ?, ?, ?)",
+        (name, reason, target_type, owner, round(z_val, 2))
+    )
+    db.commit()
+
+    result = {"added": name, "type": target_type, "reason": reason, "owner": owner, "z_score": round(z_val, 2)}
+    if as_json:
+        return result
+    print("Added " + name + " to watchlist (" + target_type + ") — owned by: " + owner)
+
+
+def cmd_watchlist_remove(args, as_json=False):
+    """Remove a player from the watchlist."""
+    if not args:
+        if as_json:
+            return {"error": "Usage: watchlist-remove <name>"}
+        print("Usage: watchlist-remove <name>")
+        return
+
+    name = args[0]
+    db = _init_watchlist_table()
+    db.execute("DELETE FROM player_watchlist WHERE name LIKE ?", ("%" + name + "%",))
+    db.commit()
+
+    if as_json:
+        return {"removed": name}
+    print("Removed " + name + " from watchlist")
+
+
+def cmd_watchlist_check(args, as_json=False):
+    """Check all watched players for status changes."""
+    from valuations import get_player_zscore
+
+    db = _init_watchlist_table()
+    rows = db.execute("SELECT name, added_date, reason, target_type, last_owner, last_status, last_z_score FROM player_watchlist").fetchall()
+
+    if not rows:
+        if as_json:
+            return {"players": [], "alerts": []}
+        print("Watchlist is empty. Use watchlist-add <name> to track a player.")
+        return
+
+    sc, gm, lg = get_league()
+    # Build current owner lookup
+    current_owners = {}
+    try:
+        all_teams = get_cached_teams(lg)
+        for team_key, team_data in all_teams.items():
+            try:
+                t = lg.to_team(team_key)
+                for p in t.roster():
+                    current_owners[p.get("name", "").lower()] = team_data.get("name", team_key)
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    players = []
+    watchlist_alerts = []
+    for row in rows:
+        name, added_date, reason, target_type, last_owner, last_status, last_z = row
+        z_info = get_player_zscore(name)
+        current_z = z_info.get("z_final", 0) if z_info else 0
+        current_owner = current_owners.get(name.lower(), "free_agent")
+
+        # Detect changes
+        owner_changed = last_owner and current_owner != last_owner
+        z_changed = abs(current_z - (last_z or 0)) > 0.5
+
+        # Get context
+        ctx = None
+        try:
+            from news import get_player_context
+            ctx = get_player_context(name)
+        except Exception:
+            pass
+
+        entry = {
+            "name": name,
+            "added_date": added_date,
+            "reason": reason,
+            "target_type": target_type,
+            "current_owner": current_owner,
+            "previous_owner": last_owner,
+            "owner_changed": owner_changed,
+            "z_score": round(current_z, 2),
+            "z_change": round(current_z - (last_z or 0), 2),
+            "availability": ctx.get("availability", "unknown") if ctx else "unknown",
+            "injury_severity": ctx.get("injury_severity") if ctx else None,
+        }
+        if ctx and ctx.get("headlines"):
+            entry["latest_headline"] = ctx["headlines"][0].get("title", "")
+
+        players.append(entry)
+
+        if owner_changed:
+            watchlist_alerts.append({
+                "type": "owner_change",
+                "message": name + " moved from " + (last_owner or "free agent") + " to " + current_owner,
+            })
+        if z_changed:
+            direction = "up" if current_z > (last_z or 0) else "down"
+            watchlist_alerts.append({
+                "type": "z_change",
+                "message": name + " z-score " + direction + ": " + str(round(last_z or 0, 2)) + " -> " + str(round(current_z, 2)),
+            })
+
+        # Update stored state
+        db.execute(
+            "UPDATE player_watchlist SET last_owner=?, last_z_score=? WHERE name=?",
+            (current_owner, round(current_z, 2), name)
+        )
+    db.commit()
+
+    result = {"players": players, "alerts": watchlist_alerts, "count": len(players)}
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def cmd_category_arms_race(args, as_json=False):
+    """Show category-by-category competitive position with rival tracking."""
+    sc, gm, lg = get_league()
+
+    # Get all teams' category values from scoreboard
+    try:
+        raw = lg.matchups()
+    except Exception as e:
+        if as_json:
+            return {"error": "Error fetching matchup data: " + str(e)}
+        print("Error: " + str(e))
+        return
+
+    all_teams_cats = {}
+    my_cats = {}
+    my_team_key = TEAM_ID
+
+    try:
+        if isinstance(raw, list):
+            for matchup in raw:
+                if not isinstance(matchup, dict):
+                    continue
+                for t in matchup.get("teams", []):
+                    team_key = t.get("team_key", "")
+                    team_name = t.get("team_name", "")
+                    stats = t.get("stats", {})
+                    if team_key:
+                        all_teams_cats[team_name] = {"key": team_key, "stats": stats}
+                    if TEAM_ID in str(team_key):
+                        my_cats = stats
+    except Exception:
+        pass
+
+    if not my_cats:
+        if as_json:
+            return {"error": "No category data available (season may not have started)"}
+        print("No data available")
+        return
+
+    # Build category arms race data
+    lower_is_better = {"ERA", "WHIP", "L", "ER", "BB"}
+    categories = []
+
+    for cat, my_val in my_cats.items():
+        try:
+            my_num = float(my_val)
+        except (ValueError, TypeError):
+            continue
+
+        # Rank all teams in this category
+        team_values = []
+        for team_name, info in all_teams_cats.items():
+            try:
+                val = float(info.get("stats", {}).get(cat, 0))
+                team_values.append((team_name, val))
+            except (ValueError, TypeError):
+                pass
+
+        is_lower = cat.upper() in lower_is_better
+        team_values.sort(key=lambda x: x[1], reverse=not is_lower)
+
+        my_rank = 1
+        for i, (tn, tv) in enumerate(team_values, 1):
+            if tn == list(all_teams_cats.keys())[0] if not all_teams_cats else "":
+                pass
+            if abs(tv - my_num) < 0.001:
+                my_rank = i
+                break
+            if is_lower and tv <= my_num:
+                my_rank = i
+            elif not is_lower and tv >= my_num:
+                my_rank = i
+
+        # Find nearest rivals
+        above = None
+        below = None
+        for i, (tn, tv) in enumerate(team_values):
+            if abs(tv - my_num) < 0.001:
+                if i > 0:
+                    above = {"team": team_values[i - 1][0], "value": team_values[i - 1][1], "gap": round(abs(team_values[i - 1][1] - my_num), 3)}
+                if i < len(team_values) - 1:
+                    below = {"team": team_values[i + 1][0], "value": team_values[i + 1][1], "gap": round(abs(team_values[i + 1][1] - my_num), 3)}
+                break
+
+        categories.append({
+            "name": cat,
+            "rank": my_rank,
+            "total_teams": len(team_values),
+            "my_value": my_num,
+            "above": above,
+            "below": below,
+            "lower_is_better": is_lower,
+        })
+
+    categories.sort(key=lambda x: x.get("rank", 99), reverse=True)
+
+    result = {"categories": categories}
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
+def cmd_research_feed(args, as_json=False):
+    """Unified intelligence feed: news, transactions, trends, prospects, closer changes."""
+    filter_type = args[0] if args else "all"
+    limit = int(args[1]) if len(args) > 1 else 20
+
+    feed_items = []
+
+    # 1. Roster-relevant news
+    if filter_type in ("all", "roster", "news"):
+        try:
+            from news import fetch_aggregated_news
+            sc, gm, lg = get_league()
+            team = lg.to_team(TEAM_ID)
+            roster = team.roster()
+            roster_names = [p.get("name", "") for p in roster if p.get("name")]
+            for name in roster_names[:15]:
+                articles = fetch_aggregated_news(player=name, limit=2)
+                for a in articles:
+                    feed_items.append({
+                        "type": "news",
+                        "category": "roster",
+                        "player": name,
+                        "headline": a.get("headline", a.get("raw_title", "")),
+                        "source": a.get("source", ""),
+                        "timestamp": a.get("timestamp", ""),
+                        "injury_flag": a.get("injury_flag", False),
+                    })
+        except Exception:
+            pass
+
+    # 2. League transactions
+    if filter_type in ("all", "league"):
+        try:
+            yf_mod = importlib.import_module("yahoo-fantasy")
+            tx_data = yf_mod.cmd_transactions([], as_json=True)
+            for tx in tx_data.get("transactions", [])[:15]:
+                for p in tx.get("players", []):
+                    feed_items.append({
+                        "type": "transaction",
+                        "category": "league",
+                        "player": p.get("name", "?"),
+                        "headline": p.get("fantasy_team", "?") + " " + p.get("action", "?") + " " + p.get("name", "?"),
+                        "source": "Yahoo Fantasy",
+                        "timestamp": tx.get("timestamp", ""),
+                    })
+        except Exception:
+            pass
+
+    # 3. Trending adds/drops
+    if filter_type in ("all", "market"):
+        try:
+            trend_lookup = get_trend_lookup()
+            added = [(n, i) for n, i in trend_lookup.items() if i.get("direction") == "added"]
+            added.sort(key=lambda x: x[1].get("rank", 99))
+            for name, info in added[:10]:
+                feed_items.append({
+                    "type": "trending",
+                    "category": "market",
+                    "player": name,
+                    "headline": name + " trending up (#" + str(info.get("rank", "?")) + " most added, " + str(info.get("delta", "")) + ")",
+                    "source": "Yahoo Trends",
+                    "timestamp": "",
+                })
+        except Exception:
+            pass
+
+    # 4. Prospect signals
+    if filter_type in ("all", "prospects"):
+        try:
+            intel_mod = importlib.import_module("intel")
+            prospect_data = intel_mod.cmd_prospect_watch([], as_json=True)
+            for p in (prospect_data.get("prospects") or [])[:5]:
+                if p.get("callup_probability", 0) > 30:
+                    feed_items.append({
+                        "type": "prospect",
+                        "category": "prospects",
+                        "player": p.get("name", "?"),
+                        "headline": p.get("name", "?") + " — " + str(p.get("callup_probability", 0)) + "% call-up probability",
+                        "source": "Prospect Intel",
+                        "timestamp": "",
+                    })
+        except Exception:
+            pass
+
+    # Sort by timestamp (most recent first)
+    feed_items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    feed_items = feed_items[:limit]
+
+    result = {"feed": feed_items, "filter": filter_type, "count": len(feed_items)}
+    if as_json:
+        return result
+    print(json.dumps(result, indent=2))
+
+
 COMMANDS = {
     "lineup-optimize": cmd_lineup_optimize,
     "category-check": cmd_category_check,
@@ -11704,6 +12204,12 @@ COMMANDS = {
     "weekly-digest": cmd_weekly_digest,
     "season-checkpoint": cmd_season_checkpoint,
     "travel-fatigue": cmd_travel_fatigue,
+    "competitor-tracker": cmd_competitor_tracker,
+    "watchlist-add": cmd_watchlist_add,
+    "watchlist-remove": cmd_watchlist_remove,
+    "watchlist-check": cmd_watchlist_check,
+    "category-arms-race": cmd_category_arms_race,
+    "research-feed": cmd_research_feed,
 }
 
 if __name__ == "__main__":
