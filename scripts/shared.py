@@ -71,19 +71,32 @@ def mlb_fetch(endpoint):
         return {}
 
 
+_reddit_circuit_open = False
+_reddit_circuit_time = 0
+
+
 def reddit_get(path):
     """Fetch JSON from Reddit API. Uses http.client to bypass TLS fingerprint blocking.
 
-    Args:
-        path: URL path including query string (e.g. '/r/fantasybaseball/hot.json?limit=50')
-    Returns:
-        Parsed JSON dict, or None on error.
+    Circuit breaker: after a 429, skip all Reddit calls for 60 seconds to avoid
+    cascading timeouts that stall the morning briefing and other workflows.
     """
+    global _reddit_circuit_open, _reddit_circuit_time
+    # Circuit breaker: skip if recently rate-limited
+    if _reddit_circuit_open and (time.time() - _reddit_circuit_time) < 60:
+        return None
+    _reddit_circuit_open = False
+
     try:
         ctx = ssl.create_default_context()
-        conn = http.client.HTTPSConnection("www.reddit.com", timeout=10, context=ctx)
+        conn = http.client.HTTPSConnection("www.reddit.com", timeout=3, context=ctx)
         conn.request("GET", path, headers={"User-Agent": "BaseClaw:v1.0"})
         resp = conn.getresponse()
+        if resp.status == 429:
+            _reddit_circuit_open = True
+            _reddit_circuit_time = time.time()
+            conn.close()
+            return None
         if resp.status != 200:
             print("Warning: Reddit returned HTTP " + str(resp.status) + " for " + path)
             conn.close()

@@ -165,7 +165,7 @@ def _get_future(future, timeout=30):
         return {"_error": str(e)}
 
 
-def _cached_endpoint(cache_key, fn, ttl_seconds, timeout_sec=38):
+def _cached_endpoint(cache_key, fn, ttl_seconds, timeout_sec=25):
     """Cache + timeout wrapper for slow endpoints.
     Returns cached response if available. Otherwise runs fn in a thread
     with timeout, caches the result, and returns it. On timeout the function
@@ -190,7 +190,7 @@ def _cached_endpoint(cache_key, fn, ttl_seconds, timeout_sec=38):
                 pass
         future.add_done_callback(_on_done)
         return safe_jsonify({
-            "error": "Request timed out after " + str(timeout_sec) + "s. Data is being cached in background — retry in 30s.",
+            "error": "Request timed out after " + str(timeout_sec) + "s. Data is being cached in background \u2014 retry in 30s.",
             "_timeout": True,
         }, 504)
     except Exception as e:
@@ -1946,7 +1946,7 @@ def _run_briefing():
         _NA_EXPECTED = {"optioned", "sent to minors", "minor league", "assigned to"}
         for p, name in players_with_names:
             try:
-                ctx = ctx_futures[name].result(timeout=15)
+                ctx = ctx_futures[name].result(timeout=5)
             except Exception:
                 continue
             if ctx.get("flags") or ctx.get("injury_severity"):
