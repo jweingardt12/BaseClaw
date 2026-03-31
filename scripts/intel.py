@@ -19,13 +19,14 @@ import csv
 import io
 import urllib.request
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mlb_id_cache import get_mlb_id
 import sqlite3
-from shared import MLB_API, mlb_fetch as _mlb_fetch, USER_AGENT, DATA_DIR, reddit_get, TEAM_ALIASES
+from shared import MLB_API, mlb_fetch as _mlb_fetch, USER_AGENT, DATA_DIR, reddit_get, TEAM_ALIASES, normalize_team_name
 from shared import normalize_player_name as _normalize_name
 
 # Set of 30 MLB team full names for filtering minor-league noise
@@ -773,6 +774,162 @@ def _fetch_mlb_transactions(days=7):
     except Exception as e:
         print("Warning: MLB transactions fetch failed: " + str(e))
         return []
+
+
+# ============================================================
+# 3b. Depth Charts & Starting Lineups
+# ============================================================
+
+# MLB Stats API team IDs
+_MLB_TEAM_IDS = {
+    "Arizona Diamondbacks": 109, "Atlanta Braves": 144, "Baltimore Orioles": 110,
+    "Boston Red Sox": 111, "Chicago Cubs": 112, "Chicago White Sox": 145,
+    "Cincinnati Reds": 113, "Cleveland Guardians": 114, "Colorado Rockies": 115,
+    "Detroit Tigers": 116, "Houston Astros": 117, "Kansas City Royals": 118,
+    "Los Angeles Angels": 108, "Los Angeles Dodgers": 119, "Miami Marlins": 146,
+    "Milwaukee Brewers": 158, "Minnesota Twins": 142, "New York Mets": 121,
+    "New York Yankees": 147, "Oakland Athletics": 133, "Philadelphia Phillies": 143,
+    "Pittsburgh Pirates": 134, "San Diego Padres": 135, "San Francisco Giants": 137,
+    "Seattle Mariners": 136, "St. Louis Cardinals": 138, "Tampa Bay Rays": 139,
+    "Texas Rangers": 140, "Toronto Blue Jays": 141, "Washington Nationals": 120,
+}
+
+TTL_DEPTH_CHART = 21600  # 6 hours
+
+
+def _fetch_depth_charts():
+    """Fetch depth charts for all 30 MLB teams. Cache 6 hours.
+
+    Returns dict keyed by normalized player name:
+        {team, position, order (1=starter, 2=backup, ...), role (starter/backup/bench)}
+    """
+    cache_key = "depth_charts_all"
+    cached = _cache_get(cache_key, TTL_DEPTH_CHART)
+    if cached is not None:
+        return cached
+
+    def _fetch_one_team(team_name, team_id):
+        entries = {}
+        try:
+            endpoint = "/teams/" + str(team_id) + "/roster/depthChart"
+            data = _mlb_fetch(endpoint)
+            if not data:
+                return entries
+            for roster_entry in data.get("roster", []):
+                person = roster_entry.get("person", {})
+                pname = person.get("fullName", "")
+                if not pname:
+                    continue
+                position = roster_entry.get("position", {})
+                pos_abbrev = position.get("abbreviation", "")
+                pos_type = position.get("type", "")
+                depth_order = roster_entry.get("battingOrder") or roster_entry.get("depthOrder") or 99
+
+                if depth_order == 1 or depth_order == "1":
+                    role = "starter"
+                elif depth_order in (2, 3, "2", "3"):
+                    role = "backup"
+                else:
+                    role = "bench"
+
+                norm = _normalize_name(pname)
+                entries[norm] = {
+                    "team": team_name,
+                    "position": pos_abbrev,
+                    "position_type": pos_type,
+                    "order": int(depth_order) if str(depth_order).isdigit() else 99,
+                    "role": role,
+                    "full_name": pname,
+                }
+        except Exception as e:
+            print("Warning: depth chart fetch failed for " + team_name + ": " + str(e))
+        return entries
+
+    result = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(_fetch_one_team, tn, tid): tn for tn, tid in _MLB_TEAM_IDS.items()}
+        for fut in as_completed(futures):
+            result.update(fut.result())
+
+    _cache_set(cache_key, result)
+    return result
+
+
+def _fetch_probable_pitchers():
+    """Fetch today's probable pitchers from MLB schedule API. Cache 30 min.
+
+    Returns dict keyed by normalized player name:
+        {team, opponent, game_time, confirmed (bool)}
+    """
+    cache_key = "probable_pitchers_today"
+    cached = _cache_get(cache_key, TTL_MLB)
+    if cached is not None:
+        return cached
+
+    result = {}
+    try:
+        today_str = date.today().strftime("%Y-%m-%d")
+        endpoint = ("/schedule?sportId=1&date=" + today_str
+                    + "&hydrate=probablePitcher,lineups")
+        data = _mlb_fetch(endpoint)
+        if not data:
+            return result
+
+        for game_date in data.get("dates", []):
+            for game in game_date.get("games", []):
+                game_time = game.get("gameDate", "")
+                status = game.get("status", {}).get("abstractGameState", "")
+
+                for side in ("away", "home"):
+                    team_data = game.get("teams", {}).get(side, {})
+                    team_name = team_data.get("team", {}).get("name", "")
+                    opp_side = "home" if side == "away" else "away"
+                    opp_name = game.get("teams", {}).get(opp_side, {}).get("team", {}).get("name", "")
+
+                    pp = team_data.get("probablePitcher", {})
+                    if pp and pp.get("fullName"):
+                        norm = _normalize_name(pp.get("fullName", ""))
+                        result[norm] = {
+                            "team": team_name,
+                            "opponent": opp_name,
+                            "game_time": game_time,
+                            "confirmed": status != "Postponed",
+                        }
+    except Exception as e:
+        print("Warning: probable pitchers fetch failed: " + str(e))
+
+    _cache_set(cache_key, result)
+    return result
+
+
+def get_depth_chart_position(player_name):
+    """Get a player's depth chart position and role.
+
+    Returns dict: {team, position, order, role, is_starter, is_probable_pitcher}
+    or None if player not found in any depth chart.
+    """
+    if not player_name:
+        return None
+
+    norm = _normalize_name(player_name)
+    depth_charts = _fetch_depth_charts()
+    entry = depth_charts.get(norm)
+
+    if not entry:
+        return None
+
+    result = dict(entry)
+    result["is_starter"] = entry.get("role") == "starter"
+
+    # Check probable pitcher status
+    probables = _fetch_probable_pitchers()
+    pp_entry = probables.get(norm)
+    result["is_probable_pitcher"] = pp_entry is not None
+    if pp_entry:
+        result["opponent"] = pp_entry.get("opponent", "")
+        result["game_time"] = pp_entry.get("game_time", "")
+
+    return result
 
 
 def _fetch_mlb_game_log(mlb_id, stat_group="hitting", days=30):
@@ -2048,6 +2205,214 @@ def _fetch_player_splits(mlb_id, stat_group="hitting"):
         print("Warning: player splits fetch failed for "
               + str(mlb_id) + ": " + str(e))
         return {}
+
+
+def _fetch_bvp_stats(batter_mlb_id, pitcher_mlb_id):
+    """Fetch batter-vs-pitcher career stats from MLB Stats API.
+
+    Returns dict: {pa, ab, h, hr, bb, k, avg, obp, slg, ops} or {} if no data.
+    Cached 24 hours (BvP career stats change slowly).
+    """
+    if not batter_mlb_id or not pitcher_mlb_id:
+        return {}
+    cache_key = ("bvp", batter_mlb_id, pitcher_mlb_id)
+    cached = _cache_get(cache_key, TTL_SPLITS)
+    if cached is not None:
+        return cached
+    try:
+        endpoint = (
+            "/people/" + str(batter_mlb_id)
+            + "/stats?stats=vsPlayer&opposingPlayerId=" + str(pitcher_mlb_id)
+            + "&group=hitting"
+        )
+        data = _mlb_fetch(endpoint)
+        if not data:
+            _cache_set(cache_key, {})
+            return {}
+
+        for sg in data.get("stats", []):
+            splits = sg.get("splits", [])
+            if not splits:
+                continue
+            stat = splits[0].get("stat", {})
+            result = {
+                "pa": _safe_int(stat.get("plateAppearances")),
+                "ab": _safe_int(stat.get("atBats")),
+                "h": _safe_int(stat.get("hits")),
+                "hr": _safe_int(stat.get("homeRuns")),
+                "bb": _safe_int(stat.get("baseOnBalls")),
+                "k": _safe_int(stat.get("strikeOuts")),
+                "avg": _safe_float(stat.get("avg")),
+                "obp": _safe_float(stat.get("obp")),
+                "slg": _safe_float(stat.get("slg")),
+                "ops": _safe_float(stat.get("ops")),
+            }
+            _cache_set(cache_key, result)
+            return result
+
+        _cache_set(cache_key, {})
+        return {}
+    except Exception as e:
+        print("Warning: BvP fetch failed (" + str(batter_mlb_id)
+              + " vs " + str(pitcher_mlb_id) + "): " + str(e))
+        return {}
+
+
+_handedness_cache = {}
+
+
+def _get_handedness(mlb_id):
+    """Get bat/pitch hand for a player. Cached indefinitely (never changes)."""
+    if mlb_id in _handedness_cache:
+        return _handedness_cache[mlb_id]
+    try:
+        data = _mlb_fetch("/people/" + str(mlb_id))
+        person = data.get("people", [{}])[0]
+        result = {
+            "bat_side": person.get("batSide", {}).get("code", ""),
+            "pitch_hand": person.get("pitchHand", {}).get("code", ""),
+        }
+        _handedness_cache[mlb_id] = result
+        return result
+    except Exception:
+        _handedness_cache[mlb_id] = {}
+        return {}
+
+
+def get_matchup_score(batter_name, pitcher_name):
+    """Score a batter-vs-pitcher matchup using career BvP + platoon splits.
+
+    Returns dict:
+        score: float (-1.0 to +1.0, positive = batter advantage)
+        bvp: dict of career stats (pa, avg, ops, etc.) or None
+        platoon: "advantage" / "disadvantage" / "neutral" / None
+        detail: str explaining the matchup
+        sample: int PA in BvP history (0 = no history)
+    """
+    result = {"score": 0.0, "bvp": None, "platoon": None, "detail": "", "sample": 0}
+
+    batter_id = get_mlb_id(batter_name)
+    pitcher_id = get_mlb_id(pitcher_name)
+
+    if not batter_id or not pitcher_id:
+        result["detail"] = "Could not resolve MLB IDs"
+        return result
+
+    # 1. Career BvP stats
+    bvp = _fetch_bvp_stats(batter_id, pitcher_id)
+    if bvp and bvp.get("pa") and bvp.get("pa") >= 3:
+        result["bvp"] = bvp
+        result["sample"] = bvp.get("pa", 0)
+        ops = bvp.get("ops")
+        if ops is not None:
+            # League avg OPS ~ .720; score relative to that
+            # Scale: .620 OPS = -0.5, .720 = 0.0, .920 = +1.0
+            bvp_score = (ops - 0.720) / 0.200
+            bvp_score = max(-1.0, min(1.0, bvp_score))
+            # Weight by sample size (diminishing returns after 30 PA)
+            pa = bvp.get("pa", 0)
+            sample_weight = min(1.0, pa / 30.0)
+            result["score"] += bvp_score * sample_weight * 0.6  # 60% weight to BvP
+
+    # 2. Platoon advantage (batter handedness vs pitcher handedness)
+    try:
+        bat_side = _get_handedness(batter_id).get("bat_side", "")
+        pitch_hand = _get_handedness(pitcher_id).get("pitch_hand", "")
+
+        if bat_side and pitch_hand:
+            # Opposite hand = platoon advantage for batter
+            if bat_side != pitch_hand:
+                result["platoon"] = "advantage"
+                result["score"] += 0.15
+            elif bat_side == "S":
+                result["platoon"] = "switch"
+                result["score"] += 0.05  # Switch hitters have slight edge
+            else:
+                result["platoon"] = "disadvantage"
+                result["score"] -= 0.15
+    except Exception:
+        pass
+
+    # 3. Build detail string
+    parts = []
+    if result["bvp"] and result["sample"] >= 3:
+        b = result["bvp"]
+        parts.append(str(result["sample"]) + " PA: "
+                     + str(b.get("avg", "---")) + "/" + str(b.get("obp", "---"))
+                     + "/" + str(b.get("slg", "---")))
+        if b.get("hr"):
+            parts.append(str(b["hr"]) + " HR")
+    if result["platoon"]:
+        parts.append("platoon " + result["platoon"])
+    result["detail"] = ", ".join(parts) if parts else "no matchup history"
+
+    result["score"] = round(max(-1.0, min(1.0, result["score"])), 2)
+    return result
+
+
+def get_lineup_matchup_scores(roster_names, schedule):
+    """Score all batters on a roster against today's probable opposing pitchers.
+
+    Args:
+        roster_names: list of (player_name, team_name) tuples
+        schedule: today's schedule (list of game dicts with probable pitchers)
+
+    Returns dict keyed by batter name: {score, bvp, platoon, detail, opposing_pitcher}
+    """
+    if not schedule:
+        return {}
+
+    # Build reverse alias map once: full_name_normalized -> [alias_normalized, ...]
+    _full_to_aliases = {}
+    for alias, full in TEAM_ALIASES.items():
+        _full_to_aliases.setdefault(normalize_team_name(full), []).append(normalize_team_name(alias))
+
+    # Build team -> opposing pitcher lookup from schedule
+    _opp_pitcher_lookup = {}
+    for game in schedule:
+        away = game.get("away_name", "")
+        home = game.get("home_name", "")
+        away_pp = game.get("away_probable_pitcher", "")
+        home_pp = game.get("home_probable_pitcher", "")
+        if home_pp:
+            away_norm = normalize_team_name(away)
+            _opp_pitcher_lookup[away_norm] = home_pp
+            for alias_norm in _full_to_aliases.get(away_norm, []):
+                _opp_pitcher_lookup[alias_norm] = home_pp
+        if away_pp:
+            home_norm = normalize_team_name(home)
+            _opp_pitcher_lookup[home_norm] = away_pp
+            for alias_norm in _full_to_aliases.get(home_norm, []):
+                _opp_pitcher_lookup[alias_norm] = away_pp
+
+    result = {}
+    for batter_name, team_name in roster_names:
+        if not batter_name or not team_name:
+            continue
+        norm_team = normalize_team_name(team_name)
+        opp_pitcher = _opp_pitcher_lookup.get(norm_team)
+        if not opp_pitcher:
+            # Try full name from alias
+            full = TEAM_ALIASES.get(team_name, team_name)
+            opp_pitcher = _opp_pitcher_lookup.get(normalize_team_name(full))
+        if not opp_pitcher:
+            continue
+
+        matchup = get_matchup_score(batter_name, opp_pitcher)
+        matchup["opposing_pitcher"] = opp_pitcher
+        result[batter_name] = matchup
+
+    return result
+
+
+def _safe_int(v, default=None):
+    """Safely convert to int."""
+    if v is None:
+        return default
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return default
 
 
 # ============================================================

@@ -2,10 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## OpenWolf
-
-This project uses OpenWolf for context management. Read and follow `.wolf/OPENWOLF.md` every session. Check `.wolf/cerebrum.md` before generating code. Check `.wolf/anatomy.md` before reading files.
-
 ## What This Is
 
 BaseClaw is an MCP (Model Context Protocol) server for Yahoo Fantasy Baseball. It lets AI clients (Claude Desktop, Claude Code, Cursor, etc.) manage a user's fantasy team through natural language. The system has ~130 tools spanning roster management, trades, waivers, analytics, prospects, and league intelligence.
@@ -126,6 +122,30 @@ Each tool file's `register*Tools()` function checks `shouldRegister(enabledTools
 - Zod for tool parameter validation
 - Path alias: `@/` maps to `ui/`
 
+## Intelligence Layer
+
+Every recommendation engine and player display surface flows through a unified intelligence pipeline. The central scoring function `compute_adjusted_z()` in `shared.py` combines:
+
+- **Z-score projections** (6 systems: Steamer, ZiPS, FanGraphs DC, ATC, TheBatX, composite)
+- **Statcast quality** (exit velo, barrel%, xwOBA → elite/strong/average/below/poor tier)
+- **Hot/cold streaks** (recent game log trends → hot/warm/cold/ice momentum)
+- **Regression signals** (buy-low/sell-high from FanGraphs career data)
+- **News context** (16 RSS sources + MLB transactions → DEALBREAKER/WARNING/INFO flags)
+- **Injury severity** (MINOR/MODERATE/SEVERE from news + MLB API)
+- **Reddit sentiment** (r/fantasybaseball buzz → bullish/bearish)
+- **Availability status** (available/minors/released/injured from MLB transactions)
+- **Depth charts** (MLB API → starter/backup/bench role, probable pitcher status)
+- **BvP matchup history** (career batter-vs-pitcher stats + platoon advantage)
+
+Key enrichment functions in `shared.py`:
+- `compute_adjusted_z(name, z, quality_tier, hot_cold, context)` — central scoring with all signals
+- `enrich_with_intel(players)` — batch Statcast + trends attachment
+- `enrich_with_context(players)` — news flags + injuries + Reddit + availability + raw `_context` for scoring
+- `attach_context(players)` — lightweight context for scoring only (no display fields)
+- `prefetch_context(players)` — batch context fetch returning dict
+- `is_unavailable(context)` — dealbreaker/availability check for filtering
+- `get_player_profile(name)` — unified profile: z-score + intel + context + adjusted_z
+
 ## Key Files
 
 | File | Purpose |
@@ -136,10 +156,12 @@ Each tool file's `register*Tools()` function checks `shouldRegister(enabledTools
 | `mcp-apps/src/api/python-client.ts` | HTTP bridge to Python API (all `apiGet`/`apiPost` calls) |
 | `mcp-apps/src/api/errors.ts` | Structured error messages with fix instructions |
 | `scripts/api-server.py` | Flask API server (~2500 LOC, ~120 endpoints) |
-| `scripts/season-manager.py` | Strategy engine (~10K LOC, largest file) |
+| `scripts/season-manager.py` | Strategy engine (~11K LOC, largest file) |
 | `scripts/valuations.py` | Z-score valuation engine (pandas/numpy) |
-| `scripts/shared.py` | Yahoo OAuth setup, MLB API helpers, common utilities |
-| `scripts/intel.py` | Statcast, bat tracking, pitch mix analytics |
+| `scripts/shared.py` | Yahoo OAuth, MLB API, intelligence helpers (compute_adjusted_z, enrichment) |
+| `scripts/intel.py` | Statcast, bat tracking, pitch mix, depth charts, BvP matchups, regression |
+| `scripts/news.py` | 16-source RSS aggregator, player context (flags, injuries, availability) |
+| `scripts/prospect_news.py` | Prospect call-up probability (Bayesian signal classification) |
 | `entrypoint.sh` | Container startup — generates OAuth file, starts Python bg + Node fg |
 | `AGENTS.md` | Agent instructions: tool categories, decision tiers, operational rules |
 | `yf` | Shell helper for CLI access to the Python API |

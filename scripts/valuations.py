@@ -12,7 +12,7 @@ from datetime import date
 import pandas as pd
 import numpy as np
 from mlb_id_cache import get_mlb_id
-from shared import enrich_with_intel
+from shared import enrich_with_intel, enrich_with_context
 
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
 
@@ -1814,6 +1814,7 @@ def cmd_rankings(args, as_json=False):
                 print("Warning: could not fill positions from Yahoo: " + str(e))
 
         enrich_with_intel(players)
+        enrich_with_context(players)
         _apply_adjusted_z(players)
         return {"source": source, "pos_type": pos_type, "players": players}
 
@@ -1844,16 +1845,21 @@ def cmd_rankings(args, as_json=False):
 
 
 def _apply_adjusted_z(players):
-    """Add adjusted_z and z_adjustments to a list of player dicts with intel data."""
+    """Add adjusted_z and z_adjustments to a list of player dicts with intel data.
+
+    Reads _context from each player dict (set by enrich_with_context) for
+    context-aware z-score adjustments.
+    """
     from shared import compute_adjusted_z
     for p in players:
         intel_data = p.get("intel") or {}
         sc = intel_data.get("statcast") or {}
         trends = intel_data.get("trends") or {}
         raw_z = p.get("z_score", 0) or p.get("z_scores", {}).get("Final", 0)
+        ctx = p.get("_context")
         adj_z, adj_detail = compute_adjusted_z(
             p.get("name", ""), raw_z,
-            sc.get("quality_tier"), trends.get("hot_cold"),
+            sc.get("quality_tier"), trends.get("hot_cold"), ctx,
         )
         p["adjusted_z"] = adj_z
         p["z_adjustments"] = adj_detail
@@ -1915,6 +1921,7 @@ def cmd_compare(args, as_json=False):
             except Exception:
                 pass
         enrich_with_intel([p1_info, p2_info])
+        enrich_with_context([p1_info, p2_info])
         p1_info["z_score"] = _safe_float(a.get("Z_Final", 0))
         p2_info["z_score"] = _safe_float(b.get("Z_Final", 0))
         _apply_adjusted_z([p1_info, p2_info])
@@ -2004,6 +2011,7 @@ def cmd_value(args, as_json=False):
             except Exception:
                 pass
         enrich_with_intel(players)
+        enrich_with_context(players)
         _apply_adjusted_z(players)
         return {"players": players}
 

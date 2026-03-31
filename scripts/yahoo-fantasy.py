@@ -11,7 +11,7 @@ from shared import (
     get_connection, get_league, get_league_context, get_team_key,
     get_league_settings,
     LEAGUE_ID, TEAM_ID, GAME_KEY, DATA_DIR,
-    enrich_with_intel, enrich_with_trends,
+    enrich_with_intel, enrich_with_trends, enrich_with_context,
 )
 
 
@@ -378,6 +378,7 @@ def cmd_roster(args, as_json=False):
             players.append(player_data)
 
         enrich_with_intel(players)
+        enrich_with_context(players)
         return {"players": players}
 
     print("Current Roster:")
@@ -451,6 +452,7 @@ def cmd_free_agents(args, as_json=False):
 
         enrich_with_intel(players)
         enrich_with_trends(players)
+        enrich_with_context(players)
 
         try:
             from valuations import get_player_zscore
@@ -725,6 +727,7 @@ def cmd_search(args, as_json=False):
                 }
             )
         enrich_with_intel(players)
+        enrich_with_context(players)
         return {"query": name, "results": players}
 
     if not results:
@@ -2151,6 +2154,7 @@ def cmd_waivers(args, as_json=False):
                     "mlb_id": get_mlb_id(p.get("name", "")),
                 })
             enrich_with_intel(players)
+            enrich_with_context(players)
             return {"players": players}
 
         print("Players on Waivers:")
@@ -2499,6 +2503,7 @@ def cmd_player_list(args, as_json=False):
 
     enrich_with_intel(players)
     enrich_with_trends(players)
+    enrich_with_context(players)
 
     if as_json:
         return {

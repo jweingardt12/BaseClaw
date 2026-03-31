@@ -540,6 +540,14 @@ _INFO_KEYWORDS = [
     "named closer", "closing", "promoted", "return from",
 ]
 
+# Availability classification keywords (transaction-based)
+_MINORS_TX = ["optioned", "sent to minors", "assigned to minor", "outrighted",
+              "returned to minor league"]
+_RELEASED_TX = ["released", "dfa", "designated for assignment", "unconditional release",
+                "non-tendered"]
+_ACTIVATED_TX = ["recalled", "selected", "contract purchased", "called up",
+                 "activated", "added to"]
+
 # Reddit sentiment keywords for player context
 _BULLISH_KW = ["add", "pickup", "breakout", "buy", "stash", "sleeper", "must-add", "fire"]
 _BEARISH_KW = ["drop", "sell", "bust", "avoid", "droppable", "overrated", "concern"]
@@ -677,12 +685,30 @@ def get_player_context(player_name, days=14):
     except Exception:
         pass
 
+    # 6. Availability status from transaction history
+    availability = "available"
+    for tx in reversed(transactions):
+        desc_lower = tx.get("description", "").lower() + " " + tx.get("type", "").lower()
+        # Most recent relevant transaction wins
+        if any(kw in desc_lower for kw in _ACTIVATED_TX):
+            availability = "available"
+            break
+        if any(kw in desc_lower for kw in _MINORS_TX):
+            availability = "minors"
+            break
+        if any(kw in desc_lower for kw in _RELEASED_TX):
+            availability = "released"
+            break
+    if injury_severity == "SEVERE":
+        availability = "injured"
+
     result = {
         "headlines": headlines,
         "transactions": transactions,
         "flags": flags,
         "injury_severity": injury_severity,
         "reddit": reddit,
+        "availability": availability,
     }
     cache_set(_context_cache, cache_key, result)
     return result

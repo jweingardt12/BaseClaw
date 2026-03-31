@@ -25,6 +25,7 @@ from shared import (
     MLB_API, mlb_fetch, TEAM_ALIASES, normalize_team_name,
     get_trend_lookup, enrich_with_intel, enrich_with_trends, enrich_with_context,
     _attach_context_fields, batch_player_news, has_dealbreaker_flag,
+    prefetch_context, is_unavailable, attach_context,
 )
 
 from yahoo_browser import is_scope_error as _is_scope_error, write_method as _write_method
@@ -706,8 +707,9 @@ def _build_roster_profile(roster):
         qt = sc_data.get("quality_tier")
         trends = intel_data.get("trends") or {}
         hot_cold = trends.get("hot_cold") or trends.get("status")
+        p_ctx = p.get("_context")
 
-        adj_z, _ = compute_adjusted_z(name, z_val, qt, hot_cold)
+        adj_z, _ = compute_adjusted_z(name, z_val, qt, hot_cold, p_ctx)
         total_z += adj_z
         if is_pit:
             pitching_z += adj_z
@@ -1441,12 +1443,79 @@ def cmd_lineup_optimize(args, as_json=False):
     positions = get_roster_positions(lg)
     active_slots = [s for s in positions if s not in ("BN", "IL", "IL+", "NA", "DL")]
 
-    # Build day scores: z_final if playing, 0 if not
+    # Pre-fetch hot/cold streak data for roster
+    _lineup_trends = {}
+    try:
+        from intel import batch_intel as _batch_intel_lineup
+        _lineup_names = [p.get("name", "") for p in roster if p.get("name")]
+        _lineup_intel = _batch_intel_lineup(_lineup_names, include=["trends"])
+        for _ln, _li in _lineup_intel.items():
+            if _li and not _li.get("error"):
+                _lineup_trends[_ln] = (_li.get("trends") or {}).get("hot_cold")
+    except Exception:
+        pass
+
+    # Pre-fetch weather risks for today
+    _weather_risk_teams = set()
+    try:
+        mlb = importlib.import_module("mlb-data")
+        _weather_data = _safe(mlb.cmd_weather)
+        for _wg in _weather_data.get("games", []):
+            if _wg.get("weather_risk", "none") != "none" and not _wg.get("is_dome", False):
+                _weather_risk_teams.add(normalize_team_name(_wg.get("away", "")))
+                _weather_risk_teams.add(normalize_team_name(_wg.get("home", "")))
+    except Exception:
+        pass
+
+    # Pre-fetch BvP matchup scores for batters vs today's opposing pitchers
+    _matchup_scores = {}
+    try:
+        from intel import get_lineup_matchup_scores
+        _roster_batter_teams = [
+            (p.get("name", ""), get_player_team(p) or "")
+            for p in roster
+            if p.get("name") and not is_il(p)
+            and "P" not in (p.get("eligible_positions") or [])
+        ]
+        _matchup_scores = get_lineup_matchup_scores(_roster_batter_teams, schedule)
+    except Exception:
+        pass
+
+    # Build day scores: z_final * intelligence multipliers if playing, 0 if not
     day_scores = {}
     for p in roster:
         pid = p.get("player_id", "") or p.get("name", "")
         if p.get("_playing"):
-            day_scores[pid] = p.get("_z_final", 0)
+            base_score = p.get("_z_final", 0)
+
+            # Hot/cold streak multiplier
+            _hc = _lineup_trends.get(p.get("name", ""))
+            if _hc == "hot":
+                base_score *= 1.15
+            elif _hc == "warm":
+                base_score *= 1.07
+            elif _hc == "cold":
+                base_score *= 0.85
+            elif _hc == "ice":
+                base_score *= 0.75
+
+            # DTD injury discount (may not play)
+            _pstatus = p.get("status", "")
+            if _pstatus == "DTD":
+                base_score *= 0.5
+
+            # Weather risk discount (PPD/delay likely)
+            _pteam = normalize_team_name(get_player_team(p) or "")
+            if _pteam and _pteam in _weather_risk_teams:
+                base_score *= 0.5
+
+            # BvP matchup adjustment (+/-15% max based on career history + platoon)
+            _bvp = _matchup_scores.get(p.get("name", ""))
+            if _bvp and _bvp.get("score"):
+                # Score range is -1.0 to +1.0, scale to +/-15%
+                base_score *= (1.0 + _bvp["score"] * 0.15)
+
+            day_scores[pid] = base_score
         else:
             day_scores[pid] = 0
 
@@ -1511,6 +1580,20 @@ def cmd_lineup_optimize(args, as_json=False):
         il_players_info = [_player_info_with_tier(p) for p in il_players]
         all_players = active_off_day_info + bench_playing_info + il_players_info
         enrich_with_intel(all_players)
+        enrich_with_context(all_players)
+
+        # Attach matchup data to playing batters for transparency
+        matchup_highlights = []
+        for name, mdata in _matchup_scores.items():
+            if mdata.get("sample", 0) >= 5 and abs(mdata.get("score", 0)) >= 0.3:
+                matchup_highlights.append({
+                    "batter": name,
+                    "opposing_pitcher": mdata.get("opposing_pitcher", ""),
+                    "score": mdata.get("score", 0),
+                    "detail": mdata.get("detail", ""),
+                    "advantage": "batter" if mdata.get("score", 0) > 0 else "pitcher",
+                })
+
         return {
             "games_today": len(schedule),
             "active_off_day": active_off_day_info,
@@ -1520,6 +1603,7 @@ def cmd_lineup_optimize(args, as_json=False):
             "applied": apply_changes,
             "optimizer_method": opt_result.get("method", "greedy"),
             "optimizer_ev": opt_result.get("total_ev", 0),
+            "matchup_highlights": matchup_highlights,
         }
 
     # Report
@@ -1679,6 +1763,7 @@ def _category_check_preseason(lg, as_json=False):
             r2 = my_team.roster()
             enrich_roster_teams(r2, lg, my_team)
             enrich_with_intel(r2)
+            attach_context(r2)
             roster_profile = _build_roster_profile(r2)
         except Exception:
             pass
@@ -1831,6 +1916,9 @@ def cmd_category_check(args, as_json=False):
         r2 = team.roster()
         enrich_roster_teams(r2, lg, team)
         enrich_with_intel(r2)
+        _r2_ctx = prefetch_context(r2)
+        for _rp in r2:
+            _rp["_context"] = _r2_ctx.get(_rp.get("name", ""))
         roster_profile = _build_roster_profile(r2)
     except Exception:
         pass
@@ -2193,6 +2281,7 @@ def cmd_waiver_analyze(args, as_json=False):
 
     # Z-score based scoring with regression awareness
     from valuations import get_player_zscore, POS_BONUS
+    from intel import get_depth_chart_position
 
     # Try to load regression signals
     try:
@@ -2239,6 +2328,9 @@ def cmd_waiver_analyze(args, as_json=False):
     enrich_with_intel(_fa_dicts)
     _intel_lookup = {d.get("name", ""): d.get("intel") for d in _fa_dicts}
 
+    # Pre-fetch news context for all FA candidates (dealbreakers, injuries, sentiment)
+    _context_lookup = prefetch_context(fa)
+
     scored = []
     _z_cache = {}  # shared z-score cache for roster fit checks
     for p in fa:
@@ -2248,7 +2340,12 @@ def cmd_waiver_analyze(args, as_json=False):
         positions = ",".join(p.get("eligible_positions", ["?"]))
         status = p.get("status", "")
 
-        # Z-score based scoring using adjusted z (regression + quality + momentum)
+        # Skip unavailable players (DFA'd, released, optioned, minors)
+        _player_ctx = _context_lookup.get(name)
+        if is_unavailable(_player_ctx):
+            continue
+
+        # Z-score based scoring using adjusted z (regression + quality + momentum + context)
         z_info = get_player_zscore(name)
         per_cat = {}
         if z_info:
@@ -2261,8 +2358,8 @@ def cmd_waiver_analyze(args, as_json=False):
             quality_tier = (_pi.get("statcast") or {}).get("quality_tier")
             hot_cold = (_pi.get("trends") or {}).get("hot_cold")
 
-            # Use adjusted z-score as base (includes regression + quality + momentum)
-            adjusted_z, _ = compute_adjusted_z(name, z_final, quality_tier, hot_cold)
+            # Use adjusted z-score as base (includes regression + quality + momentum + context)
+            adjusted_z, _ = compute_adjusted_z(name, z_final, quality_tier, hot_cold, _player_ctx)
             score = adjusted_z * 10.0
 
             # Category need bonus: boost if player is strong in our weak categories
@@ -2340,6 +2437,20 @@ def cmd_waiver_analyze(args, as_json=False):
             except Exception as e:
                 print("Warning: roster fit check failed for " + name + ": " + str(e))
 
+        # Depth chart bonus/penalty
+        _dc_info = None
+        try:
+            _dc_info = get_depth_chart_position(name)
+            if _dc_info:
+                if _dc_info.get("role") == "starter":
+                    score *= 1.1
+                elif _dc_info.get("role") == "backup":
+                    score *= 0.85
+                elif _dc_info.get("role") == "bench":
+                    score *= 0.7
+        except Exception:
+            pass
+
         scored.append({
             "name": name,
             "pid": pid,
@@ -2352,6 +2463,7 @@ def cmd_waiver_analyze(args, as_json=False):
             "regression": reg_signal.get("signal", "") if reg_signal else None,
             "helps_categories": helps_cats,
             "roster_fit": fit,
+            "depth_chart": _dc_info,
         })
 
     # Sort by score
@@ -2561,7 +2673,7 @@ def cmd_streaming(args, as_json=False):
     # Fetch FanGraphs pitching data for Stuff+ scoring
     fg_pitch_data = None
     try:
-        from intel import _fetch_fangraphs_regression_pitching, _find_in_fangraphs
+        from intel import _fetch_fangraphs_regression_pitching, _find_in_fangraphs, get_depth_chart_position as _get_dc_for_streaming
         fg_pitch_data = _fetch_fangraphs_regression_pitching()
     except Exception as e:
         print("Warning: Could not fetch FG pitching data for streaming: " + str(e))
@@ -2576,6 +2688,9 @@ def cmd_streaming(args, as_json=False):
     except Exception:
         pass
 
+    # Pre-fetch news context for streaming candidates (filter dealbreakers)
+    _stream_context = prefetch_context(fa_pitchers)
+
     scored = []
     for p in fa_pitchers:
         name = p.get("name", "Unknown")
@@ -2589,6 +2704,11 @@ def cmd_streaming(args, as_json=False):
 
         # Skip injured pitchers
         if status and status not in ("", "Healthy"):
+            continue
+
+        # Skip unavailable pitchers (DFA'd, optioned, released)
+        _sp_ctx = _stream_context.get(name)
+        if is_unavailable(_sp_ctx):
             continue
 
         # Only want starting pitchers
@@ -2628,8 +2748,8 @@ def cmd_streaming(args, as_json=False):
         # Multi-factor streaming score
         stream_score = 0
 
-        # Factor 1: Pitcher quality (30%) — adjusted z includes regression + quality
-        adj_z, _ = compute_adjusted_z(name, z_final) if z_info else (0, {})
+        # Factor 1: Pitcher quality (30%) — adjusted z includes regression + quality + context
+        adj_z, _ = compute_adjusted_z(name, z_final, context=_sp_ctx) if z_info else (0, {})
         pitcher_quality = adj_z * 3.0
         stream_score += pitcher_quality * 0.30
 
@@ -2698,6 +2818,19 @@ def cmd_streaming(args, as_json=False):
         except Exception:
             pass
 
+        # Factor 7: Probable pitcher confirmation bonus
+        _is_probable = False
+        try:
+            _dc_stream = _get_dc_for_streaming(name)
+            if _dc_stream:
+                _is_probable = _dc_stream.get("is_probable_pitcher", False)
+                if _is_probable:
+                    stream_score += 5.0
+                elif _dc_stream.get("role") != "starter":
+                    stream_score *= 0.5
+        except Exception:
+            pass
+
         score = stream_score
 
         # Format adjustment: conservative streaming in roto
@@ -2718,6 +2851,7 @@ def cmd_streaming(args, as_json=False):
             "tier": tier,
             "stuff_plus": _stuff_plus_out,
             "opp_fatigue": _opp_fatigue_out,
+            "is_probable_pitcher": _is_probable,
         })
 
     scored.sort(key=lambda x: -x["score"])
@@ -2990,14 +3124,18 @@ def cmd_trade_eval(args, as_json=False):
     # Z-score valuation for all players
     from valuations import get_player_zscore, POS_BONUS
 
+    # Pre-fetch news context for all trade players
+    _trade_context = prefetch_context(give_players + get_players)
+
     def _eval_player(p):
         """Get z-score info for a player with adjusted z, and fallback"""
         name = p.get("name", "Unknown")
         info = get_player_zscore(name)
+        _pctx = _trade_context.get(name)
         if info:
             info["z_source"] = "projections"
-            # Compute adjusted z using regression + quality + momentum
-            adj_z, adj_detail = compute_adjusted_z(name, info.get("z_final", 0))
+            # Compute adjusted z using regression + quality + momentum + context
+            adj_z, adj_detail = compute_adjusted_z(name, info.get("z_final", 0), context=_pctx)
             info["adjusted_z"] = adj_z
             info["z_adjustments"] = adj_detail
             return info
@@ -3040,6 +3178,20 @@ def cmd_trade_eval(args, as_json=False):
             warnings.append("WARNING: Trading away Untouchable-tier " + e.get("name", "") + " (Z=" + str(e.get("z_final", 0)) + ")")
         elif tier == "Core":
             warnings.append("CAUTION: Trading away Core-tier " + e.get("name", "") + " (Z=" + str(e.get("z_final", 0)) + ")")
+
+    # Context-based warnings (injuries, dealbreakers, news flags)
+    for _tp_list, _tp_side in [(get_players, "acquiring"), (give_players, "trading away")]:
+        for _tp in _tp_list:
+            _tctx = _trade_context.get(_tp.get("name", ""))
+            if not _tctx:
+                continue
+            for _tf in _tctx.get("flags", []):
+                if _tf.get("type") == "DEALBREAKER":
+                    warnings.append("DEALBREAKER: " + _tp.get("name", "") + " — " + _tf.get("message", "unavailable") + " (" + _tp_side + ")")
+                elif _tf.get("type") == "WARNING":
+                    warnings.append("WARNING: " + _tp.get("name", "") + " — " + _tf.get("message", "") + " (" + _tp_side + ")")
+            if _tctx.get("injury_severity") == "SEVERE":
+                warnings.append("SEVERE INJURY: " + _tp.get("name", "") + " (" + _tp_side + ")")
 
     # Detect opponent team key
     their_team_key = None
@@ -3576,6 +3728,7 @@ def cmd_category_simulate(args, as_json=False):
         }
 
     enrich_with_intel([add_result])
+    enrich_with_context([add_result])
 
     result = {
         "add_player": add_result,
@@ -3877,6 +4030,7 @@ def cmd_scout_opponent(args, as_json=False):
                 opp_roster = opp_team_obj.roster()
                 enrich_roster_teams(opp_roster, lg, opp_team_obj)
                 enrich_with_intel(opp_roster)
+                attach_context(opp_roster)
                 opp_profile = _build_roster_profile(opp_roster)
                 opp_vulns = _find_vulnerabilities(opp_profile, [c.get("name") for c in categories])
             except Exception as e:
@@ -4409,9 +4563,11 @@ def cmd_matchup_strategy(args, as_json=False):
         try:
             if my_roster:
                 enrich_with_intel(my_roster)
+                attach_context(my_roster)
                 my_profile = _build_roster_profile(my_roster)
             if opp_roster:
                 enrich_with_intel(opp_roster)
+                attach_context(opp_roster)
                 opp_profile = _build_roster_profile(opp_roster)
         except Exception as e:
             print("Warning: roster profile build failed: " + str(e))
@@ -5180,9 +5336,10 @@ def cmd_trade_finder(args, as_json=False):
         if not as_json:
             print("Owned by: " + target_team_name)
 
-        # 2. Get z-score info for the target player
+        # 2. Get z-score info for the target player (with full context)
         target_z, target_tier, target_per_cat = _player_z_summary(target_player.get("name", target_name))
-        target_z, _ = compute_adjusted_z(target_player.get("name", target_name), target_z)
+        _tf_ctx = prefetch_context([target_player])
+        target_z, _ = compute_adjusted_z(target_player.get("name", target_name), target_z, context=_tf_ctx.get(target_player.get("name", "")))
         target_positions = target_player.get("eligible_positions", [])
         target_is_pitcher = is_pitcher_position(target_positions)
 
@@ -5191,15 +5348,16 @@ def cmd_trade_finder(args, as_json=False):
         pitching_cats = list(DEFAULT_PITCHING_CATS)
         _, their_weak_cats, their_strong_cats = _get_team_category_ranks(lg, target_team_key)
 
-        # 4. Get our roster with z-scores
+        # 4. Get our roster with z-scores (context-aware)
         my_roster = team.roster()
+        _my_tf_ctx = prefetch_context(my_roster)
         my_players = []
         for p in my_roster:
             name = p.get("name", "Unknown")
             positions = p.get("eligible_positions", [])
             is_pitcher = is_pitcher_position(positions)
             z_val, tier, per_cat = _player_z_summary(name)
-            z_val, _ = compute_adjusted_z(name, z_val)
+            z_val, _ = compute_adjusted_z(name, z_val, context=_my_tf_ctx.get(name))
             my_players.append({
                 "name": name,
                 "player_id": str(p.get("player_id", "")),
@@ -5363,6 +5521,7 @@ def cmd_trade_finder(args, as_json=False):
             all_details.extend(prop.get("offer_details", []))
             all_details.extend(prop.get("receive_details", []))
         enrich_with_intel(all_details)
+        enrich_with_context(all_details)
 
         result = {
             "target_player": target_player.get("name", target_name),
@@ -6140,9 +6299,10 @@ def cmd_league_intel(args, as_json=False):
         print(msg)
         return
 
-    # --- Enrichment: intel (statcast + trends) + regression signals ---
+    # --- Enrichment: intel (statcast + trends) + regression signals + news context ---
     try:
         enrich_with_intel(all_players)
+        enrich_with_context(all_players)
     except Exception as e:
         print("Warning: intel enrichment failed for league intel: " + str(e))
 
@@ -6902,6 +7062,7 @@ def cmd_week_planner(args, as_json=False):
             })
 
         if as_json:
+            enrich_with_context(player_schedule)
             return {
                 "week": week_num,
                 "start_date": start_date,
@@ -7102,6 +7263,9 @@ def cmd_closer_monitor(args, as_json=False):
             pass
 
         if as_json:
+            all_closers = my_closers + rp_closers[:15]
+            enrich_with_intel(all_closers)
+            enrich_with_context(all_closers)
             return {
                 "my_closers": my_closers,
                 "available_closers": rp_closers[:15],
@@ -7328,6 +7492,8 @@ def cmd_pitcher_matchup(args, as_json=False):
                 })
 
         if as_json:
+            enrich_with_intel(pitcher_matchups)
+            enrich_with_context(pitcher_matchups)
             return {
                 "week": week_num,
                 "start_date": start_date,
@@ -7493,7 +7659,25 @@ def cmd_faab_recommend(args, as_json=False):
         print("Player not found: " + player_name)
         return
 
+    # Check availability before recommending a FAAB bid
+    _faab_ctx = prefetch_context([{"name": player_name}]).get(player_name)
+    if is_unavailable(_faab_ctx):
+        msg = player_name + " is unavailable"
+        if _faab_ctx:
+            for f in _faab_ctx.get("flags", []):
+                if f.get("type") == "DEALBREAKER":
+                    msg = player_name + " — " + f.get("message", "unavailable")
+                    break
+            if _faab_ctx.get("availability") in ("minors", "released"):
+                msg = player_name + " — " + _faab_ctx.get("availability", "unavailable")
+        if as_json:
+            return {"error": msg, "recommendation": "DO NOT BID", "context": _faab_ctx}
+        print(msg + " — do not bid")
+        return
+
     z_final = player_info.get("z_final", 0)
+    # Apply context-aware adjustments to z-score for bid calculation
+    z_final, _faab_adj = compute_adjusted_z(player_name, z_final, context=_faab_ctx)
     tier = player_info.get("tier", "Streamable")
 
     # League format awareness + season phase (single settings call)
@@ -8645,6 +8829,7 @@ def cmd_il_stash_advisor(args, as_json=False):
 
     if as_json:
         enrich_with_intel(your_il_players + fa_il_candidates)
+        enrich_with_context(your_il_players + fa_il_candidates)
         return result
 
     # CLI output
@@ -8709,6 +8894,9 @@ def cmd_optimal_moves(args, as_json=False):
 
     from valuations import get_player_zscore
 
+    # Pre-fetch context for roster and FA candidates
+    _om_roster_ctx = prefetch_context(roster)
+
     # Build roster z-score info
     roster_players = []
     roster_z_total = 0.0
@@ -8717,7 +8905,7 @@ def cmd_optimal_moves(args, as_json=False):
         pid = str(p.get("player_id", ""))
         z_info = get_player_zscore(name) or {}
         z_val = z_info.get("z_final", 0)
-        z_val, _ = compute_adjusted_z(name, z_val)
+        z_val, _ = compute_adjusted_z(name, z_val, context=_om_roster_ctx.get(name))
         tier = z_info.get("tier", "Streamable")
         per_cat = z_info.get("per_category_zscores", {})
         eligible = p.get("eligible_positions", [])
@@ -8752,7 +8940,9 @@ def cmd_optimal_moves(args, as_json=False):
         if not as_json:
             print("Warning: could not fetch FA pitchers: " + str(e))
 
-    # Build FA z-score info
+    # Build FA z-score info (with context-aware scoring)
+    _om_fa_all = [p for fl in [fa_batters, fa_pitchers] for p in fl]
+    _om_fa_ctx = prefetch_context(_om_fa_all)
     fa_pool = []
     for fa_list, pt in [(fa_batters, "B"), (fa_pitchers, "P")]:
         for p in fa_list:
@@ -8761,14 +8951,16 @@ def cmd_optimal_moves(args, as_json=False):
             pct = p.get("percent_owned", 0)
             status = p.get("status", "")
             eligible = p.get("eligible_positions", [])
-            # Skip injured FA
+            # Skip injured or unavailable FA
             if status and status not in ("", "Healthy"):
+                continue
+            if is_unavailable(_om_fa_ctx.get(name)):
                 continue
             z_info = get_player_zscore(name)
             if not z_info:
                 continue
             z_val = z_info.get("z_final", 0)
-            z_val, _ = compute_adjusted_z(name, z_val)
+            z_val, _ = compute_adjusted_z(name, z_val, context=_om_fa_ctx.get(name))
             tier = z_info.get("tier", "Streamable")
             per_cat = z_info.get("per_category_zscores", {})
             fa_pool.append({
@@ -11183,18 +11375,19 @@ def cmd_trade_pipeline(args, as_json=False):
             give_names = [player.get("name", "") for player in pkg.get("give", [])]
             get_names = [player.get("name", "") for player in pkg.get("get", [])]
 
-            # Get adjusted z-score values (includes quality tier + regression + momentum)
+            # Get adjusted z-score values (context-aware: injuries, dealbreakers, news)
+            _tp_ctx = prefetch_context([{"name": n} for n in give_names + get_names])
             give_value = 0
             get_value = 0
             for name in give_names:
                 z_info = get_player_zscore(name)
                 if z_info:
-                    adj_z, _ = compute_adjusted_z(name, z_info.get("z_final", 0))
+                    adj_z, _ = compute_adjusted_z(name, z_info.get("z_final", 0), context=_tp_ctx.get(name))
                     give_value += adj_z
             for name in get_names:
                 z_info = get_player_zscore(name)
                 if z_info:
-                    adj_z, _ = compute_adjusted_z(name, z_info.get("z_final", 0))
+                    adj_z, _ = compute_adjusted_z(name, z_info.get("z_final", 0), context=_tp_ctx.get(name))
                     get_value += adj_z
 
             net_value = get_value - give_value

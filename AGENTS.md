@@ -73,10 +73,18 @@
    - Catcher scarcity premium is real
    - Never help teams within 2 standings positions of you
 
-6. **Qualitative checks before every recommendation:**
-   - Has the player been DFA'd, released, suspended, or retired? (dealbreaker)
-   - Injury severity: MINOR (hold), MODERATE (stream replacement), SEVERE (IL + replace)
-   - Regression direction: buy-low (score > 15) or sell-high (score < -15)
+6. **Qualitative checks (automated by the intelligence layer):**
+   All recommendation engines (waivers, trades, streaming, lineup, FAAB)
+   automatically incorporate news context, injury severity, availability
+   status, depth chart position, and BvP matchup history into scoring.
+   Players who are DFA'd, released, or in the minors are filtered out.
+   Injury severity applies proportional score penalties. You don't need
+   to manually check these — they're baked into every z-score adjustment.
+   - DEALBREAKER (DFA, released, season-ending): automatically excluded
+   - SEVERE injury: z-score reduced 90%
+   - MODERATE injury: z-score reduced 50%
+   - WARNING (IL, DTD, role loss): z-score reduced 40%
+   - Regression: buy-low (score > 15) or sell-high (score < -15)
 
 7. **Statcast decision rules:**
    - xwOBA vs wOBA gap >= .030: strong regression signal

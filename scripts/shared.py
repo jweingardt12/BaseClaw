@@ -503,14 +503,70 @@ QUALITY_TIER_ADJ = {"elite": 1.5, "strong": 0.75, "below": -0.4, "poor": -0.8}
 HOT_COLD_ADJ = {"hot": 0.8, "warm": 0.4, "cold": -0.4, "ice": -0.8}
 
 
-def compute_adjusted_z(player_name, z_final, quality_tier=None, hot_cold=None):
-    """Compute fully adjusted z-score: regression + Statcast quality + hot/cold.
+def compute_adjusted_z(player_name, z_final, quality_tier=None, hot_cold=None, context=None):
+    """Compute fully adjusted z-score: regression + Statcast quality + hot/cold + news context.
 
-    Consolidates the adjustment logic from cmd_league_intel into a reusable function.
+    Consolidates the adjustment logic into a reusable function.
+    The optional ``context`` dict (from ``news.get_player_context()``) feeds
+    dealbreaker/warning/info flags, injury severity, and Reddit sentiment
+    into the score so that recommendation engines never surface unavailable
+    or significantly impaired players.
+
     Returns (adjusted_z, adjustments_dict) where adjustments_dict shows each modifier.
     """
     adjustments = {}
     adjusted = float(z_final)
+
+    # --- News context adjustments (applied first so dealbreakers short-circuit) ---
+    if context and isinstance(context, dict):
+        flags = context.get("flags", [])
+        injury_sev = context.get("injury_severity")
+        reddit = context.get("reddit", {})
+
+        # Dealbreaker flag: DFA'd, released, optioned, season-ending -> effectively zero
+        has_dealbreaker = any(f.get("type") == "DEALBREAKER" for f in flags)
+        if has_dealbreaker:
+            adjustments["dealbreaker"] = -adjusted
+            adjusted = 0.0
+            return round(adjusted, 2), adjustments
+
+        # Injury severity (from news headlines + MLB transactions)
+        if injury_sev == "SEVERE":
+            penalty = adjusted * 0.9
+            adjusted *= 0.1
+            adjustments["injury_severe"] = round(-penalty, 2)
+        elif injury_sev == "MODERATE":
+            penalty = adjusted * 0.5
+            adjusted *= 0.5
+            adjustments["injury_moderate"] = round(-penalty, 2)
+        elif injury_sev == "MINOR":
+            penalty = adjusted * 0.15
+            adjusted *= 0.85
+            adjustments["injury_minor"] = round(-penalty, 2)
+
+        # Warning flag (IL, DTD, demoted, lost role) -- only if no injury already applied
+        if not injury_sev:
+            has_warning = any(f.get("type") == "WARNING" for f in flags)
+            if has_warning:
+                penalty = adjusted * 0.4
+                adjusted *= 0.6
+                adjustments["warning"] = round(-penalty, 2)
+
+        # Info flag bonus (called up, activated, promoted)
+        has_info = any(f.get("type") == "INFO" for f in flags)
+        if has_info:
+            adjusted += 0.5
+            adjustments["positive_news"] = 0.5
+
+        # Reddit sentiment (3+ mentions threshold)
+        if reddit.get("mentions", 0) >= 3:
+            sentiment = reddit.get("sentiment", "neutral")
+            if sentiment == "bullish":
+                adjusted += 0.3
+                adjustments["reddit_bullish"] = 0.3
+            elif sentiment == "bearish":
+                adjusted -= 0.3
+                adjustments["reddit_bearish"] = -0.3
 
     # Regression adjustment (+/-2.0 max)
     try:
@@ -539,6 +595,147 @@ def compute_adjusted_z(player_name, z_final, quality_tier=None, hot_cold=None):
             adjustments["momentum"] = hc_adj
 
     return round(adjusted, 2), adjustments
+
+
+# ---------------------------------------------------------------------------
+# Unified player profile
+# ---------------------------------------------------------------------------
+
+_profile_cache = {}
+_PROFILE_TTL = 300  # 5 minutes
+
+
+def get_player_profile(name):
+    """Unified player intelligence: z-score + intel + context + adjusted_z.
+
+    Single entry point that returns everything known about a player.
+    Cached for 5 minutes to avoid redundant API calls.
+    Returns dict with: z_info, intel, context, adjusted_z, adjustments, has_dealbreaker.
+    """
+    cache_key = name.lower().strip()
+    cached = cache_get(_profile_cache, cache_key, _PROFILE_TTL)
+    if cached is not None:
+        return cached
+
+    result = {"name": name}
+
+    # Z-score from projections
+    try:
+        from valuations import get_player_zscore
+        z_info = get_player_zscore(name)
+        result["z_info"] = z_info
+    except Exception:
+        z_info = None
+        result["z_info"] = None
+
+    # Intel: statcast + trends (lightweight for batch use)
+    intel_data = None
+    try:
+        from intel import player_intel
+        intel_data = player_intel(name, include=["statcast", "trends"])
+        result["intel"] = intel_data
+    except Exception:
+        result["intel"] = None
+
+    # News context: flags, injuries, reddit, transactions
+    context = None
+    try:
+        from news import get_player_context
+        context = get_player_context(name)
+        result["context"] = context
+    except Exception:
+        result["context"] = None
+
+    # Depth chart position
+    try:
+        from intel import get_depth_chart_position
+        dc = get_depth_chart_position(name)
+        result["depth_chart"] = dc
+    except Exception:
+        result["depth_chart"] = None
+
+    # Compute fully adjusted z-score with all available signals
+    z_final = z_info.get("z_final", 0) if z_info else 0
+    quality_tier = None
+    hot_cold = None
+    if intel_data:
+        sc = intel_data.get("statcast") or {}
+        quality_tier = sc.get("quality_tier")
+        tr = intel_data.get("trends") or {}
+        hot_cold = tr.get("hot_cold")
+
+    adjusted_z, adj_details = compute_adjusted_z(
+        name, z_final, quality_tier, hot_cold, context)
+    result["adjusted_z"] = adjusted_z
+    result["adjustments"] = adj_details
+    result["has_dealbreaker"] = "dealbreaker" in adj_details
+
+    # Cap cache size to prevent unbounded growth in long-running processes
+    if len(_profile_cache) > 500:
+        _profile_cache.clear()
+    cache_set(_profile_cache, cache_key, result)
+    return result
+
+
+def batch_player_profiles(names):
+    """Get profiles for multiple players. Returns dict keyed by name."""
+    result = {}
+    for name in names:
+        if not name:
+            continue
+        try:
+            result[name] = get_player_profile(name)
+        except Exception as e:
+            print("Warning: profile failed for " + str(name) + ": " + str(e))
+            result[name] = {"name": name, "error": str(e)}
+    return result
+
+
+def prefetch_context(players):
+    """Batch-fetch news context for a list of player dicts (or name strings).
+
+    Returns dict keyed by player name -> context dict.
+    Silently skips failures so one bad lookup doesn't block the rest.
+    """
+    result = {}
+    try:
+        from news import get_player_context
+        for p in players:
+            name = p.get("name", "") if isinstance(p, dict) else str(p)
+            if name:
+                try:
+                    result[name] = get_player_context(name)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return result
+
+
+def attach_context(players):
+    """Lightweight context attach: sets _context on each player dict for scoring.
+
+    Use this instead of enrich_with_context when you only need context for
+    compute_adjusted_z (e.g. _build_roster_profile) and don't need display fields.
+    """
+    ctx_map = prefetch_context(players)
+    for p in players:
+        p["_context"] = ctx_map.get(p.get("name", ""))
+
+
+def is_unavailable(context):
+    """Check if a player context indicates they should be filtered from recommendations.
+
+    Returns True if the player has a DEALBREAKER flag or availability is minors/released.
+    """
+    if not context or not isinstance(context, dict):
+        return False
+    for f in context.get("flags", []):
+        if f.get("type") == "DEALBREAKER":
+            return True
+    if context.get("availability", "available") in ("minors", "released"):
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -706,6 +903,7 @@ def enrich_with_context(players, count=None, filter_dealbreakers=False):
         subset = players[:count] if count else players
         for p in subset:
             ctx = get_player_context(p.get("name", ""))
+            p["_context"] = ctx
             if ctx.get("flags"):
                 p["context_flags"] = ctx["flags"]
                 for f in ctx["flags"]:
