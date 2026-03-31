@@ -4985,7 +4985,14 @@ def cmd_whats_new(args, as_json=False):
         yf_mod = importlib.import_module("yahoo-fantasy")
         tx_data = yf_mod.cmd_transactions([], as_json=True)
         transactions = tx_data.get("transactions", [])
-        my_team_name = team.team_data.get("name", "") if hasattr(team, "team_data") else ""
+        my_team_name = ""
+        try:
+            for _st in get_cached_standings(lg):
+                if TEAM_ID in str(_st.get("team_key", "")):
+                    my_team_name = _st.get("name", "")
+                    break
+        except Exception:
+            pass
         activity = []
         for tx in transactions[:15]:
             tx_team = tx.get("team", "")
@@ -11674,13 +11681,8 @@ def cmd_competitor_tracker(args, as_json=False):
 
     my_team_name = ""
     my_rank = 99
-    try:
-        team = lg.to_team(TEAM_ID)
-        my_team_name = team.team_data.get("name", "") if hasattr(team, "team_data") else ""
-    except Exception:
-        pass
 
-    # Get standings for rank context
+    # Get standings for rank context and resolve our team name
     standings = get_cached_standings(lg)
     standings_by_name = {}
     for idx, st in enumerate(standings, 1):
@@ -11688,6 +11690,7 @@ def cmd_competitor_tracker(args, as_json=False):
         standings_by_name[name] = idx
         if TEAM_ID in str(st.get("team_key", "")):
             my_rank = idx
+            my_team_name = name
 
     # Get my category ranks
     my_cat_ranks = {}
