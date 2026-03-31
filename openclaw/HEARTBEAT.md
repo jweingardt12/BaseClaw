@@ -1,22 +1,33 @@
 # BaseClaw Heartbeat
 
-## Every 4 hours during MLB season (March-October)
-- Check for newly injured players on roster
-- Check for healthy players stuck on IL
-- Monitor free agent trending pickups (>10% ownership increase)
+Heartbeat checks run every 30 minutes during active hours (8 AM - midnight).
+Uses the `/api/roster-monitor` endpoint which tracks state between checks
+and only surfaces changes.
 
-## Daily checks (run with morning briefing)
-- Lineup optimization needed?
-- Any pending trades to review?
-- Any players on IL eligible to return?
+## Every heartbeat (30 min)
+- Poll `/api/roster-monitor` for alerts
+- If any `critical` severity alerts: deliver immediately
+- If only `warning` or `info`: batch for next scheduled briefing
 
-## Weekly checks (Monday morning)
-- Standings position change
-- Category trajectory (improving/declining)
-- Trade market opportunities (sell-high candidates)
+## Alert types detected by roster-monitor
+- **injury**: Player status changed to IL/DTD (critical if IL60)
+- **activation**: Player cleared from IL — needs lineup slot
+- **dealbreaker**: Rostered player DFA'd, released, or season-ending injury
+- **sent_down**: Rostered player optioned to minors — dead roster spot
+- **roster_add/drop**: Roster composition changed (trade processed, claim cleared)
+- **trending_fa**: Top-10 most-added free agent not on our roster — pickup window closing
 
-## Alerts (immediate notification)
-- Player placed on IL
-- Trade proposed to you
-- Waiver claim processed
-- Player called up from minors (if on your watchlist)
+## Daily checks (9 AM via morning-briefing cron)
+- Full morning briefing with context-aware intelligence
+- Auto-lineup optimization with hot/cold + BvP + weather adjustments
+- Surface matchup highlights for today's games
+
+## Weekly checks (Monday 8 AM via matchup-plan cron)
+- Matchup strategy with category targets and streaming plan
+- Opponent vulnerability analysis using their roster context flags
+- Category trajectory alerts (improving/declining trends)
+
+## Monthly checks (1st of month via season-checkpoint cron)
+- Strategic assessment with playoff probability
+- Trade market opportunities (sell-high/buy-low from regression signals)
+- Roster composition vs. depth chart role changes

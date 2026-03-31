@@ -2707,6 +2707,161 @@ def api_achievements():
         return safe_jsonify({"error": str(e)}, 500)
 
 
+# ============================================================
+# Proactive Roster Monitoring (powers OpenClaw heartbeat/hooks)
+# ============================================================
+
+_last_roster_state = {}  # name -> {status, position}
+_last_monitor_time = 0
+
+
+@app.route("/api/roster-monitor")
+def api_roster_monitor():
+    """Detect changes since last check: IL movements, role changes, trending FAs, opponent moves.
+
+    Returns only actionable alerts, not the full roster state. Designed to be polled
+    by OpenClaw heartbeat (every 30 min) with minimal overhead.
+    """
+    global _last_roster_state, _last_monitor_time
+    import time as _time
+
+    alerts = []
+    now = _time.time()
+    is_first_check = not _last_roster_state
+
+    try:
+        # 1. Current roster state
+        sc, gm, lg = yahoo_fantasy.get_league()
+        team = lg.to_team(yahoo_fantasy.TEAM_ID)
+        roster = team.roster()
+
+        current_state = {}
+        for p in roster:
+            name = p.get("name", "")
+            if name:
+                current_state[name] = {
+                    "status": p.get("status", ""),
+                    "position": season_manager.get_player_position(p),
+                }
+
+        # 2. Detect status changes (IL placements, activations, new adds)
+        if not is_first_check:
+            for name, state in current_state.items():
+                prev = _last_roster_state.get(name)
+                if not prev:
+                    alerts.append({
+                        "type": "roster_add",
+                        "severity": "info",
+                        "message": name + " added to roster",
+                    })
+                elif prev.get("status") != state.get("status"):
+                    old_status = prev.get("status", "Healthy")
+                    new_status = state.get("status", "Healthy")
+                    if new_status in ("IL", "IL+", "IL10", "IL15", "IL60", "DTD"):
+                        alerts.append({
+                            "type": "injury",
+                            "severity": "critical" if "60" in str(new_status) else "warning",
+                            "message": name + " status changed: " + old_status + " -> " + new_status,
+                            "player": name,
+                        })
+                    elif old_status in ("IL", "IL+", "IL10", "IL15", "IL60") and not new_status:
+                        alerts.append({
+                            "type": "activation",
+                            "severity": "info",
+                            "message": name + " activated from IL — set lineup",
+                            "player": name,
+                        })
+
+            for name in _last_roster_state:
+                if name not in current_state:
+                    alerts.append({
+                        "type": "roster_drop",
+                        "severity": "info",
+                        "message": name + " no longer on roster",
+                    })
+
+        # 3. Check news context for rostered players with new flags
+        try:
+            from news import get_player_context
+            for p in roster:
+                name = p.get("name", "")
+                if not name:
+                    continue
+                ctx = get_player_context(name)
+                for f in ctx.get("flags", []):
+                    if f.get("type") == "DEALBREAKER":
+                        alerts.append({
+                            "type": "dealbreaker",
+                            "severity": "critical",
+                            "message": name + " — " + f.get("message", "unavailable"),
+                            "player": name,
+                        })
+                        break
+                if ctx.get("availability") == "minors":
+                    alerts.append({
+                        "type": "sent_down",
+                        "severity": "warning",
+                        "message": name + " sent to minors — replace in lineup",
+                        "player": name,
+                    })
+        except Exception as e:
+            print("Warning: roster monitor context check failed: " + str(e))
+
+        # 4. Trending FA pickups (ownership spikes the user might want to grab)
+        try:
+            trend_lookup = season_manager.get_trend_lookup()
+            hot_adds = []
+            for pname, info in trend_lookup.items():
+                direction = info.get("direction", "")
+                if direction == "added":
+                    rank = info.get("rank", 99)
+                    if rank <= 10:
+                        hot_adds.append({
+                            "name": pname,
+                            "rank": rank,
+                            "delta": info.get("delta", ""),
+                        })
+            if hot_adds:
+                hot_adds.sort(key=lambda x: x.get("rank", 99))
+                for ha in hot_adds[:3]:
+                    # Only alert if not already on our roster
+                    if ha.get("name") not in current_state:
+                        alerts.append({
+                            "type": "trending_fa",
+                            "severity": "info",
+                            "message": ha.get("name", "?") + " trending (#" + str(ha.get("rank", "?")) + " most added) — consider pickup",
+                        })
+        except Exception:
+            pass
+
+        # 5. Update state for next check
+        _last_roster_state = current_state
+        _last_monitor_time = now
+
+    except Exception as e:
+        return safe_jsonify({"error": str(e), "alerts": []}, 500)
+
+    # Deduplicate alerts by message
+    seen = set()
+    unique_alerts = []
+    for a in alerts:
+        msg = a.get("message", "")
+        if msg not in seen:
+            seen.add(msg)
+            unique_alerts.append(a)
+
+    # Sort by severity: critical first, then warning, then info
+    severity_order = {"critical": 0, "warning": 1, "info": 2}
+    unique_alerts.sort(key=lambda a: severity_order.get(a.get("severity", "info"), 3))
+
+    return safe_jsonify({
+        "alerts": unique_alerts,
+        "alert_count": len(unique_alerts),
+        "first_check": is_first_check,
+        "roster_size": len(_last_roster_state),
+    })
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("API_PORT", "8766"))
     app.run(host="0.0.0.0", port=port)

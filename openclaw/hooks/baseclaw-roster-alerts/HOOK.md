@@ -1,6 +1,6 @@
 ---
 name: baseclaw-roster-alerts
-description: "Delivers urgent fantasy alerts (injuries, trades) as push notifications"
+description: "Detects real roster state changes via /api/roster-monitor and surfaces alerts"
 metadata:
   openclaw:
     emoji: "!"
@@ -11,12 +11,13 @@ metadata:
 
 # BaseClaw Roster Alerts
 
-Monitors outbound agent messages for injury and trade keywords.
-When detected, pushes the alert text to the event messages array
-so it surfaces as a notification rather than being buried in chat.
+Monitors roster state via BaseClaw's /api/roster-monitor endpoint on each
+outbound message. Surfaces only NEW alerts that haven't been reported before.
 
-## Tracked keywords
+Unlike keyword-matching, this detects actual events:
+- Player placed on IL or activated
+- Player DFA'd, released, or optioned to minors
+- Trending free agents with ownership spikes
+- Roster composition changes (trades, waiver claims)
 
-- Injury: "placed on IL", "day-to-day", "injured", "DTD", "out for"
-- Trades: "trade proposed", "trade accepted", "new trade"
-- Urgent: "lineup lock", "empty slot", "waiver claim processed"
+Critical alerts are delivered immediately. Warnings are batched.

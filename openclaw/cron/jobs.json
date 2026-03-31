@@ -11,7 +11,7 @@
     "sessionTarget": "session:baseclaw-daily",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use the yahoo_morning_briefing tool to get today's full situational report. Then use yahoo_auto_lineup to optimize today's lineup. Summarize any urgent issues and actions taken.",
+      "message": "Run yahoo_morning_briefing. In your summary, lead with the single most urgent action item. Then highlight: (1) any roster players with DEALBREAKER or WARNING context flags — these need immediate attention, (2) any matchup highlights showing favorable or unfavorable BvP history for today's batters, (3) any rostered players with injury_severity changes since yesterday. After the briefing, run yahoo_auto_lineup to set the optimal lineup. If any lineup swaps were made, explain why in terms of matchups and hot/cold streaks, not just off-day status.",
       "model": "anthropic/claude-haiku-4-5-20251001"
     },
     "delivery": {
@@ -33,7 +33,7 @@
     "sessionTarget": "session:baseclaw-daily",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use the yahoo_game_day_manager tool to check pre-game conditions. Flag any weather risks, late scratches, or lineup issues. Make adjustments if needed.",
+      "message": "Run yahoo_game_day_manager for pre-lock checks. Focus on: (1) weather risks that could PPD games — name the affected roster players, (2) any late scratches or lineup changes from depth chart data, (3) DTD players who may not play — check their context flags for injury updates. If any lineup adjustments are needed, make them and explain the reasoning.",
       "model": "anthropic/claude-haiku-4-5-20251001"
     },
     "delivery": {
@@ -55,7 +55,7 @@
     "sessionTarget": "session:baseclaw-weekly",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use yahoo_league_landscape then yahoo_matchup_strategy to analyze this week's matchup. Provide a game plan: which categories to target, which to punt, and any streaming/waiver moves to consider.",
+      "message": "Run yahoo_league_context first, then yahoo_matchup_strategy. Provide a clear game plan that answers: (1) Which categories can we realistically win this week and which should we concede? (2) Are any of our key players injured, cold, or flagged with warnings that weaken our expected output? (3) Does the opponent have any vulnerable positions — players with DEALBREAKER flags, bust candidates, or cold streaks? (4) Should we stream pitchers this week, and if so, which days have the best matchups? Be specific with player names and category impact.",
       "model": "anthropic/claude-sonnet-4-20250514"
     },
     "delivery": {
@@ -77,7 +77,7 @@
     "sessionTarget": "session:baseclaw-weekly",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use yahoo_waiver_deadline_prep to analyze the waiver wire. Rank top claims with recommended FAAB bids. If write operations are enabled, submit the top priority claim.",
+      "message": "Run yahoo_waiver_recommendations to get decision-ready add/drop pairs. For each recommendation, explain WHY — not just the score, but the intelligence behind it: What does their Statcast quality tier say? Are they hot or cold? What does Reddit sentiment indicate? Do they have a favorable depth chart position (starter vs backup)? Are they filling a weak category? Also flag any top free agents that were recently picked up by rivals (filtered_taken list) so we know what we missed. If write operations are enabled and the top recommendation scores above 30, submit the claim.",
       "model": "anthropic/claude-sonnet-4-20250514"
     },
     "delivery": {
@@ -99,7 +99,7 @@
     "sessionTarget": "session:baseclaw-daily",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use yahoo_streaming to find the best streaming pitcher options for the upcoming days. Recommend the top add.",
+      "message": "Run yahoo_streaming to find streaming pitcher options for the upcoming days. For the top 3 candidates, explain: (1) Are they confirmed as probable starters? (2) What is their Stuff+ rating? (3) Is the opposing team fatigued from travel? (4) What does their context say — any injury flags, role changes, or recent news? Recommend the best add with a clear one-sentence rationale.",
       "model": "anthropic/claude-haiku-4-5-20251001"
     },
     "delivery": {
@@ -121,7 +121,7 @@
     "sessionTarget": "session:baseclaw-weekly",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use yahoo_roster_health_check to audit the roster. Flag any IL waste, bust candidates, or active roster issues.",
+      "message": "Run yahoo_roster_health_check to audit the roster. For each issue found, provide context: (1) Injured players — what is the injury severity (MINOR/MODERATE/SEVERE) and what does the latest news headline say about return timeline? (2) Bust candidates — what are their Statcast metrics vs surface stats? Is regression likely? (3) IL waste — are any healthy players stuck on IL who should be activated? (4) Check if any roster players have been DFA'd, optioned, or lost their role since last check. Prioritize issues by urgency.",
       "model": "anthropic/claude-haiku-4-5-20251001"
     },
     "delivery": {
@@ -143,7 +143,7 @@
     "sessionTarget": "session:baseclaw-weekly",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use yahoo_weekly_digest to produce a narrative recap of the week's results, key moves, and standings changes.",
+      "message": "Run yahoo_weekly_digest to recap the week. Write a compelling narrative that covers: (1) Matchup result and which categories were won/lost, (2) Standout performers and underperformers from the roster — cite their hot/cold streak status, (3) Any roster moves made this week and their impact so far, (4) Standings movement and what it means for playoff positioning, (5) One key takeaway or action item for next week based on category trajectory trends.",
       "model": "anthropic/claude-sonnet-4-20250514"
     },
     "delivery": {
@@ -165,8 +165,32 @@
     "sessionTarget": "session:baseclaw-season",
     "payload": {
       "kind": "agentTurn",
-      "message": "Use yahoo_season_checkpoint to provide a monthly strategic assessment with playoff path analysis and trade deadline strategy.",
+      "message": "Run yahoo_season_checkpoint for a strategic assessment. Provide: (1) Current standings position and playoff probability, (2) Category trajectory — which categories are improving vs declining over the last 4 weeks, (3) Trade recommendations — who should we target and who should we sell, using regression signals and Statcast quality tiers to justify, (4) Roster composition analysis — do we have the right balance of hitting/pitching? Any positions where depth chart changes have hurt our players? (5) A clear strategic direction for the next month: categories to target, categories to punt, and specific players to watch.",
       "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    "delivery": {
+      "mode": "announce",
+      "channel": "{{DELIVERY_CHANNEL}}",
+      "to": "{{DELIVERY_TO}}",
+      "bestEffort": true
+    }
+  },
+  {
+    "jobId": "baseclaw-roster-pulse",
+    "name": "Roster Monitor Pulse (15 min)",
+    "enabled": true,
+    "schedule": {
+      "kind": "cron",
+      "expr": "*/15 * * * *",
+      "tz": "America/New_York"
+    },
+    "sessionTarget": "isolated",
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Call the BaseClaw roster monitor API to check for changes. If there are any critical alerts (injuries, DFAs, players sent to minors), deliver them immediately. If there are only info-level alerts or no alerts, say 'No critical alerts' and do not deliver. Use: fetch http://localhost:8766/api/roster-monitor",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "lightContext": true,
+      "timeoutSeconds": 30
     },
     "delivery": {
       "mode": "announce",

@@ -67,6 +67,8 @@
     "internal": {
       "enabled": true,
       "entries": {
+        "baseclaw-context-inject": { "enabled": true },
+        "baseclaw-player-enrich": { "enabled": true },
         "baseclaw-roster-alerts": { "enabled": true },
         "baseclaw-memory-flush": { "enabled": true },
         "baseclaw-health": { "enabled": true }
