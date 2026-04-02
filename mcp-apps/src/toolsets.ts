@@ -187,6 +187,7 @@ export const TOOLSETS: Record<string, string[]> = {
     "yahoo_who_owns",
     "yahoo_percent_owned",
     "yahoo_positional_ranks",
+    "yahoo_league_snapshot",
     "yahoo_league_intel",
   ],
 };
@@ -361,6 +362,7 @@ export const TOOL_DESCRIPTIONS: Record<string, string> = {
   yahoo_who_owns: "Find which team owns a specific player",
   yahoo_percent_owned: "Check ownership percentage for a player across Yahoo leagues",
   yahoo_positional_ranks: "Rank teams by strength at each roster position",
+  yahoo_league_snapshot: "Full league snapshot: standings + season stats + positional ranks + trade partners in one call",
 };
 
 export function shouldRegister(enabledTools: Set<string> | undefined, name: string): boolean {

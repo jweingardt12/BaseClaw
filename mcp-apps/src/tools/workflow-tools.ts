@@ -93,6 +93,20 @@ export function registerWorkflowTools(server: McpServer, writesEnabled: boolean 
           }
         }
 
+        // Season category standings
+        var ss = data.season_standings || {};
+        if (ss.category_standings && ss.category_standings.length > 0) {
+          lines.push("");
+          lines.push("SEASON STANDINGS (#" + (ss.record?.rank || "?") + " | " + (ss.record?.wins || 0) + "-" + (ss.record?.losses || 0) + "-" + (ss.record?.ties || 0) + " | " + (ss.record?.games_back || "-") + " GB):");
+          var strongCats = (ss.strong_categories || []).map((c: any) => c.category + " #" + c.rank);
+          var weakCats = (ss.weak_categories || []).map((c: any) => c.category + " #" + c.rank);
+          if (strongCats.length > 0) lines.push("  + Strong: " + strongCats.join(", "));
+          if (weakCats.length > 0) lines.push("  - Weak: " + weakCats.join(", "));
+          if (ss.weak_positions && ss.weak_positions.length > 0) lines.push("  - Weak positions: " + ss.weak_positions.join(", "));
+          if (ss.strong_positions && ss.strong_positions.length > 0) lines.push("  + Strong positions: " + ss.strong_positions.join(", "));
+          if (ss.trade_partners && ss.trade_partners.length > 0) lines.push("  Trade targets: " + ss.trade_partners.join(", "));
+        }
+
         // Build prioritized next-steps footer
         var priorities: string[] = [];
         var actions = data.action_items || [];

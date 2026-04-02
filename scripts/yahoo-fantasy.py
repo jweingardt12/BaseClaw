@@ -53,6 +53,25 @@ def _get_stat_lookup(lg):
 _game_info_cache = {"data": None, "time": 0}
 _GAME_INFO_TTL = 60  # seconds
 
+_snapshot_cache = {"data": None, "time": 0}
+_SNAPSHOT_TTL = 300  # 5 minutes
+
+
+def get_league_snapshot_cached():
+    """Return cached league snapshot (settings + standings + season stats +
+    positional ranks + trade partners for all 12 teams).
+    Shared accessor for season-manager and other consumers."""
+    import time as _time
+    now = _time.time()
+    if (_snapshot_cache["data"] is not None
+            and (now - _snapshot_cache["time"]) < _SNAPSHOT_TTL):
+        return _snapshot_cache["data"]
+    data = cmd_league_snapshot([], as_json=True)
+    if data and not data.get("error"):
+        _snapshot_cache["data"] = data
+        _snapshot_cache["time"] = now
+    return data
+
 
 def _get_today_opponents():
     """Build a team->opponent map for today's MLB games."""
@@ -2763,6 +2782,413 @@ def _parse_trade_partners(partners_data):
     return result
 
 
+def cmd_league_snapshot(args, as_json=False):
+    """Full league snapshot: settings, standings with season stats, positional ranks,
+    trade partners, and all rosters in a single Yahoo API call.
+
+    Uses the compound endpoint:
+    /league/{key};out=settings/standings/teams;out=positional_ranks,
+    recommended_trade_partners,standings,players;positional_ranks.starters_only=1;
+    recommended_trade_partners.count=3
+    """
+    sc, gm, lg = get_league()
+    include_rosters = "--rosters" in args
+
+    try:
+        handler = lg.yhandler
+        league_key = lg.league_id
+        uri = ("/league/" + league_key
+               + ";out=settings/standings/teams"
+               + ";out=positional_ranks,recommended_trade_partners,standings"
+               + (",players" if include_rosters else "")
+               + ";positional_ranks.starters_only=1"
+               + ";recommended_trade_partners.count=3")
+        raw = handler.get(uri)
+    except Exception as e:
+        if as_json:
+            return {"error": "Failed to fetch league snapshot: " + str(e)}
+        print("Error: " + str(e))
+        return
+
+    try:
+        fc = raw.get("fantasy_content", raw)
+        league_data = fc.get("league", {})
+
+        # Parse settings
+        settings = _snapshot_parse_settings(league_data)
+
+        # Build stat_id -> {name, group} from settings
+        stat_map = {}
+        for cat in settings.get("stat_categories", []):
+            sid = str(cat.get("stat_id", ""))
+            name = cat.get("display_name", cat.get("abbr", ""))
+            if sid and name and not cat.get("is_only_display_stat"):
+                stat_map[sid] = {"name": name, "group": cat.get("group", "")}
+
+        # Parse standings/teams block
+        teams = _snapshot_parse_teams(league_data, stat_map, include_rosters)
+
+        result = {
+            "settings": {
+                "scoring_type": settings.get("scoring_type", ""),
+                "roster_positions": settings.get("roster_positions", []),
+                "stat_categories": settings.get("stat_categories", []),
+                "max_weekly_adds": settings.get("max_weekly_adds", ""),
+                "trade_end_date": settings.get("trade_end_date", ""),
+                "playoff_start_week": settings.get("playoff_start_week", ""),
+                "num_playoff_teams": settings.get("num_playoff_teams", ""),
+            },
+            "teams": teams,
+        }
+
+        if as_json:
+            return result
+
+        # CLI output
+        print("League Snapshot (" + str(len(teams)) + " teams)")
+        for t in teams:
+            rank = str(t.get("rank", "?")).rjust(2)
+            name = t.get("name", "Unknown").ljust(35)
+            record = (str(t.get("wins", 0)) + "-" + str(t.get("losses", 0))
+                       + "-" + str(t.get("ties", 0)))
+            print(rank + ". " + name + " " + record)
+            if t.get("season_stats"):
+                stats_str = "     "
+                for cat, val in t.get("season_stats", {}).items():
+                    stats_str += cat + ":" + str(val) + " "
+                print(stats_str)
+            weak = [pr.get("position", "") for pr in t.get("positional_ranks", [])
+                    if pr.get("grade") == "weak"]
+            if weak:
+                print("     Weak: " + ", ".join(weak))
+
+    except Exception as e:
+        if as_json:
+            return {"error": "Failed to parse league snapshot: " + str(e)}
+        print("Error parsing: " + str(e))
+        import traceback
+        traceback.print_exc()
+
+
+def _snapshot_parse_settings(league_data):
+    """Extract settings from the league snapshot response."""
+    settings_raw = {}
+
+    if isinstance(league_data, list):
+        # OAuth format: league is a list of items
+        for item in league_data:
+            if isinstance(item, dict) and "settings" in item:
+                settings_raw = item.get("settings", {})
+                break
+    elif isinstance(league_data, dict):
+        # json_f format: league is a flat dict
+        settings_raw = league_data.get("settings", {})
+
+    # Handle settings as list (OAuth) or dict (json_f)
+    if isinstance(settings_raw, list):
+        merged = {}
+        for s in settings_raw:
+            if isinstance(s, dict):
+                merged.update(s)
+        settings_raw = merged
+
+    # Extract stat categories
+    stat_categories = []
+    raw_cats = settings_raw.get("stat_categories", {})
+    stats_list = raw_cats.get("stats", []) if isinstance(raw_cats, dict) else []
+    for entry in stats_list:
+        stat = entry.get("stat", entry) if isinstance(entry, dict) else entry
+        if isinstance(stat, dict):
+            cat = {
+                "stat_id": stat.get("stat_id", ""),
+                "display_name": stat.get("display_name", stat.get("abbr", "")),
+                "group": stat.get("group", ""),
+                "sort_order": stat.get("sort_order", "1"),
+            }
+            if stat.get("is_only_display_stat"):
+                cat["is_only_display_stat"] = True
+            stat_categories.append(cat)
+
+    # Extract roster positions
+    roster_positions = []
+    for rp in settings_raw.get("roster_positions", []):
+        pos = rp.get("roster_position", rp) if isinstance(rp, dict) else rp
+        if isinstance(pos, dict):
+            roster_positions.append({
+                "position": pos.get("position", ""),
+                "count": pos.get("count", 0),
+                "is_starting": pos.get("is_starting_position", 0),
+            })
+
+    return {
+        "scoring_type": settings_raw.get("scoring_type", ""),
+        "stat_categories": stat_categories,
+        "roster_positions": roster_positions,
+        "max_weekly_adds": settings_raw.get("max_weekly_adds", ""),
+        "trade_end_date": settings_raw.get("trade_end_date", ""),
+        "playoff_start_week": settings_raw.get("playoff_start_week", ""),
+        "num_playoff_teams": settings_raw.get("num_playoff_teams", ""),
+    }
+
+
+def _snapshot_parse_teams(league_data, stat_map, include_rosters):
+    """Extract teams with standings, season stats, positional ranks from snapshot."""
+    teams = []
+
+    # Find the standings/teams block
+    standings_block = {}
+    if isinstance(league_data, list):
+        for item in league_data:
+            if isinstance(item, dict) and "standings" in item:
+                sb = item.get("standings", {})
+                # OAuth wraps standings as a list: [{teams: ...}]
+                if isinstance(sb, list):
+                    for s in sb:
+                        if isinstance(s, dict) and "teams" in s:
+                            standings_block = s
+                            break
+                elif isinstance(sb, dict):
+                    standings_block = sb
+                break
+    elif isinstance(league_data, dict):
+        standings_block = league_data.get("standings", {})
+
+    # Parse teams from standings
+    teams_raw = standings_block.get("teams", {})
+    team_list = []
+
+    if isinstance(teams_raw, dict):
+        for key, val in teams_raw.items():
+            if key == "count" or not isinstance(val, dict):
+                continue
+            if "team" in val:
+                team_list.append(val.get("team"))
+    elif isinstance(teams_raw, list):
+        for item in teams_raw:
+            if isinstance(item, dict) and "team" in item:
+                team_list.append(item.get("team"))
+
+    for team_data in team_list:
+        parsed = _snapshot_parse_single_team(team_data, stat_map, include_rosters)
+        if parsed:
+            teams.append(parsed)
+
+    # Sort by rank
+    teams.sort(key=lambda t: t.get("rank", 99))
+    return teams
+
+
+def _snapshot_parse_single_team(team_data, stat_map, include_rosters):
+    """Parse a single team from the league snapshot (handles OAuth list + json_f dict)."""
+    if not team_data:
+        return None
+
+    info = {}
+
+    if isinstance(team_data, dict):
+        # json_f format: flat dict with all fields
+        info["team_key"] = team_data.get("team_key", "")
+        info["team_id"] = str(team_data.get("team_id", ""))
+        info["name"] = team_data.get("name", "")
+        info["waiver_priority"] = team_data.get("waiver_priority", "")
+        info["number_of_moves"] = team_data.get("number_of_moves", 0)
+        info["number_of_trades"] = team_data.get("number_of_trades", 0)
+
+        # Manager
+        managers = team_data.get("managers", [])
+        if managers and isinstance(managers, list):
+            mgr = managers[0]
+            if isinstance(mgr, dict) and "manager" in mgr:
+                mgr_data = mgr.get("manager", {})
+                info["manager"] = mgr_data.get("nickname", "")
+
+        # Team standings
+        ts = team_data.get("team_standings", {})
+        info["rank"] = int(ts.get("rank", 99))
+        info["playoff_seed"] = ts.get("playoff_seed", "")
+        info["games_back"] = ts.get("games_back", "")
+        ot = ts.get("outcome_totals", {})
+        info["wins"] = int(ot.get("wins", 0))
+        info["losses"] = int(ot.get("losses", 0))
+        info["ties"] = int(ot.get("ties", 0))
+        info["win_pct"] = ot.get("percentage", "")
+
+        # Season stats
+        info["season_stats"] = _parse_team_season_stats(
+            team_data.get("team_stats", {}), stat_map)
+
+        # Positional ranks (reuse existing parser)
+        info["positional_ranks"] = _parse_positional_ranks_list(
+            team_data.get("positional_ranks", []))
+
+        # Recommended trade partners (reuse existing parser)
+        info["recommended_trade_partners"] = _parse_trade_partners(
+            team_data.get("recommended_trade_partners", []))
+
+        # Players (optional)
+        if include_rosters:
+            info["players"] = _parse_snapshot_players(
+                team_data.get("players", []))
+
+    elif isinstance(team_data, list):
+        # OAuth format: list of [metadata_list, {subresource}, ...]
+        for item in team_data:
+            if isinstance(item, list):
+                for meta in item:
+                    if isinstance(meta, dict):
+                        if "team_key" in meta:
+                            info["team_key"] = meta.get("team_key", "")
+                        if "team_id" in meta:
+                            info["team_id"] = str(meta.get("team_id", ""))
+                        if "name" in meta:
+                            info["name"] = meta.get("name", "")
+                        if "waiver_priority" in meta:
+                            info["waiver_priority"] = meta.get("waiver_priority", "")
+                        if "number_of_moves" in meta:
+                            info["number_of_moves"] = meta.get("number_of_moves", 0)
+                        if "managers" in meta:
+                            mgrs = meta.get("managers", [])
+                            if mgrs and isinstance(mgrs, list):
+                                mgr = mgrs[0]
+                                if isinstance(mgr, dict) and "manager" in mgr:
+                                    info["manager"] = mgr.get("manager", {}).get("nickname", "")
+            elif isinstance(item, dict):
+                if "team_standings" in item:
+                    ts = item.get("team_standings", {})
+                    info["rank"] = int(ts.get("rank", 99))
+                    info["playoff_seed"] = ts.get("playoff_seed", "")
+                    info["games_back"] = ts.get("games_back", "")
+                    ot = ts.get("outcome_totals", {})
+                    info["wins"] = int(ot.get("wins", 0))
+                    info["losses"] = int(ot.get("losses", 0))
+                    info["ties"] = int(ot.get("ties", 0))
+                    info["win_pct"] = ot.get("percentage", "")
+                if "team_stats" in item:
+                    info["season_stats"] = _parse_team_season_stats(
+                        item.get("team_stats", {}), stat_map)
+                if "positional_ranks" in item:
+                    info["positional_ranks"] = _parse_positional_ranks_list(
+                        item.get("positional_ranks", []))
+                if "recommended_trade_partners" in item:
+                    info["recommended_trade_partners"] = _parse_trade_partners(
+                        item.get("recommended_trade_partners", []))
+                if include_rosters and "players" in item:
+                    info["players"] = _parse_snapshot_players(
+                        item.get("players", []))
+
+    # Defaults
+    info.setdefault("rank", 99)
+    info.setdefault("wins", 0)
+    info.setdefault("losses", 0)
+    info.setdefault("ties", 0)
+    info.setdefault("season_stats", {})
+    info.setdefault("positional_ranks", [])
+    info.setdefault("recommended_trade_partners", [])
+
+    return info if info.get("team_key") else None
+
+
+def _parse_team_season_stats(team_stats_raw, stat_map):
+    """Parse team_stats block into {display_name: value} dict.
+    Disambiguates duplicate display names (e.g. batting K vs pitching K)
+    by appending the group prefix when a collision is detected."""
+    result = {}
+    if not isinstance(team_stats_raw, dict):
+        return result
+
+    # Detect duplicate display names across groups
+    name_counts = {}
+    for sid, info in stat_map.items():
+        name = info if isinstance(info, str) else info.get("name", "")
+        name_counts[name] = name_counts.get(name, 0) + 1
+    dupes = {n for n, c in name_counts.items() if c > 1}
+
+    stats_list = team_stats_raw.get("stats", [])
+    for entry in stats_list:
+        stat = entry.get("stat", entry) if isinstance(entry, dict) else entry
+        if not isinstance(stat, dict):
+            continue
+        sid = str(stat.get("stat_id", ""))
+        val = stat.get("value")
+        if sid in stat_map and val is not None:
+            info = stat_map[sid]
+            if isinstance(info, str):
+                name = info
+                group = ""
+            else:
+                name = info.get("name", "")
+                group = info.get("group", "")
+            # Disambiguate: "K" -> "K_bat" / "K_pit"
+            if name in dupes and group:
+                name = name + "_" + group[:3]
+            try:
+                result[name] = float(val) if val not in (None, "", "-") else 0
+            except (ValueError, TypeError):
+                result[name] = 0
+    return result
+
+
+def _parse_snapshot_players(players_data):
+    """Parse player list from league snapshot into compact format."""
+    result = []
+    if isinstance(players_data, list):
+        items = players_data
+    elif isinstance(players_data, dict):
+        # dict with numeric keys + "count"
+        items = []
+        for key, val in players_data.items():
+            if key == "count" or not isinstance(val, dict):
+                continue
+            if "player" in val:
+                items.append(val)
+    else:
+        return result
+
+    for entry in items:
+        p = entry.get("player", entry) if isinstance(entry, dict) else entry
+        if not isinstance(p, dict):
+            # OAuth: player is a list [metadata_list, ...]
+            if isinstance(p, list):
+                p = _flatten_oauth_player(p)
+            else:
+                continue
+
+        name_block = p.get("name", {})
+        if isinstance(name_block, dict):
+            full_name = name_block.get("full", "")
+        else:
+            full_name = str(name_block)
+
+        player = {
+            "player_key": p.get("player_key", ""),
+            "name": full_name,
+            "position": p.get("display_position", p.get("primary_position", "")),
+            "team": p.get("editorial_team_abbr", ""),
+        }
+        status = p.get("status", "")
+        if status:
+            player["status"] = status
+            injury = p.get("injury_note", "")
+            if injury:
+                player["injury"] = injury
+        result.append(player)
+
+    return result
+
+
+def _flatten_oauth_player(player_list):
+    """Flatten OAuth player format (list of dicts) into a single dict."""
+    merged = {}
+    for item in player_list:
+        if isinstance(item, list):
+            for sub in item:
+                if isinstance(sub, dict):
+                    merged.update(sub)
+        elif isinstance(item, dict):
+            merged.update(item)
+    return merged
+
+
 COMMANDS = {
     "discover": cmd_discover,
     "roster": cmd_roster,
@@ -2790,6 +3216,7 @@ COMMANDS = {
     "percent-owned": cmd_percent_owned,
     "player-list": cmd_player_list,
     "positional-ranks": cmd_positional_ranks,
+    "league-snapshot": cmd_league_snapshot,
 }
 
 if __name__ == "__main__":

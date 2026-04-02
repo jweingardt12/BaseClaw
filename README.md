@@ -25,7 +25,7 @@ Ask Claude about your Yahoo Fantasy Baseball league in plain English. Get instan
 | "Show me my roster" | Pulls your full roster with positions, eligibility, today's games, injury flags, and intel overlays |
 | "Should I accept this trade — my Soto for his Burnes and Tucker?" | Runs surplus value analysis with category fit, roster impact, and a letter grade |
 | "Best pickup at SS right now" | Scores every free-agent shortstop by z-score value, category fit, and regression signals |
-| "How does my team compare to the rest of the league?" | Multi-layer league intel: adjusted z-scores (projections + Statcast quality + regression + momentum), power rankings, top performers across all teams, category strengths/weaknesses, and trade fit analysis |
+| "How does my team compare to the rest of the league?" | Full-season category rankings across all 20 stats, positional strength grades, power rankings with adjusted z-scores, and trade fit analysis — all from one compound API call |
 | "What happened overnight?" | Injuries, transactions, trending pickups, prospect call-ups, and pending trades — one shot |
 | "Scout my opponent this week" | Strengths, weaknesses, streamable categories, and a game plan to beat them |
 
@@ -56,7 +56,7 @@ Ask Claude about your Yahoo Fantasy Baseball league in plain English. Get instan
 
 **Strategy**
 - "What categories should I punt?"
-- "Where do I rank in each stat category?"
+- "Where do I rank in each stat category for the full season?"
 - "What's my playoff probability right now?"
 - "Give me a category-by-category game plan for this week's matchup"
 - "Am I on pace to make the playoffs?"
@@ -555,7 +555,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 | Tool | Description |
 |------|-------------|
 | `yahoo_league_context` | Compact league profile: waiver type, scoring format, stat categories, roster slots, FAAB balance. Call once at session start |
-| `yahoo_standings` | League standings with win-loss records |
+| `yahoo_standings` | League standings with season-long category stats, positional strengths, and playoff seeds |
 | `yahoo_matchups` | Weekly H2H matchup pairings |
 | `yahoo_my_matchup` | Detailed H2H matchup with per-category comparison |
 | `yahoo_transactions` | Recent league transactions (add, drop, trade) |
@@ -564,6 +564,7 @@ The `./yf` helper script provides direct CLI access to all functionality:
 | `yahoo_league_intel` | Comprehensive league intelligence: multi-layer power rankings (adjusted z-scores blending projections + statcast quality + regression signals + hot/cold trends with standings and quality rank), top 30 performers across all teams with quality/regression flags, team profiles with category strengths/weaknesses and trade fit analysis, z-upside detection for teams with hidden value |
 | `yahoo_power_rankings` | Teams ranked by adjusted z-score composite (projections + statcast + regression + trends + standings). Use `yahoo_league_intel` for the full picture |
 | `yahoo_positional_ranks` | Positional rankings for all teams with grades and trade partner recommendations |
+| `yahoo_league_snapshot` | Full league snapshot in one call: standings + season stats across all 20 scoring categories + positional ranks + trade partners for all 12 teams |
 | `yahoo_season_pace` | Projected season pace, playoff probability, and magic numbers |
 
 **In-Season Management** (27 tools)

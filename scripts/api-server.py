@@ -1184,6 +1184,18 @@ def api_positional_ranks():
         return safe_jsonify({"error": str(e)}, 500)
 
 
+@app.route("/api/league-snapshot")
+def api_league_snapshot():
+    """Full league snapshot: standings + season stats + positional ranks + trade partners.
+    Optional ?rosters=1 to include all player rosters (larger payload)."""
+    include_rosters = request.args.get("rosters", "0") == "1"
+    args = ["--rosters"] if include_rosters else []
+    ttl = 300  # 5 minutes — this data is expensive and doesn't change fast
+    cache_key = "league_snapshot" + ("_rosters" if include_rosters else "")
+    return _cached_endpoint(cache_key,
+        lambda: yahoo_fantasy.cmd_league_snapshot(args, as_json=True), ttl, timeout_sec=30)
+
+
 # --- MLB Data (mlb-data.py) ---
 # TS tools call: /api/mlb/teams, /api/mlb/roster, etc. (these already match)
 
@@ -1963,6 +1975,71 @@ def _briefing_cat_trajectory():
         return {}
 
 
+def _briefing_snapshot_context():
+    """Extract category standings and positional insights from league snapshot.
+    Reuses season_manager's rank computation to avoid duplication."""
+    try:
+        snapshot = yahoo_fantasy.get_league_snapshot_cached()
+        if not snapshot or snapshot.get("error"):
+            return {}
+
+        teams = snapshot.get("teams", [])
+        my_team = None
+        for t in teams:
+            if str(yahoo_fantasy.TEAM_ID) in str(t.get("team_key", "")):
+                my_team = t
+                break
+
+        if not my_team:
+            return {}
+
+        # Reuse season_manager's rank computation
+        rank_result = season_manager._get_team_category_ranks_from_snapshot(yahoo_fantasy.TEAM_ID)
+        cat_standings = []
+        if rank_result:
+            cat_ranks, weak_cats, strong_cats = rank_result
+            for cat, info in sorted(cat_ranks.items(), key=lambda x: x[1].get("rank", 99)):
+                cat_standings.append({
+                    "category": cat,
+                    "value": info.get("value"),
+                    "rank": info.get("rank"),
+                    "total": info.get("total"),
+                })
+
+        # Positional summary
+        positional = my_team.get("positional_ranks", [])
+        weak_positions = [p.get("position", "") for p in positional if p.get("grade") == "weak"]
+        strong_positions = [p.get("position", "") for p in positional if p.get("grade") == "strong"]
+
+        # Resolve trade partner team keys to names
+        partner_names = []
+        for pk in my_team.get("recommended_trade_partners", []):
+            for t in teams:
+                if t.get("team_key") == pk:
+                    partner_names.append(t.get("name", pk))
+                    break
+
+        return {
+            "category_standings": cat_standings,
+            "strong_categories": [c for c in cat_standings if c.get("rank", 99) <= 3],
+            "weak_categories": [c for c in cat_standings if c.get("rank", 0) >= len(teams) - 2],
+            "weak_positions": weak_positions,
+            "strong_positions": strong_positions,
+            "trade_partners": partner_names,
+            "record": {
+                "rank": my_team.get("rank"),
+                "wins": my_team.get("wins"),
+                "losses": my_team.get("losses"),
+                "ties": my_team.get("ties"),
+                "games_back": my_team.get("games_back"),
+                "playoff_seed": my_team.get("playoff_seed"),
+            },
+        }
+    except Exception as e:
+        print("Warning: snapshot context failed: " + str(e))
+        return {}
+
+
 def _run_briefing():
     import datetime
     yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
@@ -1982,6 +2059,7 @@ def _run_briefing():
         "watchlist": _workflow_pool.submit(_safe_call, season_manager.cmd_watchlist_check),
         "league_ctx": _workflow_pool.submit(_briefing_league_context),
         "cat_trajectory": _workflow_pool.submit(_briefing_cat_trajectory),
+        "snapshot_ctx": _workflow_pool.submit(_briefing_snapshot_context),
     }
     injury = _get_future(futures["injury"])
     lineup = _get_future(futures["lineup"])
@@ -2053,6 +2131,29 @@ def _run_briefing():
                 "message": alert.get("message", ""),
             })
 
+    # Add snapshot-based alerts (weak categories / positions)
+    snapshot_ctx = _get_future(futures["snapshot_ctx"])
+    if isinstance(snapshot_ctx, dict) and not snapshot_ctx.get("_error"):
+        weak_cats = snapshot_ctx.get("weak_categories", [])
+        for wc in weak_cats:
+            cat = wc.get("category", "?")
+            rank = wc.get("rank", "?")
+            action_items.append({
+                "priority": 3,
+                "type": "category_weakness",
+                "message": "Season " + str(cat) + " ranks #" + str(rank)
+                    + " of " + str(wc.get("total", 12))
+                    + " — target " + str(cat) + " contributors in trades/waivers",
+            })
+        weak_pos = snapshot_ctx.get("weak_positions", [])
+        if weak_pos:
+            action_items.append({
+                "priority": 3,
+                "type": "positional_weakness",
+                "message": "Weak roster positions: " + ", ".join(weak_pos)
+                    + " — consider upgrades",
+            })
+
     action_items.sort(key=lambda a: a.get("priority", 99))
 
     return {
@@ -2072,6 +2173,7 @@ def _run_briefing():
         "competitors": competitors,
         "category_arms_race": arms_race,
         "watchlist": watchlist,
+        "season_standings": snapshot_ctx if isinstance(snapshot_ctx, dict) and not snapshot_ctx.get("_error") else {},
     }
 
 
@@ -2091,6 +2193,7 @@ def workflow_league_landscape():
             "transactions": _workflow_pool.submit(_safe_call, yahoo_fantasy.cmd_transactions, ["", "15"]),
             "trade_finder": _workflow_pool.submit(_safe_call, season_manager.cmd_trade_finder),
             "scoreboard": _workflow_pool.submit(_safe_call, yahoo_fantasy.cmd_scoreboard),
+            "snapshot": _workflow_pool.submit(_safe_call, yahoo_fantasy.cmd_league_snapshot),
         }
         return {
             "standings": _get_future(futures["standings"]),
@@ -2100,6 +2203,7 @@ def workflow_league_landscape():
             "transactions": _get_future(futures["transactions"]),
             "trade_finder": _get_future(futures["trade_finder"]),
             "scoreboard": _get_future(futures["scoreboard"]),
+            "league_snapshot": _get_future(futures["snapshot"]),
         }
     return _cached_endpoint("wf-landscape", _run, 600)
 

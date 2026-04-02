@@ -97,7 +97,7 @@ _YAHOO_STAT_ID_FALLBACK = {
 }
 
 # Stats where lower values are better (sort_order = 0 in Yahoo API)
-_LOWER_IS_BETTER_STATS = {"ERA", "WHIP", "ER", "L", "ER_negative", "L_negative"}
+_LOWER_IS_BETTER_STATS = {"ERA", "WHIP", "ER", "L", "ER_negative", "L_negative", "K_bat"}
 
 # Team timezone offsets (UTC) for travel fatigue scoring (PNAS study, 46k games)
 # Keyed by abbreviation; full names resolved via TEAM_ALIASES in _get_team_tz()
@@ -5215,10 +5215,17 @@ def _team_cat_strengths_from_zscores(lg, team_key, roster=None):
 
 
 def _get_team_category_ranks(lg, target_team_key):
-    """Get per-team category values from the current scoreboard.
+    """Get per-team season-long category values and league-wide ranks.
+    Prefers league snapshot (full-season stats) over weekly matchup data.
     Returns dict of {cat_name: {value, rank, total}} for the target team,
     plus a list of weak categories (bottom 3) and strong categories (top 3).
     """
+    # Try snapshot first — full-season stats are more reliable than weekly matchups
+    snapshot_result = _get_team_category_ranks_from_snapshot(target_team_key)
+    if snapshot_result:
+        return snapshot_result
+
+    # Fallback: weekly matchup scoreboard
     try:
         scoreboard = lg.matchups()
     except Exception:
@@ -5298,6 +5305,72 @@ def _get_team_category_ranks(lg, target_team_key):
     # fall back to z-score projections
     if not weak and not strong:
         return _team_cat_strengths_from_zscores(lg, target_team_key)
+    return cat_ranks, weak, strong
+
+
+def _get_team_category_ranks_from_snapshot(target_team_key):
+    """Use league snapshot season stats to compute category ranks for a team.
+    Returns (cat_ranks, weak, strong) or None if snapshot unavailable."""
+    try:
+        yf_mod = importlib.import_module("yahoo-fantasy")
+        snapshot = yf_mod.get_league_snapshot_cached()
+    except Exception:
+        return None
+
+    if not snapshot or snapshot.get("error"):
+        return None
+
+    teams = snapshot.get("teams", [])
+    if not teams:
+        return None
+
+    # Collect all teams' season stats
+    all_stats = {}  # team_key -> {cat: value}
+    target_stats = {}
+    for t in teams:
+        tk = t.get("team_key", "")
+        ss = t.get("season_stats", {})
+        if ss:
+            all_stats[tk] = ss
+            if target_team_key in str(tk):
+                target_stats = ss
+
+    if not target_stats:
+        return None
+
+    cat_ranks = {}
+    for cat, my_val in target_stats.items():
+        try:
+            my_num = float(my_val)
+        except (ValueError, TypeError):
+            continue
+        values = []
+        for tk, stats in all_stats.items():
+            try:
+                values.append(float(stats.get(cat, 0)))
+            except (ValueError, TypeError):
+                pass
+        is_lower = cat in _LOWER_IS_BETTER_STATS or cat.upper() in _LOWER_IS_BETTER_STATS
+        if is_lower:
+            values.sort()
+        else:
+            values.sort(reverse=True)
+        rank = 1
+        for v in values:
+            if (is_lower and my_num <= v) or (not is_lower and my_num >= v):
+                break
+            rank += 1
+        cat_ranks[cat] = {"value": my_val, "rank": rank, "total": len(values)}
+
+    if not cat_ranks:
+        return None
+
+    sorted_cats = sorted(cat_ranks.items(), key=lambda x: x[1].get("rank", 0))
+    strong = [c for c, i in sorted_cats if i.get("rank", 99) <= 3]
+    weak = [c for c, i in sorted_cats
+            if i.get("rank", 0) >= (i.get("total", 0) - 2) and i.get("total", 0) > 3]
+    if not weak and not strong:
+        return None
     return cat_ranks, weak, strong
 
 

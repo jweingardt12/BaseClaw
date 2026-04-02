@@ -23,6 +23,7 @@ import {
   type LeaguePulseResponse,
   type SeasonPaceResponse,
   type LeagueIntelResponse,
+  type LeagueSnapshotResponse,
 } from "../api/types.js";
 import { shouldRegister as _shouldRegister } from "../toolsets.js";
 
@@ -57,21 +58,57 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
     server,
     "yahoo_standings",
     {
-      description: "Use this to see current league standings with win-loss records, points, and team rankings. Returns all teams sorted by rank.",
+      description: "Use this to see current league standings with win-loss records, season stats across all scoring categories, positional strengths/weaknesses, and playoff seeds. Returns all teams sorted by rank.",
       annotations: READ_ANNO,
       _meta: { ui: { resourceUri: STANDINGS_URI } },
     },
     async () => {
       try {
+        // Try snapshot for richer data, fall back to basic standings
+        var snapshot: LeagueSnapshotResponse | null = null;
+        try {
+          snapshot = await apiGet<LeagueSnapshotResponse>("/api/league-snapshot");
+        } catch (e) { /* fall back to basic */ }
+
+        if (snapshot && snapshot.teams && snapshot.teams.length > 0) {
+          var lines: string[] = ["League Standings (Season Stats):"];
+          for (var team of snapshot.teams) {
+            var record = team.wins + "-" + team.losses + "-" + team.ties;
+            var gb = team.games_back && team.games_back !== "-" ? " (" + team.games_back + " GB)" : "";
+            lines.push("  " + String(team.rank).padStart(2) + ". " + str(team.name).padEnd(30) + tkey(team.team_key) + " " + record + gb);
+            // Compact season stats
+            if (team.season_stats && Object.keys(team.season_stats).length > 0) {
+              var statParts: string[] = [];
+              for (var [cat, val] of Object.entries(team.season_stats)) {
+                statParts.push(cat + ":" + val);
+              }
+              lines.push("      " + statParts.join(" "));
+            }
+          }
+          // Convert snapshot to StandingsResponse shape for insight generation
+          var standingsData: StandingsResponse = {
+            standings: snapshot.teams.map((t) => ({
+              rank: t.rank, name: t.name, team_key: t.team_key,
+              wins: t.wins, losses: t.losses, ties: t.ties,
+            })),
+          };
+          var ai_recommendation = generateStandingsInsight(standingsData);
+          return {
+            content: [{ type: "text" as const, text: lines.join("\n") }],
+            structuredContent: { type: "standings", ai_recommendation, ...snapshot },
+          };
+        }
+
+        // Fallback: basic standings
         const data = await apiGet<StandingsResponse>("/api/standings");
         const text = "League Standings:\n" + data.standings.map((s) =>
           "  " + String(s.rank).padStart(2) + ". " + str(s.name).padEnd(30) + tkey(s.team_key) + " " + s.wins + "-" + s.losses
           + (s.points_for ? " (" + s.points_for + " pts)" : "")
         ).join("\n");
-        const ai_recommendation = generateStandingsInsight(data);
+        const ai_rec = generateStandingsInsight(data);
         return {
           content: [{ type: "text" as const, text }],
-          structuredContent: { type: "standings", ai_recommendation, ...data },
+          structuredContent: { type: "standings", ai_recommendation: ai_rec, ...data },
         };
       } catch (e) { return toolError(e); }
     },
@@ -590,6 +627,72 @@ export function registerStandingsTools(server: McpServer, distDir: string, enabl
           }
         }
         const ai_recommendation = "Review positional ranks to identify where your team is weak and find trade partners who are strong in those positions.";
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          structuredContent: { ai_recommendation, ...data },
+        };
+      } catch (e) { return toolError(e); }
+    },
+  );
+  }
+
+  // yahoo_league_snapshot
+  if (shouldRegister("yahoo_league_snapshot")) {
+  registerAppTool(
+    server,
+    "yahoo_league_snapshot",
+    {
+      description: "Full league snapshot in one call: standings with season-long category stats, positional ranks with grades, recommended trade partners, and playoff seeds. Use this to compare all teams across every scoring category for the full season, identify category surpluses/deficits league-wide, and find optimal trade targets.",
+      annotations: READ_ANNO,
+      _meta: {},
+    },
+    async () => {
+      try {
+        var data = await apiGet<LeagueSnapshotResponse>("/api/league-snapshot");
+        var lines: string[] = ["LEAGUE SNAPSHOT (Season Stats + Positional Ranks)"];
+        lines.push("=".repeat(60));
+
+        for (var team of data.teams || []) {
+          var record = team.wins + "-" + team.losses + "-" + team.ties;
+          var gb = team.games_back && team.games_back !== "-" ? " (" + team.games_back + " GB)" : "";
+          lines.push("\n#" + team.rank + " " + str(team.name) + tkey(team.team_key) + " " + record + gb);
+
+          // Season stats
+          if (team.season_stats && Object.keys(team.season_stats).length > 0) {
+            var batting: string[] = [];
+            var pitching: string[] = [];
+            for (var cat of data.settings?.stat_categories || []) {
+              if (cat.is_only_display_stat) continue;
+              var val = team.season_stats[cat.display_name];
+              if (val !== undefined) {
+                if (cat.group === "batting") {
+                  batting.push(cat.display_name + ":" + val);
+                } else {
+                  pitching.push(cat.display_name + ":" + val);
+                }
+              }
+            }
+            if (batting.length > 0) lines.push("  BAT: " + batting.join(" "));
+            if (pitching.length > 0) lines.push("  PIT: " + pitching.join(" "));
+          }
+
+          // Positional strengths summary
+          var strong: string[] = [];
+          var weak: string[] = [];
+          for (var pr of team.positional_ranks || []) {
+            if (pr.grade === "strong") strong.push(pr.position + " #" + pr.rank);
+            if (pr.grade === "weak") weak.push(pr.position + " #" + pr.rank);
+          }
+          if (strong.length > 0) lines.push("  + Strong: " + strong.join(", "));
+          if (weak.length > 0) lines.push("  - Weak: " + weak.join(", "));
+
+          // Trade partners
+          if (team.recommended_trade_partners && team.recommended_trade_partners.length > 0) {
+            lines.push("  Trade partners: " + team.recommended_trade_partners.join(", "));
+          }
+        }
+
+        var ai_recommendation = "Use season stats to identify which teams lead or trail in specific categories. Cross-reference with positional ranks to find trade partners where you can offer strength for their weakness.";
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           structuredContent: { ai_recommendation, ...data },

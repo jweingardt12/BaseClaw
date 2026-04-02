@@ -104,6 +104,48 @@ export interface StandingsResponse {
   standings: StandingsEntry[];
 }
 
+export interface SnapshotTeam {
+  team_key: string;
+  team_id: string;
+  name: string;
+  manager?: string;
+  rank: number;
+  playoff_seed?: string;
+  games_back?: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  win_pct?: string;
+  waiver_priority?: number;
+  number_of_moves?: number;
+  season_stats: Record<string, number>;
+  positional_ranks: PositionalRank[];
+  recommended_trade_partners: string[];
+  players?: SnapshotPlayer[];
+}
+
+export interface SnapshotPlayer {
+  player_key: string;
+  name: string;
+  position: string;
+  team: string;
+  status?: string;
+  injury?: string;
+}
+
+export interface LeagueSnapshotResponse {
+  settings: {
+    scoring_type: string;
+    roster_positions: { position: string; count: number; is_starting: number }[];
+    stat_categories: { stat_id: string; display_name: string; group: string; is_only_display_stat?: boolean }[];
+    max_weekly_adds: string;
+    trade_end_date: string;
+    playoff_start_week: string;
+    num_playoff_teams: string;
+  };
+  teams: SnapshotTeam[];
+}
+
 // Python matchups return team1/team2 as plain strings, not objects
 export interface Matchup {
   team1: string;
@@ -1596,6 +1638,7 @@ export interface MorningBriefingResponse {
   waiver_batters: WaiverAnalyzeResponse;
   waiver_pitchers: WaiverAnalyzeResponse;
   edit_date?: string | null;
+  season_standings?: Record<string, any>;
 }
 
 export interface LeagueLandscapeResponse {
@@ -1606,6 +1649,7 @@ export interface LeagueLandscapeResponse {
   transactions: TransactionsResponse;
   trade_finder: TradeFinderResponse;
   scoreboard: ScoreboardResponse;
+  league_snapshot?: LeagueSnapshotResponse;
 }
 
 export interface RosterIssue {
